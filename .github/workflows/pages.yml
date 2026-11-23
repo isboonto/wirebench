@@ -1,0 +1,40 @@
+# Publishes the web version of Wirebench (the web/ folder) on GitHub Pages
+# at https://<your-username>.github.io/<repository>/
+#
+# One-time setup on github.com: Settings → Pages → Build and deployment → Source: "GitHub Actions".
+# After that every push to main updates the site (or run it by hand: Actions → Deploy web version → Run workflow).
+name: Deploy web version to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# one deployment at a time; a newer push replaces a waiting one
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      # web/ is already a complete static site, including the WebAssembly solver (web/wasm)
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4

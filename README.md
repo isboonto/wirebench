@@ -4,6 +4,10 @@ A free, offline breadboard designer and electronics simulator. Inspired by the b
 
 ## Run it
 
+**In a browser, nothing to install:** the web version is published on GitHub Pages at `https://<your-username>.github.io/<repository>/` (see `.github/workflows/pages.yml`; enable it once under *Settings → Pages → Source: GitHub Actions*).
+
+**Windows installer:** download `Wirebench_<version>_x64-setup.exe` from the repository's **Releases** page.
+
 **Desktop app (Windows, native Rust):** run `target\release\wirebench.exe`. To build it yourself:
 
 ```powershell
