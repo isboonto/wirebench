@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wirebench — breadboard designer &amp; Arduino simulator</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header id="toolbar">
+    <div class="brand"><svg viewBox="0 0 24 24" width="22" height="22"><rect x="2" y="5" width="20" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="7" cy="10" r="1.3" fill="currentColor"/><circle cx="11" cy="10" r="1.3" fill="currentColor"/><circle cx="15" cy="14" r="1.3" fill="currentColor"/><path d="M7 10 C 9 16, 13 16, 15 14" fill="none" stroke="#ffb020" stroke-width="1.8" stroke-linecap="round"/></svg><span>Wirebench</span></div>
+    <div class="tb-group">
+      <button data-cmd="new" title="New project">New</button>
+      <button data-cmd="open" title="Open project (Ctrl+O)">Open</button>
+      <button data-cmd="save" title="Save project (Ctrl+S)">Save</button>
+      <button data-cmd="note" title="Add a note to the canvas (N)">📝 Note</button>
+      <select id="examples" title="Load an example"><option value="">Examples…</option></select>
+      <div class="dropdown">
+        <button data-cmd="exportMenu">Export ▾</button>
+        <div class="menu" id="export-menu">
+          <button data-cmd="exportPNG">Breadboard image (.png)</button>
+          <button data-cmd="exportSVG">Breadboard vector (.svg)</button>
+          <button data-cmd="exportSketch">Sketch (.ino)</button>
+          <button data-cmd="schematic">Schematic diagram…</button>
+          <button data-cmd="spice">SPICE netlist for LTspice (.cir)…</button>
+          <button data-cmd="netlist">Netlist &amp; parts list…</button>
+        </div>
+      </div>
+      <div class="dropdown">
+        <button data-cmd="helpMenu" title="Help (F1)">Help ▾</button>
+        <div class="menu" id="help-menu">
+          <button data-cmd="help:guide">📘 Getting started <kbd>F1</kbd></button>
+          <button data-cmd="help:shortcuts">⌨ Keyboard &amp; mouse shortcuts</button>
+          <hr>
+          <button data-cmd="help:parts">🧩 Parts &amp; boards</button>
+          <button data-cmd="help:reference">📗 Arduino functions &amp; libraries</button>
+          <button data-cmd="help:trouble">🛠 Troubleshooting</button>
+          <hr>
+          <button data-cmd="help:about">ℹ About Wirebench</button>
+        </div>
+      </div>
+    </div>
+    <div class="tb-group tb-edit">
+      <button data-cmd="undo" data-edit title="Undo (Ctrl+Z)">↶</button>
+      <button data-cmd="redo" data-edit title="Redo (Ctrl+Y)">↷</button>
+      <button data-cmd="copy" title="Copy selected parts (Ctrl+C)">⧉<span class="lbl"> Copy</span></button>
+      <button data-cmd="paste" data-edit title="Paste at the mouse pointer (Ctrl+V)">📋<span class="lbl"> Paste</span></button>
+      <button data-cmd="rotate" data-edit title="Rotate selection (R)">⟳<span class="lbl"> Rotate</span></button>
+      <button data-cmd="delete" data-edit title="Delete selection (Del)">✕<span class="lbl"> Delete</span></button>
+      <button data-cmd="tidy" data-edit title="Tidy wires: auto-route the selected wires (or all wires) into neat right-angle paths">✨<span class="lbl"> Tidy wires</span></button>
+    </div>
+    <div class="tb-group tb-zoom">
+      <button data-cmd="zoomOut" title="Zoom out">−</button>
+      <button data-cmd="fit" title="Fit to window (F)">Fit</button>
+      <button data-cmd="zoomIn" title="Zoom in">+</button>
+    </div>
+    <div class="tb-spacer"></div>
+    <button data-cmd="toggleLeft" id="btn-left" class="toggle active" title="Show / hide the left panel — parts and inspector (Ctrl+Shift+B)">◧<span class="lbl"> Parts</span></button>
+    <button data-cmd="togglePanel" id="btn-panel" class="toggle" title="Show / hide the code panel — sketch, console and serial monitor (Ctrl+B)">&lt;/&gt;<span class="lbl"> Code</span></button>
+    <div class="dropdown">
+      <button data-cmd="themeMenu" id="btn-theme" title="Theme: Default, Light or Dark">◑<span class="lbl"> Theme</span></button>
+      <div class="menu right" id="theme-menu">
+        <button data-cmd="theme:default"><span>Default</span><kbd>slate panels, light canvas</kbd></button>
+        <button data-cmd="theme:light"><span>Light</span><kbd>light panels &amp; canvas</kbd></button>
+        <button data-cmd="theme:dark"><span>Dark</span><kbd>dark panels &amp; canvas</kbd></button>
+      </div>
+    </div>
+    <button data-cmd="mute" id="btn-mute" title="Sound on/off">🔊</button>
+    <div id="sim-status"><span class="dot"></span><span id="sim-time">Stopped</span></div>
+    <button id="btn-run" class="run" data-cmd="run" title="Start / stop simulation (Ctrl+Enter)">▶ <span class="lbl-long">Start simulation</span><span class="lbl-short">Run</span></button>
+  </header>
+
+  <main>
+    <aside id="left">
+      <div class="side-head"><button class="sec-toggle" data-sec="parts" title="Hide / show the parts list">▾</button><span>Parts</span> <input id="part-search" placeholder="Search…" autocomplete="off"><button class="cats-all" data-cmd="toggleAllCats" title="Collapse / expand all part categories">⇕</button></div>
+      <div id="palette"></div>
+      <div class="side-head"><button class="sec-toggle" data-sec="inspector" title="Hide / show the inspector">▾</button><span>Inspector</span></div>
+      <div id="inspector"></div>
+    </aside>
+
+    <section id="stage">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+        <defs id="wbDefs">
+          <filter id="wbGlow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3.5"/></filter>
+        </defs>
+        <defs>
+          <pattern id="gridPattern" width="10" height="10" patternUnits="userSpaceOnUse">
+            <circle cx="0" cy="0" r="0.7" fill="var(--grid)"/>
+            <circle cx="10" cy="0" r="0.7" fill="var(--grid)"/>
+            <circle cx="0" cy="10" r="0.7" fill="var(--grid)"/>
+            <circle cx="10" cy="10" r="0.7" fill="var(--grid)"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#gridPattern)"/>
+        <g id="viewport">
+          <g id="layer-parts"></g>
+          <g id="layer-wires"></g>
+          <g id="layer-over"></g>
+        </g>
+      </svg>
+      <div id="zoombar">
+        <button data-cmd="zoomOut" title="Zoom out (Ctrl −)">−</button>
+        <button id="zoom-label" data-cmd="zoom100" title="Reset to 100%">100%</button>
+        <button data-cmd="zoomIn" title="Zoom in (Ctrl +)">+</button>
+        <button data-cmd="fit" title="Fit everything (F / Ctrl 0)">⤢</button>
+        <button data-cmd="canvasTheme" id="btn-canvas-theme" title="Switch canvas background (light / dark)">◐</button>
+      </div>
+      <div id="ctx-menu">
+        <div class="ctx-part">
+          <button data-ctx="copy">⧉ Copy <kbd>Ctrl+C</kbd></button>
+          <button data-ctx="cut">✂ Cut <kbd>Ctrl+X</kbd></button>
+          <button data-ctx="paste">📋 Paste here <kbd>Ctrl+V</kbd></button>
+          <button data-ctx="duplicate">⧉ Duplicate <kbd>Ctrl+D</kbd></button>
+          <hr>
+          <button data-ctx="rotate">⟳ Rotate <kbd>R</kbd></button>
+          <button data-ctx="rotateBack">⟲ Rotate back <kbd>Shift+R</kbd></button>
+          <hr>
+        </div>
+        <div class="ctx-wire">
+          <div class="ctx-head">Jumper wire</div>
+          <button data-ctx="autoRoute">✨ Auto-route this wire</button>
+          <button data-ctx="addJoint">➕ Add joint here <kbd>Double-click</kbd></button>
+          <button data-ctx="removeJoint">➖ Remove this joint</button>
+          <button data-ctx="straighten">↔ Remove all joints</button>
+          <hr>
+          <div class="ctx-head">Color</div>
+          <div class="ctx-colors"></div>
+          <hr>
+        </div>
+        <button data-ctx="tidyAll">✨ Tidy all wires</button>
+        <button data-ctx="autoRouteToggle" id="ctx-autoroute">☑ Auto-route new wires</button>
+        <hr>
+        <button data-ctx="delete" class="danger">✕ Delete <kbd>Del</kbd></button>
+      </div>
+      <div id="prop-dialog" role="dialog" aria-label="Part properties">
+        <div class="pdlg-head"><span class="pdlg-title"></span><button class="pdlg-close" title="Close (Esc)">✕</button></div>
+        <div class="pdlg-body"></div>
+      </div>
+      <div id="tooltip"></div>
+      <div id="warnings"></div>
+      <div id="lock-banner">🔒 Simulation running — the circuit is locked. Press buttons and turn knobs to interact; stop the simulation to edit.</div>
+      <div id="toast"></div>
+      <div id="hint">Drag parts in from the left, or point here and <b>type a part name</b> · Click a pin or hole to start a wire, click another pin to finish (click empty space for bends) · <b>Double-click</b> a part to edit it · Pinch or scroll to zoom · Two-finger swipe or drag background to pan · <b>Space</b> fit · <b>Ctrl+C / Ctrl+V</b> copy &amp; paste · Right-click for more · <b>R</b> rotate · <b>Del</b> delete</div>
+    </section>
+
+    <aside id="right">
+      <div class="panel-head">
+        <button class="sec-toggle" data-sec="sketch" title="Hide / show the sketch editor">▾</button><span>Sketch</span><span id="board-label" class="chip"></span>
+        <span id="code-status"></span>
+        <span class="grow"></span>
+        <button data-cmd="verify" title="Check the sketch for errors">✓ Verify</button>
+        <button data-cmd="togglePanel" class="panel-hide" title="Hide the code panel (Ctrl+B)">»</button>
+      </div>
+      <div id="editor">
+        <div id="gutter"></div>
+        <div id="code-wrap">
+          <div id="err-line"></div>
+          <pre id="hl" aria-hidden="true"></pre>
+          <textarea id="code" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea>
+        </div>
+      </div>
+      <div id="console"></div>
+      <div class="panel-head">
+        <button class="sec-toggle" data-sec="serial" title="Hide / show the Serial Monitor">▾</button><span>Serial Monitor</span><span class="grow"></span>
+        <label class="small"><input type="checkbox" id="autoscroll" checked> autoscroll</label>
+        <button data-cmd="clearSerial">Clear</button>
+      </div>
+      <pre id="serial-out"></pre>
+      <form id="serial-form" autocomplete="off">
+        <input id="serial-input" placeholder="Send to the board (Enter)…">
+        <button type="submit">Send</button>
+      </form>
+    </aside>
+  </main>
+
+  <dialog id="modal"><button type="button" class="modal-x" title="Close (Esc)" aria-label="Close" onclick="this.closest('dialog').close()">✕</button><div id="modal-body"></div><form method="dialog"><button>Close</button></form></dialog>
+  <input type="file" id="file-input" accept=".json,.wbproj,application/json" hidden>
+
+  <script src="js/util.js"></script>
+  <script src="js/parts.js"></script>
+  <script src="js/parts-more.js"></script>
+  <script src="js/boards.js"></script>
+  <script src="js/circuit.js"></script>
+  <script src="js/native.js"></script>
+  <script src="js/sketch.js"></script>
+  <script src="js/runtime.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/router.js"></script>
+  <script src="js/schematic.js"></script>
+  <script src="js/spice.js"></script>
+  <script src="js/examples.js"></script>
+  <script src="js/help.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

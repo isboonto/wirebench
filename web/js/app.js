@@ -1,0 +1,1553 @@
+'use strict';
+(function (WB) {
+  const PARTS = WB.PARTS;
+  const $ = (s) => document.querySelector(s);
+  const LS_KEY = 'wirebench.autosave.v1';
+  // circuit warnings on the canvas: shown at least this long after they last occurred, then faded out
+  const WARN_HOLD = 4000, WARN_FADE = 600, WARN_MAX = 4;
+
+  // ------------------------------------------------------------ audio
+  const Audio = {
+    ctx: null, osc: {}, muted: false,
+    ensure() {
+      try { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); } catch (e) { /* no audio */ }
+    },
+    set(id, freq) {
+      if (!this.ctx || this.muted) freq = 0;
+      let o = this.osc[id];
+      if (freq > 0) {
+        if (!o) {
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'square'; g.gain.value = 0.035;
+          osc.connect(g).connect(this.ctx.destination);
+          osc.start();
+          o = this.osc[id] = { osc, g, f: 0 };
+        }
+        if (o.f !== freq) { o.osc.frequency.setValueAtTime(freq, this.ctx.currentTime); o.f = freq; }
+      } else if (o) {
+        try { o.osc.stop(); o.osc.disconnect(); } catch (e) { /* ignore */ }
+        delete this.osc[id];
+      }
+    },
+    stopAll() { for (const id in this.osc) this.set(id, 0); },
+  };
+
+  // ------------------------------------------------------------ code editor
+  const KW = new Set('if else for while do switch case default break continue return goto sizeof const static volatile unsigned signed struct class new delete true false void bool boolean char short int long float double byte word String size_t uint8_t int8_t uint16_t int16_t uint32_t int32_t uint64_t int64_t auto'.split(' '));
+  const FN = new Set('setup loop pinMode digitalWrite digitalRead analogRead analogWrite analogReadResolution analogWriteResolution delay delayMicroseconds millis micros tone noTone map constrain min max abs random randomSeed attachInterrupt detachInterrupt digitalPinToInterrupt pulseIn shiftOut bitRead bitWrite bitSet bitClear sqrt pow sin cos Serial Monitor Bridge Servo Arduino_LED_Matrix ArduinoLEDMatrix'.split(' '));
+  const CONST = new Set('HIGH LOW INPUT OUTPUT INPUT_PULLUP INPUT_PULLDOWN LED_BUILTIN A0 A1 A2 A3 A4 A5 A6 A7 A8 A9 A10 A11 A12 A13 A14 A15 RISING FALLING CHANGE DEC HEX BIN OCT PI'.split(' '));
+  function highlight(src) {
+    const re = /(\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|("(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?)|(^[ \t]*#[^\n]*)|(\b\d[\w.]*\b)|([A-Za-z_]\w*)/gm;
+    let out = '', last = 0, m;
+    while ((m = re.exec(src))) {
+      out += WB.esc(src.slice(last, m.index));
+      const t = WB.esc(m[0]);
+      if (m[1]) out += `<span class="t-com">${t}</span>`;
+      else if (m[2]) out += `<span class="t-str">${t}</span>`;
+      else if (m[3]) out += `<span class="t-pre">${t}</span>`;
+      else if (m[4]) out += `<span class="t-num">${t}</span>`;
+      else if (KW.has(m[0])) out += `<span class="t-kw">${t}</span>`;
+      else if (FN.has(m[0])) out += `<span class="t-fn">${t}</span>`;
+      else if (CONST.has(m[0])) out += `<span class="t-const">${t}</span>`;
+      else out += t;
+      last = re.lastIndex;
+    }
+    return out + WB.esc(src.slice(last));
+  }
+
+  class CodeEditor {
+    constructor(onChange) {
+      this.ta = $('#code'); this.hl = $('#hl'); this.gutter = $('#gutter'); this.errEl = $('#err-line');
+      this.onChange = onChange;
+      this.errLine = null;
+      this.ta.addEventListener('input', () => { this.clearError(); this.update(); this.onChange(); });
+      this.ta.addEventListener('scroll', () => this.sync());
+      this.ta.addEventListener('keydown', (e) => this.key(e));
+    }
+    get value() { return this.ta.value; }
+    set value(v) { this.ta.value = v; this.clearError(); this.update(); this.ta.scrollTop = 0; }
+    update() {
+      this.hl.innerHTML = highlight(this.ta.value) + '\n';
+      const n = this.ta.value.split('\n').length;
+      let g = '';
+      for (let i = 1; i <= n; i++) g += `<div${i === this.errLine ? ' class="err"' : ''}>${i}</div>`;
+      this.gutter.innerHTML = g;
+      this.sync();
+    }
+    sync() {
+      this.hl.style.transform = `translate(${-this.ta.scrollLeft}px, ${-this.ta.scrollTop}px)`;
+      this.gutter.style.transform = `translateY(${-this.ta.scrollTop}px)`;
+      if (this.errLine) {
+        const lh = parseFloat(getComputedStyle(this.ta).lineHeight);
+        this.errEl.style.top = 8 + (this.errLine - 1) * lh - this.ta.scrollTop + 'px';
+      }
+    }
+    showError(line, noScroll) {
+      this.errLine = line;
+      this.errEl.style.display = 'block';
+      this.update();
+      const lh = parseFloat(getComputedStyle(this.ta).lineHeight);
+      const y = (line - 1) * lh;
+      if (!noScroll && (y < this.ta.scrollTop || y > this.ta.scrollTop + this.ta.clientHeight - 40)) this.ta.scrollTop = Math.max(0, y - 60);
+      this.sync();
+    }
+    clearError() { if (this.errLine) { this.errLine = null; this.errEl.style.display = 'none'; this.update(); } }
+    key(e) {
+      const ta = this.ta;
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        document.execCommand('insertText', false, '  ');
+      } else if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+        const before = ta.value.slice(0, ta.selectionStart);
+        const line = before.slice(before.lastIndexOf('\n') + 1);
+        let ind = (line.match(/^\s*/) || [''])[0];
+        if (/\{\s*$/.test(line)) ind += '  ';
+        e.preventDefault();
+        document.execCommand('insertText', false, '\n' + ind);
+      } else if (e.key === '}') {
+        const before = ta.value.slice(0, ta.selectionStart);
+        const line = before.slice(before.lastIndexOf('\n') + 1);
+        if (/^\s+$/.test(line) && line.length >= 2) {
+          e.preventDefault();
+          ta.selectionStart = ta.selectionStart - 2;
+          document.execCommand('insertText', false, '}');
+        }
+      }
+    }
+  }
+
+  // ------------------------------------------------------------ app
+  class App {
+    constructor() {
+      this.project = { parts: [], wires: [], code: '' };
+      this.selection = new Set();
+      this.undoStack = [];
+      this.redoStack = [];
+      this.transient = {};
+      this.sim = null;
+      this.results = null;
+      this.topo = null;
+      this.dirty = false;
+      this.serialBuf = '';
+      this.warnShown = '';
+      this.applyTheme(); // Default / Light / Dark, plus the canvas override (◐)
+      this.autoRoute = true;
+      try { this.autoRoute = localStorage.getItem('wirebench.autoroute') !== 'off'; } catch (e) { /* storage unavailable */ }
+      this.editor = new WB.Editor(this);
+      this.code = new CodeEditor(() => {
+        this.project.code = this.code.value;
+        this.saveLocalSoon();
+        const st = $('#code-status'); st.className = 'busy'; st.textContent = 'Checking…';
+        this.scheduleLiveCheck();
+      });
+      this.hiddenCats = new Set();
+      try { this.hiddenCats = new Set(JSON.parse(localStorage.getItem('wirebench.hiddenCats') || '[]')); } catch (e) { /* storage unavailable */ }
+      this.buildPalette();
+      this.bindUI();
+      let panelPref = null;
+      try { panelPref = localStorage.getItem('wirebench.codePanel'); } catch (e) { /* storage unavailable */ }
+      if (panelPref === 'hidden') this.setCodePanel(false, true); else $('#btn-panel').classList.add('active');
+      this.loadLayout();
+      const saved = this.loadLocal();
+      if (saved) this.loadProject(saved, true);
+      else this.loadProject(WB.EXAMPLES[1].build(), true);
+      requestAnimationFrame(() => this.editor.fit());
+      WB.nativeReady.then(() => { this.refreshInspector(); this.markDirty(); });
+      this.frame = this.frame.bind(this);
+      requestAnimationFrame(this.frame);
+    }
+
+    // ---------------- model helpers
+    part(id) { return this.project.parts.find((p) => p.id === id); }
+    wire(id) { return this.project.wires.find((w) => w.id === id); }
+    boardPart() { return this.project.parts.find((p) => PARTS[p.type] && PARTS[p.type].board); }
+    getTopo() { return this.topo || (this.topo = WB.Circuit.build(this.project)); }
+    snapshot() { return JSON.stringify({ parts: this.project.parts, wires: this.project.wires }); }
+    pushUndo(snap) {
+      this.undoStack.push(snap || this.snapshot());
+      if (this.undoStack.length > 200) this.undoStack.shift();
+      this.redoStack = [];
+    }
+    // While simulating, the circuit is locked: it can be operated (buttons, knobs) but not edited.
+    locked() { return !!this.sim; }
+    lockedToast() {
+      const now = performance.now();
+      if (now - (this._lockT || 0) > 1500) { this._lockT = now; this.toast('🔒 Stop the simulation to edit the circuit.'); }
+      return false;
+    }
+    mutate(fn) {
+      if (this.locked()) return this.lockedToast();
+      const s = this.snapshot(); fn(); this.pushUndo(s); this.changed();
+      return true;
+    }
+    changed() {
+      this.topo = null;
+      for (const id of [...this.selection]) if (!this.part(id) && !this.wire(id)) this.selection.delete(id);
+      this.editor.render();
+      this.markDirty();
+      this.saveLocal();
+      this.refreshInspector();
+      this.refreshPropDialog();
+      this.updateBoardLabel();
+    }
+    restore(s) {
+      const o = JSON.parse(s);
+      this.project.parts = o.parts;
+      this.project.wires = o.wires;
+      this.changed();
+    }
+    undo() { if (this.locked()) return this.lockedToast(); if (!this.undoStack.length) return this.toast('Nothing to undo'); this.redoStack.push(this.snapshot()); this.restore(this.undoStack.pop()); }
+    redo() { if (this.locked()) return this.lockedToast(); if (!this.redoStack.length) return this.toast('Nothing to redo'); this.undoStack.push(this.snapshot()); this.restore(this.redoStack.pop()); }
+
+    nextName(prefix) {
+      let n = 1;
+      const names = new Set(this.project.parts.map((p) => p.name));
+      while (names.has(prefix + n)) n++;
+      return prefix + n;
+    }
+    addPart(type, at) {
+      if (this.locked()) return this.lockedToast();
+      const def = PARTS[type];
+      if (def.board && this.boardPart()) {
+        const b = this.boardPart();
+        if (!confirm(`This project already has a ${PARTS[b.type].label}. Replace it with a ${def.label}? (Wires to matching pins are kept.)`)) return;
+        this.changeBoardType(b, type);
+        return;
+      }
+      const [bx, by, bw, bh] = def.bbox(WB.clone(def.defaults));
+      if (!at) {
+        const r = this.editor.svg.getBoundingClientRect();
+        at = { x: (r.width / 2 - this.editor.view.x) / this.editor.view.s, y: (r.height / 2 - this.editor.view.y) / this.editor.view.s };
+      }
+      const part = { id: WB.uid(def.prefix.toLowerCase()), type, x: WB.snap(at.x - bx - bw / 2), y: WB.snap(at.y - by - bh / 2), rot: 0, props: WB.clone(def.defaults), name: this.nextName(def.prefix) };
+      this.mutate(() => { this.project.parts.push(part); this.selection = new Set([part.id]); });
+    }
+    // Toolbar "📝 Note" / key N: drop a note in the middle of the view and open its editor
+    // with the placeholder text selected, so typing replaces it.
+    addNote() {
+      const before = this.project.parts.length;
+      this.addPart('note');
+      if (this.project.parts.length === before) return; // locked (simulation running)
+      const p = this.project.parts[this.project.parts.length - 1];
+      const r = this.editor.svg.getBoundingClientRect();
+      this.openPropDialog(p.id, r.left + r.width / 2 + 120, r.top + r.height / 2 - 60);
+      const ta = $('#prop-dialog textarea');
+      if (ta) { ta.focus(); ta.select(); }
+    }
+    changeBoardType(b, type) {
+      this.mutate(() => {
+        b.type = type;
+        b.props = WB.clone(PARTS[type].defaults);
+        const ok = new Set(PARTS[type].pins({}).map((p) => p.id));
+        this.project.wires = this.project.wires.filter((w) => !((w.a.part === b.id && !ok.has(w.a.pin)) || (w.b.part === b.id && !ok.has(w.b.pin))));
+      });
+      if (this.sim) this.stopSim();
+      this.scheduleLiveCheck(); // libraries may not suit the new board
+    }
+    deleteSelection() {
+      if (!this.selection.size) return;
+      this.mutate(() => {
+        const ids = this.selection;
+        this.project.parts = this.project.parts.filter((p) => !ids.has(p.id));
+        this.project.wires = this.project.wires.filter((w) => !ids.has(w.id) && !ids.has(w.a.part) && !ids.has(w.b.part));
+        this.selection = new Set();
+      });
+    }
+    rotateSelection(dir) {
+      const parts = [...this.selection].map((id) => this.part(id)).filter(Boolean);
+      if (!parts.length) return;
+      this.mutate(() => {
+        for (const p of parts) p.rot = (((p.rot || 0) + (dir || 90)) % 360 + 360) % 360;
+        const ids = new Set(parts.map((p) => p.id));
+        const affected = this.project.wires.filter((w) => w.auto && (ids.has(w.a.part) || ids.has(w.b.part)));
+        if (affected.length) WB.Router.routeMany(this, affected);
+      });
+    }
+
+    // ---------------- wire auto-routing
+    setAutoRoute(on) {
+      this.autoRoute = on;
+      try { localStorage.setItem('wirebench.autoroute', on ? 'on' : 'off'); } catch (e) { /* storage unavailable */ }
+      this.toast(on ? '✨ New wires will be auto-routed' : 'Auto-routing of new wires is off');
+    }
+    // Tidy the selected wires, or every wire when none is selected.
+    tidyAllWires() {
+      const sel = this.project.wires.filter((w) => this.selection.has(w.id));
+      const wires = sel.length ? sel : this.project.wires;
+      if (!wires.length) { this.toast('There are no wires to tidy.'); return; }
+      let n = 0;
+      if (this.mutate(() => { n = WB.Router.routeMany(this, wires); })) this.toast(`✨ Tidied ${n} wire${n === 1 ? '' : 's'}`);
+    }
+    // ---------------- clipboard (Ctrl+C / Ctrl+X / Ctrl+V)
+    copySelection(cut) {
+      if (cut && this.locked()) return this.lockedToast();
+      const parts = [...this.selection].map((id) => this.part(id)).filter(Boolean);
+      if (!parts.length) { this.toast('Select one or more parts to copy.'); return false; }
+      const ids = new Set(parts.map((p) => p.id));
+      const wires = this.project.wires.filter((w) => ids.has(w.a.part) && ids.has(w.b.part));
+      this.clipboard = { parts: WB.clone(parts), wires: WB.clone(wires), pastes: 0 };
+      if (cut) { this.deleteSelection(); this.toast(`Cut ${parts.length} part${parts.length > 1 ? 's' : ''}`); }
+      else this.toast(`Copied ${parts.length} part${parts.length > 1 ? 's' : ''} — Ctrl+V to paste`);
+      return true;
+    }
+    paste() {
+      const cb = this.clipboard;
+      if (!cb || !cb.parts.length) { this.toast('Nothing to paste — copy a part first (Ctrl+C).'); return; }
+      let parts = WB.clone(cb.parts);
+      if (parts.some((p) => PARTS[p.type].board) && this.boardPart()) {
+        parts = parts.filter((p) => !PARTS[p.type].board);
+        this.toast('The board was skipped — a project can only have one microcontroller board.');
+        if (!parts.length) return;
+      }
+      // Place at the mouse pointer when it is over the canvas, otherwise step away from the original.
+      const boxes = parts.map((p) => WB.worldBBox(p));
+      const x0 = Math.min(...boxes.map((b) => b.x)), y0 = Math.min(...boxes.map((b) => b.y));
+      let dx, dy;
+      const m = this.editor.mouseWorld;
+      if (m && this.editor.mouseInside) { dx = WB.snap(m.x - x0); dy = WB.snap(m.y - y0); }
+      else { cb.pastes++; dx = dy = 30 * cb.pastes; }
+      const map = {};
+      for (const p of parts) { map[p.id] = WB.uid(PARTS[p.type].prefix.toLowerCase()); }
+      this.mutate(() => {
+        for (const p of parts) {
+          p.id = map[p.id]; p.x += dx; p.y += dy;
+          p.name = this.nextName(PARTS[p.type].prefix);
+          this.project.parts.push(p);
+        }
+        for (const w of cb.wires) {
+          if (!map[w.a.part] || !map[w.b.part]) continue;
+          this.project.wires.push({ id: WB.uid('w'), a: { part: map[w.a.part], pin: w.a.pin }, b: { part: map[w.b.part], pin: w.b.pin }, pts: (w.pts || []).map(([x, y]) => [x + dx, y + dy]), color: w.color });
+        }
+        this.selection = new Set(parts.map((p) => p.id));
+      });
+    }
+
+    // Copies the selected parts (and wires running between them). Returns true if anything was copied.
+    duplicateSelection(offset) {
+      if (this.locked()) return this.lockedToast();
+      const off = offset === undefined ? 30 : offset;
+      const parts = [...this.selection].map((id) => this.part(id)).filter(Boolean);
+      if (!parts.length) { this.toast('Select a part to duplicate.'); return false; }
+      if (parts.some((p) => PARTS[p.type].board)) { this.toast('Only one microcontroller board per project — boards can\'t be duplicated.'); return false; }
+      const map = {};
+      const copies = parts.map((p) => { const c = WB.clone(p); c.id = WB.uid(PARTS[p.type].prefix.toLowerCase()); map[p.id] = c.id; c.x += off; c.y += off; return c; });
+      this.mutate(() => {
+        for (const c of copies) { c.name = this.nextName(PARTS[c.type].prefix); this.project.parts.push(c); }
+        for (const w of this.project.wires.slice()) {
+          if (map[w.a.part] && map[w.b.part]) this.project.wires.push({ id: WB.uid('w'), a: { part: map[w.a.part], pin: w.a.pin }, b: { part: map[w.b.part], pin: w.b.pin }, pts: (w.pts || []).map(([x, y]) => [x + off, y + off]), color: w.color });
+        }
+        this.selection = new Set(copies.map((c) => c.id));
+      });
+      return true;
+    }
+
+    // ---------------- selection & inspector
+    select(id, add) {
+      if (add) { if (this.selection.has(id)) this.selection.delete(id); else this.selection.add(id); }
+      else this.selection = new Set([id]);
+      this.selectionChanged();
+    }
+    clearSelection() { if (!this.selection.size) return; this.selection = new Set(); this.selectionChanged(); }
+    selectionChanged() { this.editor.refreshSelection(); this.editor.renderWires(); this.refreshInspector(); }
+
+    refreshInspector() {
+      const el = $('#inspector');
+      const ids = [...this.selection];
+      if (!ids.length) {
+        const b = this.boardPart();
+        el.innerHTML = `<div class="insp-empty">
+          <p>Select a part or wire to edit it.</p>
+          ${b ? `<p class="muted">Board: <b>${WB.esc(PARTS[b.type].label)}</b></p><p class="muted small">${WB.esc(PARTS[b.type].board.info)}</p>` : '<p class="muted">Add a board from <b>Boards</b> to run code.</p>'}
+          <p class="muted small">Tip: during simulation, press buttons, flip switches and drag knobs (potentiometer, light, temperature) right on the breadboard.</p>
+          <p class="muted small">Circuit solver: <b>${WB.esc(WB.Native.kind)}</b>${WB.isDesktop ? ' · desktop app' : ''}</p></div>`;
+        return;
+      }
+      if (ids.length > 1) {
+        el.innerHTML = `<div class="insp-title">${ids.length} items selected</div><div class="insp-actions"><button data-act="rotate">⟳ Rotate</button><button data-act="dup">Duplicate</button><button data-act="del" class="danger">Delete</button></div>`;
+        this.bindInspectorActions(el);
+        if (this.locked()) this.lockForm(el);
+        return;
+      }
+      const w = this.wire(ids[0]);
+      if (w) {
+        const pa = this.part(w.a.part), pb = this.part(w.b.part);
+        el.innerHTML = `<div class="insp-title">Wire</div>
+          <div class="muted small">${WB.esc(pa ? pa.name : '?')}.${WB.esc(w.a.pin)} → ${WB.esc(pb ? pb.name : '?')}.${WB.esc(w.b.pin)}</div>
+          <label class="field-label">Color</label>
+          <div class="swatches">${WB.WIRE_COLORS.map((c) => `<button class="sw${c === w.color ? ' on' : ''}" data-color="${c}" style="background:${c}"></button>`).join('')}</div>
+          <div class="insp-actions"><button data-act="autoroute">✨ Auto-route</button><button data-act="straight">Remove joints</button><button data-act="del" class="danger">Delete</button></div>`;
+        el.querySelectorAll('.sw').forEach((b) => b.addEventListener('click', () => this.mutate(() => { w.color = b.dataset.color; })));
+        this.bindInspectorActions(el, w);
+        if (this.locked()) this.lockForm(el);
+        return;
+      }
+      const p = this.part(ids[0]);
+      if (!p) return;
+      this.renderPartForm(el, p, 'insp', true);
+    }
+
+    // Settings form for one part — used by the inspector and the double-click dialog.
+    renderPartForm(el, p, prefix, withTitle) {
+      const def = PARTS[p.type];
+      let html = withTitle
+        ? `<div class="insp-title"><input class="name" value="${WB.esc(p.name || '')}" title="Part label"></div><div class="muted small">${WB.esc(def.label)}${def.summary ? ' · ' + WB.esc(def.summary(p)) : ''}</div>`
+        : `<label class="field-label">Name</label><input class="name wide" value="${WB.esc(p.name || '')}"><div class="muted small" style="margin-top:4px">${WB.esc(def.label)}${def.summary ? ' · ' + WB.esc(def.summary(p)) : ''}</div>`;
+      if (def.board) {
+        html += `<label class="field-label">Board type</label><select data-board>${Object.keys(WB.BOARDS).map((t) => `<option value="${t}"${t === p.type ? ' selected' : ''}>${WB.esc(WB.BOARDS[t].label)}</option>`).join('')}</select>
+          <p class="muted small">${WB.esc(def.board.info)}</p>`;
+      }
+      (def.inspector || []).forEach((f, i) => {
+        const v = p.props[f.key];
+        html += `<label class="field-label">${WB.esc(f.label)}${f.type === 'range' ? ` <span class="val" data-val="${i}">${WB.esc(f.fmt(v))}</span>` : ''}</label>`;
+        if (f.type === 'select') {
+          html += `<select data-f="${i}"${f.live ? ' data-live' : ''}>${f.options.map((o, j) => { const [ov, ol] = Array.isArray(o) ? o : [o, o]; return `<option value="${j}"${ov === v ? ' selected' : ''}>${WB.esc(ol)}</option>`; }).join('')}</select>`;
+        } else if (f.type === 'number') {
+          html += `<input type="number" data-f="${i}"${f.live ? ' data-live' : ''} value="${v}"${f.min !== undefined ? ` min="${f.min}"` : ''} step="${f.step || 'any'}" list="dl-${prefix}-${i}">`;
+          if (f.suggestions) html += `<datalist id="dl-${prefix}-${i}">${f.suggestions.map((s) => `<option value="${s}">${(f.sugFmt || WB.fmtOhms)(s)}</option>`).join('')}</datalist>`;
+        } else if (f.type === 'range') {
+          html += `<input type="range" data-f="${i}" value="${v}" min="${f.min}" max="${f.max}" step="${f.step}">`;
+        } else if (f.type === 'text') {
+          html += `<textarea data-f="${i}" data-live rows="5" spellcheck="true">${WB.esc(v == null ? '' : v)}</textarea>`;
+        }
+      });
+      html += this.pinoutHTML(def, p);
+      if (def.modulino) html += `<p class="muted small" style="margin-top:10px">Connects over I2C (Qwiic). Use the Modulino library in your sketch.</p><button data-act="qwiic" class="wide-btn">🔌 Connect to board (Qwiic)</button>`;
+      else if (!(def.inspector || []).length && !def.board) html += `<p class="muted small" style="margin-top:10px">This part has no settings.</p>`;
+      html += `<div class="insp-actions"><button data-act="rotate">⟳ Rotate</button><button data-act="dup">Duplicate</button><button data-act="del" class="danger">Delete</button></div>`;
+      el.innerHTML = html;
+      el.querySelector('.name').addEventListener('change', (e) => this.mutate(() => { p.name = e.target.value.trim() || p.name; }));
+      const bs = el.querySelector('[data-board]');
+      if (bs) bs.addEventListener('change', () => this.changeBoardType(p, bs.value));
+      (def.inspector || []).forEach((f, i) => {
+        const inp = el.querySelector(`[data-f="${i}"]`);
+        if (!inp) return;
+        if (f.type === 'range') {
+          inp.addEventListener('input', () => {
+            p.props[f.key] = Number(inp.value);
+            el.querySelector(`[data-val="${i}"]`).textContent = f.fmt(p.props[f.key]);
+            this.editor.rerenderBody(p);
+            this.markDirty();
+            this.saveLocalSoon();
+          });
+          // keep the other form (inspector <-> dialog) in sync once the slider is released
+          inp.addEventListener('change', () => { if (prefix === 'dlg') this.refreshInspector(); else this.refreshPropDialog(); });
+        } else if (f.type === 'text') {
+          // free text (notes): the canvas updates while typing; one undo step per edit, and it
+          // stays editable during the simulation (annotations don't affect the circuit)
+          let before = null;
+          inp.addEventListener('focus', () => { before = this.snapshot(); });
+          inp.addEventListener('input', () => {
+            p.props[f.key] = inp.value;
+            this.editor.rerenderBody(p);
+            this.saveLocalSoon();
+          });
+          inp.addEventListener('change', () => {
+            if (before && !this.locked()) this.pushUndo(before);
+            before = this.snapshot();
+            this.saveLocalSoon();
+            if (prefix === 'dlg') this.refreshInspector(); else this.refreshPropDialog();
+          });
+        } else {
+          inp.addEventListener('change', () => {
+            let val;
+            if (f.type === 'select') { const o = f.options[+inp.value]; val = Array.isArray(o) ? o[0] : o; }
+            else { val = Number(inp.value); if (!(val > 0) && !(f.allowZero && Number.isFinite(val))) { inp.value = p.props[f.key]; return; } }
+            if (f.live && this.locked()) {
+              // instrument controls (meter mode, scope time base) stay usable while simulating
+              p.props[f.key] = val;
+              this.editor.rerenderBody(p);
+              this.markDirty();
+              this.saveLocalSoon();
+              if (prefix === 'dlg') this.refreshInspector(); else this.refreshPropDialog();
+              return;
+            }
+            this.mutate(() => { p.props[f.key] = val; });
+          });
+        }
+      });
+      this.bindInspectorActions(el);
+      const qb = el.querySelector('[data-act="qwiic"]');
+      if (qb) qb.addEventListener('click', () => this.connectQwiic(p));
+      if (this.locked()) this.lockForm(el);
+    }
+
+    // Pin diagram for chips and transistors (Semiconductors / ICs), shown in the settings forms.
+    //  - DIP chips: the datasheet top view (pin 1 top-left at the notch, numbers inside,
+    //    names outside); on the breadboard the same chip lies turned, pin 1 bottom-left.
+    //  - 3-leg parts (TO-92, TO-220): the part as drawn on the canvas with each leg labelled.
+    pinoutHTML(def, p) {
+      if (!/^(ICs|Semiconductors)$/.test(def.category)) return '';
+      const pins = def.pins(p.props || {});
+      if (!pins.length) return '';
+      const nameOf = (q) => { const m = /^\d+ · (.*)$/.exec(q.label || ''); return m ? m[1] : q.label || q.id; };
+      const shortOf = (q) => nameOf(q).replace(/\s*\(.*\)\s*$/, '');
+      const ys = new Set(pins.map((q) => q.y));
+      const dip = pins.length >= 4 && pins.length % 2 === 0 && pins.every((q) => /^\d+$/.test(q.id)) && ys.size === 2;
+      let svg;
+      if (dip) {
+        // width follows the longest pin name, so the drawing fills the panel without empty margins
+        const longest = Math.max(...pins.map((q) => shortOf(q).length));
+        const n = pins.length, h = n / 2, pitch = 20, top = 14, bodyW = 54, side = 30 + longest * 7, W = bodyW + 2 * side, bx = side;
+        const H = top * 2 + h * pitch;
+        const byNum = (k) => pins.find((q) => q.id === String(k));
+        let s = `<rect x="${bx}" y="${top - 6}" width="${bodyW}" height="${h * pitch + 12}" rx="4" class="po-body"/>
+          <path d="M${W / 2 - 8},${top - 6} a8,8 0 0 0 16,0" class="po-notch"/>
+          <circle cx="${bx + 23}" cy="${top + 4}" r="2.6" class="po-dot"/>`;
+        for (let k = 1; k <= n; k++) {
+          const left = k <= h, row = left ? k - 1 : n - k;
+          const y = top + row * pitch + pitch / 2, q = byNum(k) || { id: String(k), label: '' };
+          const x0 = left ? bx - 12 : bx + bodyW, nx = left ? bx + 9 : bx + bodyW - 9;
+          s += `<rect x="${x0}" y="${y - 3.5}" width="12" height="7" rx="1" class="po-pin"/>
+            <text x="${nx}" y="${y + 3.5}" text-anchor="middle" class="po-num">${k}</text>
+            <text x="${left ? bx - 16 : bx + bodyW + 16}" y="${y + 3.8}" text-anchor="${left ? 'end' : 'start'}" class="po-name"><title>${WB.esc(k + ' · ' + nameOf(q))}</title>${WB.esc(shortOf(q))}</text>`;
+        }
+        svg = `<svg viewBox="0 0 ${W} ${H}" class="po-svg" role="img" aria-label="Pinout">${s}</svg>
+          <p class="muted small po-note">Top view, pin 1 at the notch. On the breadboard the chip lies turned: pin 1 is bottom-left, next to the notch.</p>`;
+      } else {
+        const [bx, by, bw, bh] = def.bbox(p.props || {}), pad = 6, lab = 12;
+        let s = `<g>${def.render(p, {})}</g>`;
+        for (const q of pins) s += `<circle cx="${q.x}" cy="${q.y}" r="1.6" class="po-leg"/><text x="${q.x}" y="${q.y + 8}" text-anchor="middle" class="po-legname">${WB.esc(q.id)}</text>`;
+        svg = `<svg viewBox="${bx - pad} ${by - pad} ${bw + 2 * pad} ${bh + 2 * pad + lab}" class="po-svg po-small" role="img" aria-label="Pinout">${s}</svg>
+          <div class="po-legend">${pins.map((q) => `<div><b>${WB.esc(q.id)}</b> ${WB.esc(nameOf(q))}</div>`).join('')}</div>`;
+      }
+      return `<label class="field-label">Pinout</label><div class="pinout">${svg}</div>`;
+    }
+
+    // During simulation: everything read-only except live controls (sliders such as knob, light, temperature).
+    lockForm(el) {
+      el.querySelectorAll('input:not([type=range]):not([data-live]), select:not([data-live]), button[data-act], .sw').forEach((x) => { x.disabled = true; });
+      if (!el.querySelector('.lock-note')) el.insertAdjacentHTML('afterbegin', '<div class="lock-note">🔒 Simulation running — stop it to edit. Sliders and instrument controls still work.</div>');
+    }
+
+    // ---------------- double-click properties dialog (Tinkercad-style)
+    openPropDialog(partId, clientX, clientY) {
+      const p = this.part(partId);
+      if (!p) return;
+      this.selection = new Set([p.id]);
+      this.selectionChanged();
+      const dlg = $('#prop-dialog');
+      dlg.dataset.part = p.id;
+      dlg.classList.add('open');
+      this.refreshPropDialog();
+      // place next to the pointer, kept inside the canvas
+      const st = $('#stage').getBoundingClientRect();
+      let x = clientX - st.left + 18, y = clientY - st.top - 20;
+      if (x + dlg.offsetWidth > st.width - 8) x = clientX - st.left - dlg.offsetWidth - 18;
+      x = WB.clamp(x, 8, Math.max(8, st.width - dlg.offsetWidth - 8));
+      y = WB.clamp(y, 8, Math.max(8, st.height - dlg.offsetHeight - 8));
+      dlg.style.left = x + 'px';
+      dlg.style.top = y + 'px';
+      const first = dlg.querySelector('select, input[type=number], input.name');
+      if (first) first.focus();
+    }
+    refreshPropDialog() {
+      const dlg = $('#prop-dialog');
+      if (!dlg.classList.contains('open')) return;
+      const p = this.part(dlg.dataset.part);
+      if (!p) { this.closePropDialog(); return; }
+      dlg.querySelector('.pdlg-title').textContent = (p.name || '') + ' — ' + PARTS[p.type].label;
+      this.renderPartForm(dlg.querySelector('.pdlg-body'), p, 'dlg', false);
+    }
+    closePropDialog() { $('#prop-dialog').classList.remove('open'); }
+    bindInspectorActions(el, wire) {
+      el.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => {
+        const a = b.dataset.act;
+        if (a === 'del') this.deleteSelection();
+        else if (a === 'rotate') this.rotateSelection(90);
+        else if (a === 'dup') this.duplicateSelection();
+        else if (a === 'straight' && wire) this.mutate(() => { wire.pts = []; wire.auto = false; });
+        else if (a === 'autoroute' && wire) this.mutate(() => { WB.Router.routeWire(this, wire); });
+      }));
+    }
+
+    // ---------------- palette
+    buildPalette() {
+      const pal = $('#palette');
+      let html = '';
+      for (const cat of WB.CATEGORIES) {
+        const types = Object.keys(PARTS).filter((t) => PARTS[t].category === cat);
+        if (!types.length) continue;
+        const shut = this.hiddenCats.has(cat);
+        html += `<div class="cat${shut ? ' collapsed' : ''}" data-cat="${WB.esc(cat)}"><button class="cat-title" title="Click to hide / show ${WB.esc(cat)}"><span class="chev">${shut ? '▸' : '▾'}</span><span>${WB.esc(cat)}</span><span class="count">${types.length}</span></button><div class="tiles">`;
+        for (const t of types) {
+          const def = PARTS[t];
+          const props = WB.clone(def.defaults);
+          const [x, y, w, h] = def.bbox(props);
+          const pad = 4;
+          html += `<div class="tile" draggable="true" data-type="${t}" title="${WB.esc(def.label)} — drag onto the canvas, or double-click to add">
+            <svg viewBox="${x - pad} ${y - pad} ${w + pad * 2} ${h + pad * 2}" preserveAspectRatio="xMidYMid meet">${def.render({ id: 'icon', type: t, props }, {})}</svg>
+            <span>${WB.esc(def.label)}</span></div>`;
+        }
+        html += '</div></div>';
+      }
+      pal.innerHTML = html;
+      pal.querySelectorAll('.cat-title').forEach((b) => b.addEventListener('click', () => {
+        const cat = b.parentElement.dataset.cat;
+        this.setCategory(cat, this.hiddenCats.has(cat));
+      }));
+      pal.querySelectorAll('.tile').forEach((tile) => {
+        tile.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/x-wb-part', tile.dataset.type); e.dataTransfer.setData('text/plain', tile.dataset.type); e.dataTransfer.effectAllowed = 'copy'; });
+        // Single click only explains; double-click (or drag and drop) adds the part.
+        tile.addEventListener('click', (e) => {
+          if (e.detail !== 1) return;
+          clearTimeout(this._tileHintT);
+          this._tileHintT = setTimeout(() => this.toast('Drag it onto the canvas, or double-click to add it.'), 350);
+        });
+        tile.addEventListener('dblclick', () => { clearTimeout(this._tileHintT); this.addPart(tile.dataset.type); });
+      });
+      $('#part-search').addEventListener('input', (e) => {
+        const q = e.target.value.trim().toLowerCase();
+        pal.querySelectorAll('.tile').forEach((t) => { t.style.display = !q || t.title.toLowerCase().includes(q) ? '' : 'none'; });
+        pal.querySelectorAll('.cat').forEach((c) => { c.style.display = [...c.querySelectorAll('.tile')].some((t) => t.style.display !== 'none') ? '' : 'none'; });
+        pal.classList.toggle('searching', !!q);
+      });
+    }
+    // Hide / show one category of the parts list (remembered between sessions).
+    setCategory(cat, show) {
+      if (show) this.hiddenCats.delete(cat); else this.hiddenCats.add(cat);
+      const el = [...document.querySelectorAll('#palette .cat')].find((c) => c.dataset.cat === cat);
+      if (el) { el.classList.toggle('collapsed', !show); el.querySelector('.chev').textContent = show ? '▾' : '▸'; }
+      try { localStorage.setItem('wirebench.hiddenCats', JSON.stringify([...this.hiddenCats])); } catch (e) { /* storage unavailable */ }
+    }
+    toggleAllCats() {
+      const cats = [...document.querySelectorAll('#palette .cat')].map((c) => c.dataset.cat);
+      const show = cats.every((c) => this.hiddenCats.has(c)); // all collapsed -> expand all, else collapse all
+      cats.forEach((c) => this.setCategory(c, show));
+    }
+
+    // ---------------- UI wiring
+    bindUI() {
+      document.querySelectorAll('[data-cmd]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.cmd(b.dataset.cmd); }));
+      document.addEventListener('click', () => document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open')));
+      // navigation buttons inside the help dialog
+      $('#modal-body').addEventListener('click', (e) => { const b = e.target.closest('[data-help]'); if (b) this.showHelp(b.dataset.help); });
+      const ex = $('#examples');
+      for (const cat of WB.EXAMPLE_CATEGORIES) {
+        const g = document.createElement('optgroup');
+        g.label = cat;
+        WB.EXAMPLES.forEach((x, i) => { if (x.category !== cat) return; const o = document.createElement('option'); o.value = i; o.textContent = x.label; o.title = x.name; g.appendChild(o); });
+        ex.appendChild(g);
+      }
+      ex.addEventListener('change', () => {
+        const v = ex.value;
+        ex.value = '';
+        if (v === '') return;
+        if (v === 'folder') { this.openExamplesFolder(); return; }
+        let name, get;
+        if (v.startsWith('u:')) {
+          const u = this.userExamples[+v.slice(2)];
+          if (!u) return;
+          name = u.name;
+          get = () => JSON.parse(u.contents);
+        } else {
+          name = WB.EXAMPLES[v].name;
+          get = () => WB.EXAMPLES[v].build();
+        }
+        if (!confirm(`Load example "${name}"? Your current project will be replaced (save it first if you need it).`)) return;
+        try { this.loadProject(get()); this.editor.fit(); }
+        catch (err) { alert(`Could not open example "${name}": ${err.message}`); }
+      });
+      this.userExamples = [];
+      if (WB.isDesktop) {
+        this.refreshUserExamples();
+        // pick up files added while the app was in the background (e.g. from File Explorer)
+        window.addEventListener('focus', () => this.refreshUserExamples());
+      }
+      $('#file-input').addEventListener('change', (e) => {
+        const f = e.target.files[0];
+        e.target.value = '';
+        if (!f) return;
+        f.text().then((t) => {
+          try { this.loadProject(JSON.parse(t)); this.editor.fit(); this.toast('Opened ' + f.name); }
+          catch (err) { alert('Could not open this file: ' + err.message); }
+        });
+      });
+      $('#serial-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const inp = $('#serial-input');
+        if (this.runtime && this.runtime.running) { this.runtime.serialInput(inp.value + (inp.value.startsWith('@') ? '' : '\n')); this.serialOut(''); }
+        else this.toast('Start the simulation to send data to the board.');
+        inp.value = '';
+      });
+      // properties dialog: close button, drag by title bar, close when clicking elsewhere on the canvas
+      const dlg = $('#prop-dialog');
+      dlg.querySelector('.pdlg-close').addEventListener('click', () => this.closePropDialog());
+      dlg.querySelector('.pdlg-head').addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.pdlg-close')) return;
+        e.preventDefault();
+        const sx = e.clientX - dlg.offsetLeft, sy = e.clientY - dlg.offsetTop;
+        const move = (ev) => { dlg.style.left = ev.clientX - sx + 'px'; dlg.style.top = Math.max(0, ev.clientY - sy) + 'px'; };
+        const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+      });
+      $('#canvas').addEventListener('pointerdown', (e) => {
+        if (!dlg.classList.contains('open')) return;
+        const pe = e.target.closest('.part');
+        if (!pe || pe.getAttribute('data-id') !== dlg.dataset.part) this.closePropDialog();
+      }, true);
+      window.addEventListener('keydown', (e) => this.onKey(e));
+      window.addEventListener('beforeunload', () => this.saveLocal());
+      // where the mouse is on the workspace (type-to-add puts the new part there)
+      this.mouse = { x: 0, y: 0, over: false };
+      $('#canvas').addEventListener('pointermove', (e) => { this.mouse = { x: e.clientX, y: e.clientY, over: true }; });
+      $('#canvas').addEventListener('pointerleave', () => { this.mouse.over = false; });
+      this.bindQuickAdd();
+    }
+
+    // ---------------- type-to-add: with the mouse over the workspace, typing a part name opens
+    // a small search box at the mouse; Enter (or a click) puts the chosen part there.
+    bindQuickAdd() {
+      const box = document.createElement('div');
+      box.id = 'quick-add';
+      box.innerHTML = '<input type="text" spellcheck="false" autocomplete="off" placeholder="Type a part name…"><div class="qa-list"></div><div class="qa-hint">↑ ↓ choose · Enter add · Esc close</div>';
+      document.body.appendChild(box);
+      const inp = box.querySelector('input'), list = box.querySelector('.qa-list');
+      this.qa = { box, inp, list, items: [], sel: 0 };
+      inp.addEventListener('input', () => this.quickAddFilter());
+      inp.addEventListener('keydown', (e) => {
+        const q = this.qa;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (q.items.length) { q.sel = (q.sel + (e.key === 'ArrowDown' ? 1 : -1) + q.items.length) % q.items.length; this.quickAddHighlight(); }
+        } else if (e.key === 'Enter') { e.preventDefault(); if (q.items[q.sel]) this.quickAddPick(q.items[q.sel]); }
+        else if (e.key === 'Escape') { e.preventDefault(); this.closeQuickAdd(); }
+        e.stopPropagation(); // keep Delete / Ctrl+Z etc. inside the search box
+      });
+      list.addEventListener('pointerdown', (e) => { const it = e.target.closest('.qa-item'); if (it) { e.preventDefault(); this.quickAddPick(it.dataset.type); } });
+      list.addEventListener('pointermove', (e) => { const it = e.target.closest('.qa-item'); if (it) { this.qa.sel = +it.dataset.i; this.quickAddHighlight(); } });
+      document.addEventListener('pointerdown', (e) => { if (box.classList.contains('open') && !box.contains(e.target)) this.closeQuickAdd(); }, true);
+    }
+    openQuickAdd(first) {
+      if (this.locked()) { this.lockedToast(); return; }
+      const q = this.qa;
+      q.at = { x: this.mouse.x, y: this.mouse.y };
+      q.box.classList.add('open');
+      // keep the box on screen
+      const W = 300, H = 330;
+      q.box.style.left = Math.max(8, Math.min(window.innerWidth - W - 8, q.at.x + 12)) + 'px';
+      q.box.style.top = Math.max(8, Math.min(window.innerHeight - H - 8, q.at.y + 12)) + 'px';
+      q.inp.value = first || '';
+      q.inp.focus();
+      this.quickAddFilter();
+    }
+    closeQuickAdd() {
+      this.qa.box.classList.remove('open');
+      if (document.activeElement === this.qa.inp) this.qa.inp.blur();
+    }
+    quickAddFilter() {
+      const q = this.qa, s = q.inp.value.trim().toLowerCase();
+      // rank: name starts with it, a word in the name starts with it, name contains it, then type / category
+      const scored = [];
+      for (const cat of WB.CATEGORIES) {
+        for (const t of Object.keys(PARTS)) {
+          const d = PARTS[t];
+          if (d.category !== cat) continue;
+          const name = d.label.toLowerCase();
+          let score = -1;
+          if (!s) score = 9;
+          else if (name.startsWith(s)) score = 0;
+          else if (name.split(/[\s(),·/–-]+/).some((w) => w.startsWith(s))) score = 1;
+          else if (s.length >= 4 && name.includes(s)) score = 2; // mid-word only for longer text ("led" ≠ "control·led")
+          else if (t.toLowerCase().startsWith(s) || cat.toLowerCase().split(/\s+/).some((w) => w.startsWith(s))) score = 3; // e.g. "sensors", "vcvs"
+          if (score >= 0) scored.push({ t, d, score, cat });
+        }
+      }
+      scored.sort((a, b) => a.score - b.score || a.d.label.localeCompare(b.d.label));
+      q.items = scored.slice(0, 8).map((x) => x.t);
+      q.sel = 0;
+      q.list.innerHTML = scored.length ? scored.slice(0, 8).map((x, i) => {
+        const props = WB.clone(x.d.defaults), [bx, by, bw, bh] = x.d.bbox(props), pad = 3;
+        return `<div class="qa-item" data-type="${x.t}" data-i="${i}"><svg viewBox="${bx - pad} ${by - pad} ${bw + 2 * pad} ${bh + 2 * pad}" preserveAspectRatio="xMidYMid meet">${x.d.render({ id: 'qa', type: x.t, props }, {})}</svg><span class="qa-name">${WB.esc(x.d.label)}</span><span class="qa-cat">${WB.esc(x.cat)}</span></div>`;
+      }).join('') : '<div class="qa-empty">No part matches.</div>';
+      this.quickAddHighlight();
+    }
+    quickAddHighlight() {
+      this.qa.list.querySelectorAll('.qa-item').forEach((el, i) => el.classList.toggle('active', i === this.qa.sel));
+    }
+    quickAddPick(type) {
+      const q = this.qa, r = this.editor.svg.getBoundingClientRect(), v = this.editor.view;
+      const at = { x: (q.at.x - r.left - v.x) / v.s, y: (q.at.y - r.top - v.y) / v.s };
+      this.closeQuickAdd();
+      if (type === 'note') {
+        // same as the toolbar button: open the note's editor right away
+        const before = this.project.parts.length;
+        this.addPart('note', at);
+        if (this.project.parts.length > before) {
+          const p = this.project.parts[this.project.parts.length - 1];
+          this.openPropDialog(p.id, q.at.x + 40, q.at.y);
+          const ta = $('#prop-dialog textarea');
+          if (ta) { ta.focus(); ta.select(); }
+        }
+        return;
+      }
+      this.addPart(type, at);
+    }
+    onKey(e) {
+      const el = document.activeElement;
+      const inField = /INPUT|TEXTAREA|SELECT/.test(el.tagName);
+      const mod = e.ctrlKey || e.metaKey;
+      // Letter of a Ctrl shortcut: the typed letter when it is Latin (so AZERTY etc. keep their
+      // own Z / Y), otherwise the physical key — with a Thai (or other non-Latin) layout active,
+      // the Z key types "ผ" but Ctrl+Z must still undo.
+      const k = /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : /^Key[A-Z]$/.test(e.code || '') ? e.code.slice(3).toLowerCase() : (e.key || '').toLowerCase();
+      if (e.key === 'F1') { e.preventDefault(); this.showHelp('guide'); return; }
+      if (mod && k === 's') { e.preventDefault(); this.cmd('save'); return; }
+      if (mod && e.key === 'Enter') { e.preventDefault(); this.cmd('run'); return; }
+      if (mod && k === 'b') { e.preventDefault(); this.cmd(e.shiftKey ? 'toggleLeft' : 'togglePanel'); return; }
+      // Undo / redo also from a settings box (number, slider, drop-down): the change is committed,
+      // then undone. Free-text fields (sketch code, note text, names, search) keep their own text undo.
+      if (mod && (k === 'z' || k === 'y')) {
+        const freeText = el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && /^(text|search|)$/.test(el.getAttribute('type') || ''));
+        if (!freeText) {
+          e.preventDefault();
+          if (inField) el.blur();
+          if (k === 'y' || e.shiftKey) this.redo(); else this.undo();
+          return;
+        }
+      }
+      if (e.key === 'Escape' && $('#prop-dialog').classList.contains('open')) { this.closePropDialog(); document.activeElement.blur(); return; }
+      if (e.key === 'Enter' && document.activeElement.closest && document.activeElement.closest('#prop-dialog')) { document.activeElement.blur(); return; }
+      if (mod && (e.key === '=' || e.key === '+')) { e.preventDefault(); this.editor.zoom(1.25); return; }
+      if (mod && e.key === '-') { e.preventDefault(); this.editor.zoom(0.8); return; }
+      if (mod && e.key === '0') { e.preventDefault(); this.editor.fit(); return; }
+      if (inField) return;
+      // type-to-add: a letter or digit with the mouse over the workspace opens the part search
+      // (R still rotates when something is selected; Space fits the view)
+      if (!mod && !e.altKey && this.mouse && this.mouse.over && e.key.length === 1 && /[a-z0-9]/i.test(e.key)
+        && !(/^r$/i.test(e.key) && this.selection.size)) {
+        e.preventDefault();
+        this.openQuickAdd(e.key);
+        return;
+      }
+      if (mod && k === 'o') { e.preventDefault(); this.cmd('open'); }
+      else if (mod && k === 'c') { e.preventDefault(); this.copySelection(false); }
+      else if (mod && k === 'x') { e.preventDefault(); this.copySelection(true); }
+      else if (mod && k === 'v') { e.preventDefault(); this.paste(); }
+      else if (mod && k === 'd') { e.preventDefault(); this.duplicateSelection(); }
+      else if (mod && k === 'a') { e.preventDefault(); this.selection = new Set(this.project.parts.map((p) => p.id).concat(this.project.wires.map((w) => w.id))); this.selectionChanged(); }
+      else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); this.deleteSelection(); }
+      else if (e.key === 'r' || e.key === 'R') this.rotateSelection(e.shiftKey ? -90 : 90);
+      else if (e.key === 'f' || e.key === 'F') this.editor.fit();
+      else if (!mod && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); this.cmd('note'); }
+      else if (e.key === 'Escape') { this.editor.hideMenu(); if (this.editor.drawing) this.editor.cancelDraw(); else this.clearSelection(); }
+      else if (e.key === '+' || e.key === '=') this.editor.zoom(1.2);
+      else if (e.key === '-') this.editor.zoom(1 / 1.2);
+    }
+    // Help dialog (topic: guide, shortcuts, parts, reference, trouble, about)
+    showHelp(topic) {
+      document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
+      const dlg = $('#modal');
+      dlg.classList.add('help');
+      dlg.classList.remove('wide'); // each dialog sets its own layout
+      $('#modal-body').innerHTML = WB.Help.render(topic);
+      $('#modal-body').scrollTop = 0;
+      if (!dlg.open) dlg.showModal();
+    }
+    // Themes: 'default' (slate panels, light canvas), 'light', 'dark'. The canvas follows the
+    // theme unless it was switched with the ◐ button (stored as wirebench.canvas).
+    applyTheme() {
+      let theme = 'default', canvas = null;
+      try { theme = localStorage.getItem('wirebench.theme') || 'default'; canvas = localStorage.getItem('wirebench.canvas'); } catch (e) { /* storage unavailable */ }
+      if (!['default', 'light', 'dark'].includes(theme)) theme = 'default';
+      if (theme === 'default') delete document.body.dataset.theme; else document.body.dataset.theme = theme;
+      document.body.classList.toggle('canvas-dark', canvas ? canvas === 'dark' : theme === 'dark');
+      document.querySelectorAll('#theme-menu button').forEach((b) => b.classList.toggle('on', b.dataset.cmd === 'theme:' + theme));
+      return theme;
+    }
+    setTheme(theme) {
+      try { localStorage.setItem('wirebench.theme', theme); localStorage.removeItem('wirebench.canvas'); } catch (e) { /* storage unavailable */ }
+      this.applyTheme();
+      this.toast(`${theme[0].toUpperCase() + theme.slice(1)} theme`);
+    }
+    cmd(c) {
+      if (c.startsWith('help:')) { this.showHelp(c.slice(5)); return; }
+      if (c.startsWith('theme:')) { document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open')); this.setTheme(c.slice(6)); return; }
+      switch (c) {
+        case 'new':
+          if (!confirm('Start a new empty project? Unsaved changes will be lost.')) return;
+          this.loadProject({ parts: [], wires: [], code: WB.DEFAULT_CODE });
+          break;
+        case 'open': if (WB.isDesktop) this.openDesktop(); else $('#file-input').click(); break;
+        case 'note': this.addNote(); break;
+        case 'save': {
+          const data = JSON.stringify({ app: 'wirebench', version: 1, parts: this.project.parts, wires: this.project.wires, code: this.code.value }, null, 1);
+          this.saveAs('wirebench-project.json', new Blob([data], { type: 'application/json' }), 'Wirebench project', ['json']);
+          break;
+        }
+        case 'exportMenu': $('#help-menu').classList.remove('open'); $('#theme-menu').classList.remove('open'); $('#export-menu').classList.toggle('open'); break;
+        case 'helpMenu': $('#export-menu').classList.remove('open'); $('#theme-menu').classList.remove('open'); $('#help-menu').classList.toggle('open'); break;
+        case 'themeMenu': $('#export-menu').classList.remove('open'); $('#help-menu').classList.remove('open'); $('#theme-menu').classList.toggle('open'); break;
+        case 'exportSVG': this.saveAs('wirebench-breadboard.svg', new Blob([this.editor.exportSVGString()], { type: 'image/svg+xml' }), 'SVG image', ['svg']); break;
+        case 'exportPNG': this.exportPNG(); break;
+        case 'exportSketch': this.saveAs('sketch.ino', new Blob([this.code.value], { type: 'text/plain' }), 'Arduino sketch', ['ino']); break;
+        case 'netlist': this.showNetlist(); break;
+        case 'schematic': this.showSchematic(); break;
+        case 'spice': this.showSpice(); break;
+        case 'undo': this.undo(); break;
+        case 'redo': this.redo(); break;
+        case 'rotate': this.rotateSelection(90); break;
+        case 'duplicate': this.duplicateSelection(); break;
+        case 'tidy': this.tidyAllWires(); break;
+        case 'copy': this.copySelection(false); break;
+        case 'paste': this.paste(); break;
+        case 'zoom100': this.editor.setZoom(1); break;
+        case 'canvasTheme': {
+          const dark = !document.body.classList.contains('canvas-dark');
+          document.body.classList.toggle('canvas-dark', dark);
+          try { localStorage.setItem('wirebench.canvas', dark ? 'dark' : 'light'); } catch (e) { /* storage unavailable */ }
+          this.toast(dark ? 'Dark canvas' : 'Light canvas');
+          break;
+        }
+        case 'delete': this.deleteSelection(); break;
+        case 'zoomIn': this.editor.zoom(1.25); break;
+        case 'zoomOut': this.editor.zoom(0.8); break;
+        case 'fit': this.editor.fit(); break;
+        case 'run': if (this.sim) this.stopSim(); else this.startSim(); break;
+        case 'verify': this.verify(); break;
+        case 'togglePanel': this.setCodePanel(document.body.classList.contains('code-hidden')); break;
+        case 'toggleAllCats': this.toggleAllCats(); break;
+        case 'toggleLeft': this.setLeftPanel(document.body.classList.contains('left-hidden')); break;
+        case 'clearSerial': $('#serial-out').textContent = ''; break;
+        case 'mute': Audio.muted = !Audio.muted; $('#btn-mute').textContent = Audio.muted ? '🔇' : '🔊'; if (Audio.muted) Audio.stopAll(); break;
+      }
+    }
+
+    // ---------------- persistence
+    loadProject(o, quiet) {
+      if (this.sim) this.stopSim();
+      this.closePropDialog();
+      this.project = {
+        parts: (o.parts || []).filter((p) => PARTS[p.type]).map((p) => Object.assign({ rot: 0, props: {} }, p, { props: Object.assign(WB.clone(PARTS[p.type].defaults), p.props || {}) })),
+        wires: (o.wires || []).map((w) => Object.assign({ pts: [], color: '#2f7de1' }, w)),
+        code: o.code !== undefined ? o.code : WB.DEFAULT_CODE,
+      };
+      for (const p of this.project.parts) if (!p.name) p.name = this.nextName(PARTS[p.type].prefix);
+      // wires marked "route" (e.g. in examples) are laid out by the auto-router
+      const toRoute = this.project.wires.filter((w) => w.route);
+      if (toRoute.length) { WB.Router.routeMany(this, toRoute); toRoute.forEach((w) => delete w.route); }
+      this.selection = new Set();
+      this.undoStack = [];
+      this.redoStack = [];
+      this.transient = {};
+      this.code.value = this.project.code;
+      this.clearConsole();
+      this.scheduleLiveCheck();
+      this.changed();
+      if (!quiet) this.toast('Project loaded');
+    }
+    saveLocal() {
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ parts: this.project.parts, wires: this.project.wires, code: this.code.value })); } catch (e) { /* storage unavailable */ }
+    }
+    saveLocalSoon() { clearTimeout(this._saveT); this._saveT = setTimeout(() => this.saveLocal(), 600); }
+    loadLocal() {
+      try { const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; }
+    }
+
+    // ---------------- files (browser download, or native dialogs in the desktop app)
+    async saveAs(name, blob, filterName, exts) {
+      if (!WB.isDesktop) { WB.download(name, blob); this.toast('Saved ' + name); return; }
+      try {
+        const args = { defaultName: name, filterName, extensions: exts, text: null, base64: null };
+        if (/^(text|application\/json|image\/svg)/.test(blob.type)) args.text = await blob.text();
+        else {
+          const bytes = new Uint8Array(await blob.arrayBuffer());
+          let bin = '';
+          for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+          args.base64 = btoa(bin);
+        }
+        const path = await WB.invoke('save_file', args);
+        if (path) this.toast('Saved ' + path);
+      } catch (e) { alert('Could not save: ' + e); }
+    }
+    // Example projects saved as files in %APPDATA%\Wirebench\examples (or an "examples"
+    // folder next to wirebench.exe) are listed under "My examples" — no rebuild needed.
+    async refreshUserExamples() {
+      let res;
+      try { res = await WB.invoke('list_examples'); } catch (e) { console.warn('Wirebench: could not list examples', e); return; }
+      const sig = JSON.stringify(res.items.map((u) => [u.file, u.contents.length]));
+      if (sig === this._userExSig) return;
+      this._userExSig = sig;
+      this.userExamples = res.items.map((u) => {
+        let name = u.name;
+        try { const j = JSON.parse(u.contents); if (j && typeof j.name === 'string' && j.name.trim()) name = j.name.trim(); } catch (e) { /* reported when chosen */ }
+        return { name, file: u.file, contents: u.contents };
+      });
+      const ex = $('#examples');
+      ex.querySelectorAll('.user-ex').forEach((n) => n.remove());
+      const g = document.createElement('optgroup');
+      g.className = 'user-ex';
+      g.label = 'My examples';
+      this.userExamples.forEach((u, i) => { const o = document.createElement('option'); o.value = 'u:' + i; o.textContent = u.name; o.title = u.file; g.appendChild(o); });
+      const o = document.createElement('option');
+      o.value = 'folder';
+      o.textContent = 'Open examples folder…';
+      o.title = res.dir;
+      g.appendChild(o);
+      ex.appendChild(g);
+    }
+    async openExamplesFolder() {
+      try { await WB.invoke('open_examples_folder'); this.toast('Save a project into this folder and it appears under "My examples".'); }
+      catch (e) { alert('Could not open the examples folder: ' + e); }
+    }
+    async openDesktop() {
+      try {
+        const f = await WB.invoke('open_project');
+        if (!f) return;
+        this.loadProject(JSON.parse(f.contents));
+        this.editor.fit();
+        this.toast('Opened ' + f.name);
+      } catch (e) { alert('Could not open this file: ' + e); }
+    }
+
+    // ---------------- export / netlist
+    // Export → Schematic diagram: preview the generated sheet, save it as SVG or PNG.
+    showSchematic() {
+      document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
+      if (!this.project.parts.some((p) => PARTS[p.type] && !PARTS[p.type].holes && !PARTS[p.type].annotation)) { this.toast('Add some parts first — the schematic is drawn from the circuit on the workspace.'); return; }
+      let mode = 'wires';
+      try { mode = localStorage.getItem('wirebench.schMode') || 'wires'; } catch (e) { /* storage unavailable */ }
+      let sch;
+      const render = () => {
+        sch = WB.Schematic.build(this, { mode });
+        const how = mode === 'wires'
+          ? 'Connections are drawn as wires; a dot marks wires that are joined, wires that cross without a dot are not connected.'
+          : 'Connections are shown with net labels: pins that carry the same label are connected.';
+        $('#modal-body').innerHTML = `<h2>Schematic</h2>
+          <p class="muted small">Drawn from the circuit on the workspace: ${sch.parts} parts, ${sch.nets} nets. ${how} The breadboard itself isn't drawn — only what it connects.</p>
+          <div class="sch-actions">
+            <span class="seg"><button data-mode="wires" class="${mode === 'wires' ? 'on' : ''}">Wires</button><button data-mode="labels" class="${mode === 'labels' ? 'on' : ''}">Net labels</button></span>
+            <button data-sch="svg">Save as SVG (vector)</button><button data-sch="png">Save as PNG (image)</button></div>
+          <div class="sch-preview">${sch.svg}</div>`;
+        $('#modal-body').querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => {
+          mode = b.dataset.mode;
+          try { localStorage.setItem('wirebench.schMode', mode); } catch (e) { /* storage unavailable */ }
+          render();
+        }));
+        $('#modal-body').querySelectorAll('[data-sch]').forEach((b) => b.addEventListener('click', () => {
+          if (b.dataset.sch === 'svg') this.saveAs('wirebench-schematic.svg', new Blob([sch.svg], { type: 'image/svg+xml' }), 'SVG image', ['svg']);
+          else this.schematicPNG(sch);
+        }));
+      };
+      render();
+      $('#modal').classList.remove('help');
+      $('#modal').classList.add('wide');
+      $('#modal').addEventListener('close', () => { if (!$('#modal').open) $('#modal').classList.remove('wide'); }, { once: true }); // not if another viewer opened meanwhile
+      $('#modal').showModal();
+    }
+    // Export → SPICE netlist for LTspice: preview the .cir text and save it.
+    showSpice() {
+      document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
+      if (!this.project.parts.some((p) => PARTS[p.type] && !PARTS[p.type].holes && !PARTS[p.type].annotation)) { this.toast('Add some parts first — the netlist is written from the circuit on the workspace.'); return; }
+      const net = WB.Spice.build(this);
+      $('#modal-body').innerHTML = `<h2>SPICE netlist for LTspice</h2>
+        <p class="muted small">Written from the circuit on the workspace with the same models Wirebench simulates, plus BJT / MOSFET / op-amp models. Save it as a <b>.cir</b> file and open it in LTspice (File → Open), then press Run. Analysis: <code>${WB.esc(net.analysis)}</code>.${net.skipped ? ` ${net.skipped} digital / behavioural part${net.skipped > 1 ? 's are' : ' is'} listed as comments with their pin nets.` : ''}</p>
+        <div class="sch-actions"><button data-spice="save">Save as .cir</button><button data-spice="copy">Copy to clipboard</button></div>
+        <pre class="spice-text">${WB.esc(net.text)}</pre>`;
+      $('#modal-body').querySelector('[data-spice="save"]').addEventListener('click', () => this.saveAs('wirebench.cir', new Blob([net.text], { type: 'text/plain' }), 'SPICE netlist', ['cir', 'net', 'sp']));
+      $('#modal-body').querySelector('[data-spice="copy"]').addEventListener('click', () => {
+        (navigator.clipboard ? navigator.clipboard.writeText(net.text) : Promise.reject()).then(() => this.toast('Netlist copied'), () => this.toast('Copy failed — select the text and press Ctrl+C'));
+      });
+      $('#modal').classList.remove('help');
+      $('#modal').classList.add('wide');
+      $('#modal').addEventListener('close', () => { if (!$('#modal').open) $('#modal').classList.remove('wide'); }, { once: true }); // not if another viewer opened meanwhile
+      $('#modal').showModal();
+    }
+    schematicPNG(sch) {
+      const img = new Image();
+      const url = URL.createObjectURL(new Blob([sch.svg], { type: 'image/svg+xml' }));
+      img.onload = () => {
+        const k = 2, c = document.createElement('canvas');
+        c.width = sch.width * k; c.height = sch.height * k;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.scale(k, k); ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        c.toBlob((b) => this.saveAs('wirebench-schematic.png', b, 'PNG image', ['png']), 'image/png');
+      };
+      img.src = url;
+    }
+    exportPNG() {
+      const svg = this.editor.exportSVGString();
+      const img = new Image();
+      const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.width * 2; c.height = img.height * 2;
+        const ctx = c.getContext('2d');
+        ctx.scale(2, 2);
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+        c.toBlob((b) => this.saveAs('wirebench-breadboard.png', b, 'PNG image', ['png']), 'image/png');
+      };
+      img.src = url;
+    }
+    showNetlist() {
+      const topo = this.getTopo();
+      const byPart = {};
+      for (const p of this.project.parts) byPart[p.id] = p;
+      // Parts list
+      const groups = {};
+      for (const p of this.project.parts) {
+        const def = PARTS[p.type];
+        if (def.annotation) continue; // notes are not components
+        const key = def.label + (def.summary ? ' — ' + def.summary(p) : '');
+        (groups[key] = groups[key] || []).push(p.name);
+      }
+      let html = '<h3>Parts list</h3><table><tr><th>Qty</th><th>Part</th><th>Labels</th></tr>';
+      for (const k of Object.keys(groups).sort()) html += `<tr><td>${groups[k].length}</td><td>${WB.esc(k)}</td><td>${WB.esc(groups[k].join(', '))}</td></tr>`;
+      html += '</table><h3>Netlist</h3><table><tr><th>Net</th><th>Connections</th></tr>';
+      let n = 0;
+      topo.nets.forEach((keys, idx) => {
+        const conns = keys.filter((k) => { const p = byPart[k.split(':')[0]]; return p && !PARTS[p.type].holes; })
+          .map((k) => { const [pid, pin] = k.split(':'); return byPart[pid].name + '.' + pin; });
+        if (conns.length < 2 && idx !== 0) return;
+        if (!conns.length) return;
+        html += `<tr><td>${idx === 0 ? 'GND' : 'N' + ++n}</td><td>${WB.esc(conns.join(', '))}</td></tr>`;
+      });
+      html += '</table>';
+      $('#modal-body').innerHTML = html;
+      $('#modal').classList.remove('help', 'wide'); // each dialog sets its own layout
+      $('#modal').showModal();
+    }
+
+    // ---------------- console / serial / toast
+    log(msg, kind) {
+      const c = $('#console');
+      const d = document.createElement('div');
+      d.className = 'msg ' + (kind || 'info');
+      d.textContent = msg;
+      c.appendChild(d);
+      while (c.children.length > 60) c.firstChild.remove();
+      c.scrollTop = c.scrollHeight;
+      c.classList.add('has');
+      if (kind === 'error') { this.setCodePanel(true); this.setSection('sketch', true); } // sketch errors must be visible
+    }
+    // Collapsible panel sections: parts, inspector, sketch, serial (▾ / ▸ buttons in their headers).
+    setSection(sec, show) {
+      const cls = 'hide-' + sec;
+      if (show === !document.body.classList.contains(cls)) return;
+      document.body.classList.toggle(cls, !show);
+      document.querySelectorAll(`.sec-toggle[data-sec="${sec}"]`).forEach((b) => { b.textContent = show ? '▾' : '▸'; });
+      this.saveLayout();
+    }
+    // Show / hide the whole left panel (parts list and inspector).
+    setLeftPanel(show, quiet) {
+      if (show === !document.body.classList.contains('left-hidden')) return;
+      document.body.classList.toggle('left-hidden', !show);
+      $('#btn-left').classList.toggle('active', show);
+      this.saveLayout();
+      if (!quiet) this.toast(show ? 'Parts panel shown' : 'Parts panel hidden (Ctrl+Shift+B to show it)');
+    }
+    saveLayout() {
+      const b = document.body.classList;
+      const o = { left: !b.contains('left-hidden') };
+      for (const sec of ['parts', 'inspector', 'sketch', 'serial']) o[sec] = !b.contains('hide-' + sec);
+      try { localStorage.setItem('wirebench.layout', JSON.stringify(o)); } catch (e) { /* storage unavailable */ }
+    }
+    loadLayout() {
+      let o = null;
+      try { o = JSON.parse(localStorage.getItem('wirebench.layout') || 'null'); } catch (e) { /* storage unavailable */ }
+      document.querySelectorAll('.sec-toggle').forEach((b) => b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sec = b.dataset.sec;
+        this.setSection(sec, document.body.classList.contains('hide-' + sec));
+      }));
+      if (!o) return;
+      if (o.left === false) this.setLeftPanel(false, true);
+      for (const sec of ['parts', 'inspector', 'sketch', 'serial']) if (o[sec] === false) this.setSection(sec, false);
+    }
+    // Show / hide the right-hand code panel (sketch, console, serial monitor).
+    setCodePanel(show, quiet) {
+      const hidden = document.body.classList.contains('code-hidden');
+      if (show === !hidden) return;
+      document.body.classList.toggle('code-hidden', !show);
+      const b = $('#btn-panel');
+      if (b) { b.classList.toggle('active', show); b.classList.remove('news'); }
+      try { localStorage.setItem('wirebench.codePanel', show ? 'shown' : 'hidden'); } catch (e) { /* storage unavailable */ }
+      if (!quiet) this.toast(show ? 'Code panel shown' : 'Code panel hidden — more room for the circuit (Ctrl+B to show it)');
+    }
+    clearConsole() { const c = $('#console'); c.textContent = ''; c.classList.remove('has'); }
+    serialOut(s) { this.serialBuf += s; }
+    flushSerial() {
+      if (!this.serialBuf) return;
+      const el = $('#serial-out');
+      let t = el.textContent + this.serialBuf;
+      this.serialBuf = '';
+      if (t.length > 60000) t = t.slice(-50000);
+      el.textContent = t;
+      if ($('#autoscroll').checked) el.scrollTop = el.scrollHeight;
+      if (document.body.classList.contains('code-hidden')) $('#btn-panel').classList.add('news'); // new serial output while hidden
+    }
+    toast(msg) {
+      const t = $('#toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(this._toastT);
+      this._toastT = setTimeout(() => t.classList.remove('show'), 2600);
+    }
+    updateBoardLabel() {
+      const b = this.boardPart();
+      $('#board-label').textContent = b ? PARTS[b.type].board.short : 'no board';
+    }
+
+    // ---------------- simulation
+    markDirty() { this.dirty = true; }
+    ensureSolved() { if (this.sim && this.dirty) this.solveNow(); }
+    solveNow() {
+      this.dirty = false;
+      const b = this.boardPart();
+      const analog = this.analogRequest();
+      this.results = WB.Circuit.solve(this.getTopo(), this.project, this.sim, { boardId: b && b.id, transient: this.transient, analog });
+      if (this.results.analog) this.captureAnalog(analog, this.results.analog);
+      // a part changed its own state (e.g. power supply switched to current limiting): solve again
+      if (Object.values(this.results.vis).some((v) => v.again)) this.dirty = true;
+      if (this.runtime) this.runtime.onSolved();
+      for (const w of this.results.warnings) {
+        if (!this.sim.warned.has(w)) { this.sim.warned.add(w); this.log('⚠ ' + w, 'warn'); }
+      }
+      this.noteWarnings(this.results.warnings);
+    }
+
+    // Warnings on the canvas. A problem that only exists part of the time (an LED without a
+    // resistor on a blinking pin, a current peak during a PWM pulse) would otherwise flash on and
+    // off with every solve. Each warning therefore stays at least WARN_HOLD ms after it last
+    // occurred, then fades out; warnings that differ only in their numbers ("42 mA" / "43 mA")
+    // count as one and are updated in place. At most WARN_MAX are shown, oldest first.
+    noteWarnings(list) {
+      const now = performance.now();
+      if (!this.warnHold) this.warnHold = new Map();
+      for (const w of list) {
+        const k = w.replace(/-?\d+(?:\.\d+)?/g, '#');
+        const old = this.warnHold.get(k);
+        this.warnHold.set(k, { text: w, first: old ? old.first : now, until: now + WARN_HOLD });
+      }
+      this.renderWarnings(now);
+    }
+    renderWarnings(now) {
+      if (!this.warnHold) return;
+      now = now || performance.now();
+      for (const [k, v] of this.warnHold) if (v.until + WARN_FADE < now) this.warnHold.delete(k);
+      const shown = [...this.warnHold.values()].sort((a, b) => a.first - b.first).slice(0, WARN_MAX);
+      // the text plus whether it is fading decides if the banner needs redrawing
+      const key = shown.map((v) => (v.until < now ? '~' : '') + v.text).join('\n');
+      if (key === this.warnShown) return;
+      this.warnShown = key;
+      $('#warnings').innerHTML = shown.map((v) => `<div class="${v.until < now ? 'fading' : ''}">⚠ ${WB.esc(v.text)}</div>`).join('');
+    }
+    clearWarnings() { this.warnHold = new Map(); this.warnShown = ''; $('#warnings').innerHTML = ''; }
+    // Modulino parts of a type that sit on the board's I2C bus (SDA + SCL connected) and have 3.3 V power.
+    i2cDevices(type, o) {
+      o = o || {};
+      const vcc = o.vcc || '3V3', vmin = o.vmin || 2.8;
+      const b = this.boardPart();
+      if (!b) return [];
+      this.ensureSolved();
+      const topo = this.getTopo();
+      const bus = PARTS[b.type].board.i2c;
+      const sda = topo.nodeOf.get(b.id + ':' + bus.sda), scl = topo.nodeOf.get(b.id + ':' + bus.scl);
+      const V = (k) => (k && this.results ? this.results.V[k] || 0 : 0);
+      return this.project.parts.filter((p) => {
+        if (p.type !== type || (o.pred && !o.pred(p))) return false;
+        const n = (id) => topo.nodeOf.get(p.id + ':' + id);
+        return sda !== undefined && n('SDA') === sda && n('SCL') === scl && V(n(vcc)) - V(n('GND')) > vmin;
+      });
+    }
+    // Parts of a type whose pins are wired to the given board pins, e.g. { RS: 'D12', E: 'D11' }.
+    wiredParts(type, map, pred) {
+      const b = this.boardPart();
+      if (!b) return [];
+      const topo = this.getTopo();
+      return this.project.parts.filter((p) => p.type === type && (!pred || pred(p)) && Object.entries(map).every(([pin, bpin]) => {
+        const a = topo.nodeOf.get(p.id + ':' + pin), bb = topo.nodeOf.get(b.id + ':' + bpin);
+        return a !== undefined && a === bb;
+      }));
+    }
+    // Voltage between two pins of a part (0 when not solved yet).
+    partVolts(p, pa, pb) {
+      const topo = this.getTopo();
+      const V = (id) => { const k = topo.nodeOf.get(p.id + ':' + id); return k && this.results ? this.results.V[k] || 0 : 0; };
+      return V(pa) - V(pb);
+    }
+    // Wire a Modulino's GND/3.3V/SDA/SCL to the board's Qwiic connector (or its I2C header pins).
+    connectQwiic(part) {
+      const b = this.boardPart();
+      if (!b) { this.toast('Add a board first.'); return; }
+      const spec = PARTS[b.type].board;
+      const targets = spec.qwiic ? ['QGND', 'Q3V3', 'QSDA', 'QSCL'] : ['GND', '3V3', spec.i2c.sda, spec.i2c.scl];
+      const colors = ['#1f1f1f', '#d62828', '#2f7de1', '#f2c200'];
+      this.mutate(() => {
+        this.project.wires = this.project.wires.filter((w) => !(w.a.part === part.id || w.b.part === part.id));
+        ['GND', '3V3', 'SDA', 'SCL'].forEach((pin, i) => {
+          this.project.wires.push({ id: WB.uid('w'), a: { part: part.id, pin }, b: { part: b.id, pin: targets[i] }, pts: [], color: colors[i] });
+        });
+      });
+      this.toast(`${part.name} connected to the ${spec.qwiic ? 'Qwiic connector' : 'I2C pins (SDA/SCL)'} of ${spec.short}.`);
+    }
+
+    // Echo pulse length (µs) for pulseIn() on a board pin wired to an HC-SR04 Echo that was triggered.
+    echoMicros(pin, lastPulse) {
+      const b = this.boardPart();
+      const topo = this.getTopo();
+      const node = topo.nodeOf.get(b.id + ':' + pin);
+      if (node === undefined || !this.results) return 0;
+      const V = (k) => (k ? this.results.V[k] || 0 : 0);
+      const now = this.runtime ? this.runtime.millis() : 0;
+      for (const p of this.project.parts) {
+        const n = (id) => topo.nodeOf.get(p.id + ':' + id);
+        if (p.type === 'ping') {
+          // 3-pin sensor: trigger and echo share the SIG pin
+          if (n('SIG') !== node) continue;
+          if (V(n('5V')) - V(n('GND')) < 4) { this.runtime && this.runtime.warnOnce('us-power:' + p.id, `${p.name}: the ultrasonic sensor needs 5 V and GND connected.`); continue; }
+          if (!(now - (lastPulse[pin] || -1e9) < 100)) { this.runtime && this.runtime.warnOnce('us-trig:' + p.id, `${p.name}: pulse SIG HIGH (OUTPUT) for about 5 µs, then switch the pin to INPUT and call pulseIn().`); continue; }
+          return Math.round(Number(p.props.cm) * 58.3);
+        }
+        if (p.type !== 'hcsr04') continue;
+        if (n('ECHO') !== node) continue;
+        if (V(n('VCC')) - V(n('GND')) < 4) { this.runtime && this.runtime.warnOnce('us-power:' + p.id, `${p.name}: the ultrasonic sensor needs 5 V on VCC and GND connected.`); continue; }
+        const trig = n('TRIG');
+        const triggered = Object.keys(lastPulse).some((name) => now - lastPulse[name] < 100 && topo.nodeOf.get(b.id + ':' + name) === trig);
+        if (!triggered) { this.runtime && this.runtime.warnOnce('us-trig:' + p.id, `${p.name}: no trigger pulse seen on Trig. Pulse it HIGH for 10 µs before pulseIn().`); continue; }
+        return Math.round(Number(p.props.cm) * 58.3);
+      }
+      return 0;
+    }
+    // Settings for the time-domain solver (used when the circuit has capacitors or a function
+    // generator): real time passed since the last solve, the nodes the scopes probe, and the
+    // sample spacing the finest scope time base needs (500 points per screen).
+    analogRequest() {
+      const an = this.sim.analog;
+      const now = performance.now();
+      an.elapsed = an.lastReal == null ? 0 : (now - an.lastReal) / 1000;
+      an.lastReal = now;
+      const topo = this.getTopo();
+      an.probes = [];
+      an.scopes = [];
+      let res = 1e-3;
+      an.fine = false;
+      for (const p of this.project.parts) {
+        if (p.type !== 'scope') continue;
+        const W = ((+p.props.tdiv || 20) * WB.SCOPE_DIVX) / 1000; // screen width in seconds
+        // while AUTO measures, keep every solver step (no decimation) and don't let the
+        // current time base shrink the step, so any period can be found quickly
+        const fine = !!(WB.scopeAuto && WB.scopeAuto.has(p.id));
+        if (fine) an.fine = true;
+        else res = Math.min(res, W / 500);
+        const idx = {};
+        for (const id of ['CH1', 'CH2', 'GND']) {
+          const k = topo.nodeOf.get(p.id + ':' + id);
+          idx[id] = { k, i: an.probes.length };
+          an.probes.push(k === undefined ? 0 : k);
+        }
+        an.scopes.push({ p, idx, W: W * 1000, fine });
+      }
+      an.res = res;
+      return an;
+    }
+    // Append the time-domain samples of each scope's channels (t in ms of simulated time).
+    captureAnalog(an, out) {
+      const topo = this.getTopo(), R = this.results;
+      const P = out.nProbes + 1, S = out.samples;
+      for (const sc of an.scopes) {
+        const buf = (this.sim.scope[sc.p.id] = this.sim.scope[sc.p.id] || []);
+        if (buf.length && !buf[buf.length - 1].lin) buf.length = 0;
+        const ok = (id) => { const k = sc.idx[id].k; return k !== undefined && topo.nets[k] && topo.nets[k].length > 1 && !(k !== 0 && R.floating.has(k)); };
+        const c1 = ok('CH1'), c2 = ok('CH2');
+        const spacing = sc.fine ? 0 : sc.W / 500 * 0.999;
+        for (let o = 0; o + P <= S.length; o += P) {
+          const t = S[o] * 1000;
+          if (buf.length && t - buf[buf.length - 1].t < spacing) continue;
+          const g = S[o + 1 + sc.idx.GND.i];
+          buf.push({ t, v1: c1 ? +(S[o + 1 + sc.idx.CH1.i] - g).toFixed(5) : null, v2: c2 ? +(S[o + 1 + sc.idx.CH2.i] - g).toFixed(5) : null, lin: true });
+        }
+        const keep = buf.length && !sc.fine ? buf[buf.length - 1].t - 2.2 * sc.W : -Infinity;
+        let drop = 0;
+        while (drop < buf.length - 2 && buf[drop].t < keep) drop++;
+        if (buf.length - drop > 6000) drop = buf.length - 6000;
+        if (drop) buf.splice(0, drop);
+      }
+    }
+    // Record oscilloscope channel voltages (and PWM waveform) once per frame.
+    captureScopes() {
+      if (!this.results || this.results.analog) return;
+      const topo = this.getTopo(), R = this.results;
+      const t = performance.now() - this.sim.t0;
+      for (const p of this.project.parts) {
+        if (p.type !== 'scope') continue;
+        const n = (id) => topo.nodeOf.get(p.id + ':' + id);
+        const ng = n('GND');
+        const connected = (k) => k !== undefined && topo.nets[k] && topo.nets[k].length > 1 && !(k !== 0 && R.floating.has(k));
+        const chan = (id) => {
+          const k = n(id);
+          if (!connected(k)) return [null, null];
+          const v = (k ? R.V[k] : 0) - (ng ? R.V[ng] : 0);
+          const w = R.wave(k);
+          return [+v.toFixed(4), w && { hi: w.hi - (ng ? R.V[ng] : 0), lo: w.lo - (ng ? R.V[ng] : 0), duty: w.duty, periodMs: w.periodMs }];
+        };
+        const [v1, w1] = chan('CH1'), [v2, w2] = chan('CH2');
+        const buf = (this.sim.scope[p.id] = this.sim.scope[p.id] || []);
+        buf.push({ t, v1, w1, v2, w2 });
+        while (buf.length > 2 && buf[1].t < t - 10500) buf.shift(); // keep ~10 s (the longest time base)
+        if (buf.length > 4000) buf.splice(0, buf.length - 4000);
+      }
+    }
+    pinReading(name) {
+      const b = this.boardPart();
+      const node = this.getTopo().nodeOf.get(b.id + ':' + name);
+      if (node === undefined || !this.results) return { v: 0, floating: true };
+      if (node === 0) return { v: 0, floating: false };
+      return { v: this.results.V[node], floating: this.results.floating.has(node) };
+    }
+    frame() {
+      requestAnimationFrame(this.frame);
+      if (this.sim) {
+        // time-domain circuits (capacitors, function generators) advance every frame
+        if (this.dirty || (this.results && this.results.analog)) this.solveNow();
+        this.captureScopes();
+        this.editor.applyVisuals();
+        this.renderWarnings(); // let held warnings expire even when nothing is being solved
+        const t = (performance.now() - this.sim.t0) / 1000;
+        const an = this.results && this.results.analog;
+        $('#sim-time').textContent = 'Running ' + Math.floor(t / 60) + ':' + (t % 60).toFixed(1).padStart(4, '0') + (an && an.speed < 0.95 ? ` · analog slow-motion ${Math.max(1, Math.round(an.speed * 100))}%` : '');
+        if (this.results) {
+          const live = new Set();
+          for (const id in this.results.vis) {
+            const v = this.results.vis[id];
+            if (v.on && v.freq) { Audio.set(id, v.freq); live.add(id); }
+          }
+          for (const id in Audio.osc) if (!live.has(id)) Audio.set(id, 0);
+        }
+      }
+      this.flushSerial();
+    }
+    compile(apiNames) {
+      const b = this.boardPart();
+      const tr = WB.Sketch.transpile(this.code.value, apiNames, { board: b ? PARTS[b.type].board : null });
+      if (tr.error) return Promise.reject(tr.error);
+      return WB.Sketch.load(tr.js).then((r) => Object.assign(r, { tr }));
+    }
+    // API names for the current board (used by Verify and the live checker)
+    apiNamesFor() {
+      const b = this.boardPart();
+      const spec = b ? PARTS[b.type].board : WB.BOARDS['board-uno-q'];
+      return Object.keys(new WB.Runtime(this, b || { type: 'board-uno-q', x: 0, y: 0, rot: 0, props: {} }, spec).makeApi());
+    }
+    // Check the sketch a moment after typing stops, and mark the first error.
+    scheduleLiveCheck() {
+      clearTimeout(this._liveT);
+      this._liveT = setTimeout(() => this.liveCheck(), 900);
+    }
+    async liveCheck() {
+      const src = this.code.value;
+      const status = $('#code-status');
+      try {
+        await this.compile(this.apiNamesFor());
+        if (this.code.value !== src) return;
+        status.className = 'ok'; status.textContent = '✓ No errors';
+        this.code.clearError();
+      } catch (err) {
+        if (this.code.value !== src) return;
+        const msg = WB.Sketch.friendlyMessage(err.message);
+        status.className = 'err';
+        status.textContent = `✗ ${err.line ? 'Line ' + err.line + ': ' : ''}${msg}`;
+        status.title = err.hint || '';
+        if (err.line) this.code.showError(err.line, true);
+      }
+    }
+    async verify() {
+      this.clearConsole();
+      const b = this.boardPart();
+      const spec = b ? PARTS[b.type].board : WB.BOARDS['board-uno-q'];
+      try {
+        await this.compile(this.apiNamesFor());
+        this.log(`✓ Sketch compiled for ${spec.label} — no errors.`, 'ok');
+        const st = $('#code-status'); st.className = 'ok'; st.textContent = '✓ No errors';
+        this.toast('✓ No errors');
+      } catch (err) { this.reportCompileError(err); }
+    }
+    reportCompileError(err) {
+      const line = err.line;
+      const msg = WB.Sketch.friendlyMessage(err.message);
+      this.log(`✗ Compilation error${line ? ' on line ' + line : ''}: ${msg}`, 'error');
+      if (err.hint) this.log('   ' + err.hint, 'info');
+      const st = $('#code-status');
+      st.className = 'err';
+      st.textContent = `✗ ${line ? 'Line ' + line + ': ' : ''}${msg}`;
+      st.title = err.hint || '';
+      if (line) this.code.showError(line);
+      this.toast(`✗ Compilation error${line ? ' on line ' + line : ''} — see below the code`);
+    }
+    async startSim() {
+      Audio.ensure();
+      this.clearConsole();
+      $('#serial-out').textContent = '';
+      this.clearWarnings();
+      const b = this.boardPart();
+      const spec = b ? PARTS[b.type].board : null;
+      if (WB.scopeAuto) WB.scopeAuto.clear();
+      this.sim = { pins: {}, servos: [], modulino: {}, scope: {}, analog: { t: 0, lastReal: null }, matrix: spec && spec.matrix ? new Uint8Array(spec.matrix.w * spec.matrix.h) : null, partState: {}, warned: new Set(), t0: performance.now(), lcd: {}, neo: {}, irq: [] };
+      // chips that react to clock edges (74HC595): solve after every digitalWrite so no edge is missed
+      this.clocked = this.project.parts.some((p) => PARTS[p.type] && PARTS[p.type].clocked);
+      this.setRunUI(true);
+      this.markDirty();
+      if (!b) { this.log('No microcontroller board — simulating the circuit only (batteries, switches, LEDs…).', 'info'); return; }
+      const rt = (this.runtime = new WB.Runtime(this, b, spec));
+      const api = rt.makeApi();
+      let compiled;
+      try { compiled = await this.compile(Object.keys(api)); }
+      catch (err) { this.reportCompileError(err); this.stopSim(); return; }
+      if (!this.sim || this.runtime !== rt) return;
+      this.sketchUrl = compiled.url;
+      this.log(`▶ Running on ${spec.label} (${spec.vcc} V logic) · circuit solver: ${WB.Native.kind}.`, 'ok');
+      let prog;
+      try { prog = await compiled.factory(api); }
+      catch (e) { this.onRuntimeError(e); return; }
+      rt.run(prog);
+    }
+    stopSim() {
+      if (this.runtime) this.runtime.stop();
+      this.runtime = null;
+      this.sim = null;
+      this.results = null;
+      this.transient = {};
+      Audio.stopAll();
+      this.clearWarnings();
+      this.setRunUI(false);
+      this.editor.render();
+    }
+    onRuntimeError(e) {
+      const line = WB.Sketch.errorLine(e, this.sketchUrl);
+      let msg = e && e.message ? e.message : String(e);
+      if (/is not defined/.test(msg)) msg += ' (unsupported library or a typo?)';
+      this.log(`✗ Runtime error${line ? ' on line ' + line : ''}: ${msg}`, 'error');
+      if (line) this.code.showError(line);
+      if (this.runtime) this.runtime.running = false;
+    }
+    setRunUI(on) {
+      const b = $('#btn-run');
+      b.innerHTML = on ? '■ <span class="lbl-long">Stop simulation</span><span class="lbl-short">Stop</span>' : '▶ <span class="lbl-long">Start simulation</span><span class="lbl-short">Run</span>';
+      b.classList.toggle('stop', on);
+      document.body.classList.toggle('simulating', on);
+      $('#sim-time').textContent = on ? 'Running' : 'Stopped';
+      if (this.editor.drawing) this.editor.cancelDraw();
+      this.editor.hideMenu();
+      this.refreshInspector();
+      this.refreshPropDialog();
+    }
+  }
+
+  WB.DEFAULT_CODE = `void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+}
+
+void loop() {
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(500);
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(500);
+}
+`;
+
+  window.addEventListener('DOMContentLoaded', () => { WB.app = new App(); });
+})(window.WB);

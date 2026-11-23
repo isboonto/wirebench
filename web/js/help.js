@@ -1,0 +1,269 @@
+'use strict';
+// Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
+(function (WB) {
+  WB.VERSION = '0.6.7';
+  const esc = (s) => WB.esc(s);
+  const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
+
+  const TOPICS = [
+    ['guide', 'Getting started'],
+    ['shortcuts', 'Shortcuts'],
+    ['parts', 'Parts & boards'],
+    ['reference', 'Arduino functions'],
+    ['trouble', 'Troubleshooting'],
+    ['about', 'About'],
+  ];
+
+  const pages = {
+    guide: () => `
+      <h2>Getting started</h2>
+      <p class="sub">Build a circuit on the breadboard, write a sketch, and simulate it — in six steps.</p>
+      <ol>
+        <li><b>Add a board.</b> Drag an <b>Arduino UNO Q</b> (or another board) from <b>Parts → Boards</b> onto the canvas, or double-click it. A project has one board.</li>
+        <li><b>Add parts.</b> Drag parts (LEDs, resistors, buttons, sensors, Modulino…) onto the canvas or the breadboard, or double-click them in the parts list. Quicker: point at the workspace and just <b>type the part name</b> (for example <i>led</i> or <i>res</i>) — a search box opens; press Enter to drop the part at the mouse. Legs placed in breadboard holes connect automatically — connected holes turn green.</li>
+        <li><b>Wire it up.</b> Click a pin or hole to start a jumper wire, then click another pin to finish. The wire is <b>auto-routed</b> into a tidy right-angle path around parts (and re-routes when you move a part). Click empty space on the way to place joints yourself instead; the wire still runs at right angles through your joints (also when you drag a joint later). Right-click a wire to auto-route it, add or remove joints, or change its color; <b>✨ Tidy wires</b> tidies everything at once.
+          Modulino modules have a <b>Connect to board</b> button that wires them to the Qwiic connector for you.</li>
+        <li><b>Configure parts.</b> Double-click a part to change its settings (resistance, LED color, sensor values…).</li>
+        <li><b>Write the sketch.</b> Type Arduino code in the <b>Sketch</b> panel. Errors are checked as you type — a red badge shows the problem and the line turns red. Press <b>✓ Verify</b> to check explicitly.</li>
+        <li><b>Simulate.</b> Press <b>▶ Start simulation</b> (${k('Ctrl+Enter')}). While it runs, press buttons, flip switches and drag knobs or sensors on the canvas; output appears in the <b>Serial Monitor</b>. Hover any pin to read its voltage. The circuit is locked while simulating — stop it to edit.</li>
+      </ol>
+      <h3>Electronics without a microcontroller</h3>
+      <p>You don't need a board: build a circuit from the <b>Instruments</b> and <b>Passive</b> parts and press <b>▶ Start simulation</b>. Try the examples under <b>DC circuits</b>, <b>Transients</b> and <b>AC circuits &amp; filters</b> in the Examples menu (RC filter, rectifier, capacitor charging).</p>
+      <ul>
+        <li><b>Function generator</b>: a sine, square, triangle or sawtooth signal from 0.1 Hz to 1 MHz, with amplitude (V peak-to-peak) and DC offset. Its front panel has clickable buttons, also while simulating: the four <b>waveform</b> keys; <b>FREQUENCY</b> ÷10 / − / + / ×10 (− and + step through 1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8 in each decade); <b>AMPLITUDE</b> − +; <b>OFFSET</b> − + (0.5 V steps); and <b>OUTPUT ON/OFF</b>, which disconnects the output. For an exact value (for example 159 Hz), double-click it and type it in. It has a 50 Ω output, like a real one.</li>
+        <li><b>Dual power supply</b>: two separate 0–30 V channels, each with its own current limit. Click the buttons on its panel (−1 / −.1 / +.1 / +1 V, I − / I +). <b>TRACK</b> joins CH1 − to CH2 + inside and makes CH2 follow CH1, so you get a ± supply (for example ±12 V for an LM741) with the middle terminal as ground.</li>
+        <li><b>DC power supply</b>: 0–30 V; set it with the buttons on its panel (−1 / −.1 / +.1 / +1 V, and I + / I − for the current limit), also while simulating. It limits the current to the value you set: when that is reached the <b>CC</b> light turns on and the voltage drops.</li>
+        <li><b>Capacitors</b> (ceramic and electrolytic) and <b>diodes</b> are simulated through time, so RC charging, filters, rectifiers and smoothing behave as in real life. Electrolytic capacitors are polarized: the stripe (−) side must go to the lower voltage.</li>
+        <li><b>Inductors</b> (10 µH – 1 H, with their winding resistance) resist changes in current: an RL circuit shows the exponential rise and the voltage kick when the current is interrupted (add a flyback diode across a coil that gets switched off). Together with a capacitor an inductor makes an LC resonant circuit.</li>
+        <li><b>Zener diodes</b> (3.3, 5.1, 9.1, 12 V) work like a diode forwards and conduct in reverse above their zener voltage. Connected in reverse (band to the higher voltage) with a series resistor they hold a steady voltage — a simple regulator.</li>
+        <li><b>Transistors and chips</b> (Parts → Semiconductors and ICs): NPN / PNP transistors (2N2222, BC547, 2N3906, BC557), the TIP120 power transistor, N- and P-channel MOSFETs, voltage regulators (7805, 7809, 7812, LM1117-3.3), the 4N35 optocoupler, the 555 timer, op-amps (LM741, LM358), 74HC logic gates (00, 02, 04, 08, 32, 86), the 74HC595 shift register, the CD4511 7-segment decoder and the L293D motor driver. Chips need power on their VCC and GND pins. <b>Double-click a chip or transistor to see its pinout</b> (pin numbers and names); hovering a pin also shows its name. Try <b>Examples → Semiconductors &amp; ICs → 555 timer LED blinker</b>: its oscilloscope shows the output and the timing capacitor charging between 1/3 and 2/3 of the supply.</li>
+        <li><b>Controlled sources</b> (Parts → Controlled sources): ideal <b>VCVS</b> (Vout = μ·Vin), <b>VCCS</b> (Iout = g·Vin), <b>CCVS</b> (Vout = r·Iin) and <b>CCCS</b> (Iout = β·Iin), like SPICE E, G, H and F sources. Voltage control is measured between C+ and C− (no current drawn); current control is the current flowing in at S+ and out at S−. The output pushes current out of O+, through the load, back into O−. Gains can be negative. They have no supply rails, so an unstable circuit runs away instead of clipping. Try the examples under <b>Examples → Controlled sources</b>.</li>
+        <li><b>Notes</b>: press <b>📝 Note</b> in the toolbar (or the <b>N</b> key) to put a sticky note on the canvas, then type your text. Double-click a note to edit it; choose its color, text size and width. Notes are saved with the project, ignored by the circuit and the parts list, and can be edited while the simulation runs.</li>
+        <li><b>X-Y mode</b>: press <b>X-Y</b> on the scope to plot CH1 (sideways) against CH2 (up and down) instead of against time — for V-I curves of diodes and transistors, or Lissajous figures. CH1 ▼▲ then moves the picture left/right. <b>INV</b> turns a channel upside down. To put the scope ground in the middle of a circuit, set the function generator's <b>COM terminal</b> to <i>Floating</i> (see <b>Electronics · Diode V-I curve</b>).</li>
+        <li>The function generator's <b>COM</b> and the scope's <b>GND</b> are earthed, as on real bench instruments: they are always connected to each other (and to the board's GND). Clipping the scope ground to a point that isn't ground shorts it, just like in a real lab. The multimeter and the power supply are floating.</li>
+      </ul>
+      <h3>Measuring with the multimeter and oscilloscope</h3>
+      <ul>
+        <li><b>Multimeter</b> (Parts → Instruments): connect the <b>COM</b> jack to ground or the low side and <b>VΩ</b> to the point you measure. Click a mode on the dial (or the knob, to step to the next one) to choose <b>V</b> (DC voltage), <b>V~</b> (AC voltage, rms), <b>A</b> (DC current), <b>A~</b> (AC current, rms) and <b>Ω</b> (resistance).
+          For current, put the meter <b>in series</b> using the <b>A</b> and <b>COM</b> jacks. Measure resistance with the circuit unpowered. Readings appear while the simulation runs; in DC modes PWM and AC signals read as their average, like a real meter. AC modes show the rms of the changing part only.</li>
+        <li><b>Oscilloscope</b>: connect <b>CH1</b>/<b>CH2</b> to the signals (and <b>GND</b> to circuit ground). Its front panel has clickable buttons, also while simulating:
+          <ul>
+            <li><b>TIME / DIV − +</b>: time base, 10 µs to 1 s per division.</li>
+            <li><b>CH1 / CH2 − +</b>: volts per division for each channel, 10 mV to 20 V.</li>
+            <li><b>DC / AC</b>: coupling. <b>DC</b> shows the whole signal; <b>AC</b> removes the DC part, so you can zoom in on small ripple riding on a DC voltage (for example a power-supply ripple). In AC the readout shows the rms of the AC part and the DC level in brackets.</li>
+            <li><b>▼ POS ▲</b>: moves the channel's 0 V level (the coloured arrow at the screen edge) up or down.</li>
+            <li><b>AUTO</b>: measures the signals and picks a time base that shows 2–5 periods, plus volts/div and position so each trace fills the screen.</li>
+          </ul>
+          The same settings are in the inspector and the settings dialog (double-click the scope away from its buttons). The trace triggers on a rising edge of CH1, so repeating signals stand still. Below the screen: average (or AC rms), peak-to-peak and frequency.
+          For fast signals the analog part of the simulation runs in <b>slow motion</b> (shown on the scope and next to the run time) so every point can be calculated.</li>
+      </ul>
+      <h3>Saving your work</h3>
+      <p>Your work is saved automatically. Use <b>Save</b> / <b>Open</b> to keep projects as files, and <b>Export</b> for a picture of the breadboard (PNG/SVG), the sketch (.ino), a <b>schematic diagram</b> (an A4 sheet drawn from your circuit with standard symbols, a parts list and a title block — save it as SVG or PNG), or a netlist and parts list. The schematic draws the <b>wires</b>: parts are placed next to what they connect to and joined by right-angle wires; a dot marks joined wires, wires that cross without a dot are not connected, ⏚ is ground and × a pin that is not connected. Switch to <b>Net labels</b> in the preview for the label style (pins with the same label are connected).</p>
+      <p><b>Export → SPICE netlist for LTspice</b> writes your circuit as a <b>.cir</b> file for LTspice (File → Open, then Run), using the same component models Wirebench simulates plus BJT, MOSFET and op-amp models; the oscilloscope sets the <code>.tran</code> time. Digital parts (555, 74HC logic, displays) are listed as comments with the net of each pin. Export while the simulation runs to include the Arduino pins' present state (HIGH, LOW or PWM).</p>
+      <h3>Learn from examples</h3>
+      <p>The <b>Examples</b> menu has ready-made projects: blink, buttons, fading, potentiometer, traffic light, servo, LED matrix, melody, temperature, ultrasonic distance, PIR motion, Modulino, and analog electronics with the function generator, power supply and scope.</p>`,
+
+    shortcuts: () => {
+      const rows = [
+        ['Editing', [
+          ['Ctrl+C / Ctrl+X / Ctrl+V', 'Copy / cut / paste parts (paste lands at the mouse pointer)'],
+          ['Ctrl+D', 'Duplicate selection'],
+          ['Ctrl+drag a part', 'Drag out a copy'],
+          ['R / Shift+R', 'Rotate selection clockwise / counter-clockwise'],
+          ['Type a name (mouse over the workspace)', 'Search all parts and add the chosen one at the mouse — e.g. type <i>led</i>, <i>res</i>, <i>555</i> or <i>note</i>, then Enter'],
+          ['N (mouse away from the workspace)', 'Add a note in the middle of the view'],
+          ['Delete', 'Delete selection'],
+          ['Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z)', 'Undo / redo changes to the circuit — also right after editing a value in the Inspector; works with any keyboard layout (e.g. Thai). In the sketch editor and text boxes they undo your typing'],
+          ['Ctrl+A', 'Select everything'],
+          ['Shift+click / Shift+drag', 'Add to selection / box select'],
+          ['Double-click a part', 'Open its settings'],
+          ['Right-click', 'Context menu (parts and wires)'],
+          ['Esc', 'Cancel wire / close menu or dialog / clear selection'],
+        ]],
+        ['Wiring', [
+          ['Click pin → click pin', 'Draw a jumper wire'],
+          ['Drag from a pin', 'Draw a wire by dragging'],
+          ['Click empty space while wiring', 'Add a joint'],
+          ['Double-click a wire', 'Add a joint there'],
+          ['Drag a joint / wire end', 'Move the joint / re-attach the wire'],
+          ['Right-click a wire', 'Auto-route it, add/remove joints, change color'],
+          ['✨ Tidy wires (toolbar)', 'Auto-route the selected wires, or all wires'],
+        ]],
+        ['View', [
+          ['Mouse wheel / pinch', 'Zoom'],
+          ['Two-finger swipe', 'Pan (touchpad)'],
+          ['Drag background / hold Space + drag', 'Pan'],
+          ['Ctrl+= / Ctrl+− / Ctrl+0', 'Zoom in / out / fit everything'],
+          ['Space (tap)', 'Fit everything in view (F also works with the mouse away from the workspace)'],
+        ]],
+        ['Sketch & simulation', [
+          ['Ctrl+Enter', 'Start / stop simulation'],
+          ['Ctrl+B', 'Show / hide the code panel'],
+          ['Ctrl+Shift+B', 'Show / hide the parts panel'],
+          ['Ctrl+S / Ctrl+O', 'Save / open project'],
+          ['Tab', 'Indent in the code editor'],
+          ['F1', 'Open this help'],
+        ]],
+      ];
+      return `<h2>Keyboard &amp; mouse shortcuts</h2><p class="sub">On a Mac, use Cmd instead of Ctrl.</p><div class="cols">` +
+        rows.map(([title, list]) => `<div><h3>${title}</h3><table>${list.map(([a, b]) => `<tr><td style="white-space:nowrap">${a.split(' / ').map((s) => (/[A-Z][a-z]*\+|^[A-Z]$|^F\d|^Esc$|^Delete$|^Tab$/.test(s) ? k(s) : esc(s))).join(' / ')}</td><td>${esc(b)}</td></tr>`).join('')}</table></div>`).join('') +
+        '</div>';
+    },
+
+    parts: () => {
+      let html = '<h2>Parts &amp; boards</h2><p class="sub">Everything in the parts list. Double-click a part on the canvas to see its settings; hover a pin to see what it does.</p>';
+      html += '<h3>Boards</h3><table><tr><th>Board</th><th>Logic</th><th>Notes</th></tr>';
+      for (const t in WB.BOARDS) {
+        const b = WB.BOARDS[t];
+        html += `<tr><td>${esc(b.label)}</td><td>${b.vcc} V</td><td>${esc(b.info)}${b.qwiic ? ' <span class="tag">Qwiic</span>' : ''}${b.matrix ? ` <span class="tag">${b.matrix.w}×${b.matrix.h} matrix</span>` : ''}</td></tr>`;
+      }
+      html += '</table><div class="cols">';
+      for (const cat of WB.CATEGORIES) {
+        if (cat === 'Boards') continue;
+        const list = Object.keys(WB.PARTS).filter((t) => WB.PARTS[t].category === cat);
+        if (!list.length) continue;
+        html += `<div><h3>${esc(cat)}</h3><ul>${list.map((t) => {
+          const d = WB.PARTS[t];
+          const how = d.interact === 'press' ? 'click to press' : d.interact === 'toggle' ? 'click to toggle' : d.interact === 'knob' ? 'drag to adjust' : d.interact === 'buttons' ? 'click A/B/C' : d.interact === 'panel' ? 'click its front-panel buttons' : '';
+          return `<li>${esc(d.label)}${how ? ` <span class="tag">${how}</span>` : ''}</li>`;
+        }).join('')}</ul></div>`;
+      }
+      return html + '</div>';
+    },
+
+    reference: () => `
+      <h2>Arduino functions &amp; libraries</h2>
+      <p class="sub">The simulator runs the common Arduino language subset. Unsupported things are reported as errors before the sketch runs.</p>
+      <div class="cols">
+        <div><h3>Digital &amp; analog I/O</h3><p><code>pinMode</code> (<code>INPUT</code>, <code>OUTPUT</code>, <code>INPUT_PULLUP</code>, <code>INPUT_PULLDOWN</code>), <code>digitalWrite</code>, <code>digitalRead</code>, <code>analogRead</code>, <code>analogWrite</code> (PWM pins ~3 5 6 9 10 11), <code>analogReadResolution</code>, <code>analogWriteResolution</code></p></div>
+        <div><h3>Time</h3><p><code>delay</code>, <code>delayMicroseconds</code>, <code>millis</code>, <code>micros</code></p></div>
+        <div><h3>Sound &amp; pulses</h3><p><code>tone</code>, <code>noTone</code>, <code>pulseIn</code> (HC-SR04 echo)</p></div>
+        <div><h3>Interrupts</h3><p><code>attachInterrupt</code> (<code>RISING</code>, <code>FALLING</code>, <code>CHANGE</code>), <code>detachInterrupt</code>, <code>digitalPinToInterrupt</code></p></div>
+        <div><h3>Math</h3><p><code>map</code>, <code>constrain</code>, <code>min</code>, <code>max</code>, <code>abs</code>, <code>sq</code>, <code>sqrt</code>, <code>pow</code>, <code>sin</code>/<code>cos</code>/<code>tan</code>, <code>random</code>, <code>randomSeed</code>, <code>bitRead</code>/<code>bitWrite</code>/<code>bitSet</code>/<code>bitClear</code>, <code>lowByte</code>/<code>highByte</code></p></div>
+        <div><h3>Serial Monitor</h3><p><code>Serial.begin</code>, <code>print</code>, <code>println</code> (with <code>DEC</code>/<code>HEX</code>/<code>BIN</code> or decimals), <code>printf</code>, <code>write</code>, <code>available</code>, <code>read</code>, <code>readString</code>, <code>readStringUntil</code>, <code>parseInt</code>, <code>parseFloat</code>. On the UNO Q, <code>Monitor</code> works the same way.</p></div>
+        <div><h3>Language</h3><p>Variables and arrays (including 2-D), <code>const</code>, <code>#define</code>, functions, <code>static</code> locals, <code>if</code>/<code>switch</code>/<code>for</code>/<code>while</code>/<code>do</code>, range-for, <code>String</code>, casts, integer division like C.</p></div>
+      </div>
+      <h3>Libraries (<code>#include</code>)</h3>
+      <table>
+        <tr><td><code>Servo.h</code></td><td><code>attach</code>, <code>write</code>, <code>writeMicroseconds</code>, <code>read</code>, <code>detach</code></td></tr>
+        <tr><td><code>LiquidCrystal.h</code></td><td>LCD 16×2 (parallel): <code>LiquidCrystal lcd(rs, en, d4, d5, d6, d7)</code>; <code>begin</code>, <code>print</code>, <code>write</code>, <code>setCursor</code>, <code>clear</code>, <code>home</code>, <code>createChar</code>, <code>cursor</code>/<code>blink</code>, <code>display</code>/<code>noDisplay</code>, <code>scrollDisplayLeft/Right</code>, <code>autoscroll</code>. The LCD is found by its RS and E wiring.</td></tr>
+        <tr><td><code>LiquidCrystal_I2C.h</code>, <code>Wire.h</code></td><td>LCD 16×2 with the I2C backpack (set the LCD's Interface to I2C, wire SDA/SCL): <code>init</code>/<code>begin</code>, <code>backlight</code>/<code>noBacklight</code> and the methods above</td></tr>
+        <tr><td><code>Adafruit_NeoPixel.h</code></td><td><code>Adafruit_NeoPixel strip(n, pin, NEO_GRB + NEO_KHZ800)</code>; <code>begin</code>, <code>show</code>, <code>setPixelColor</code>, <code>Color</code>, <code>ColorHSV</code>, <code>fill</code>, <code>clear</code>, <code>setBrightness</code>, <code>numPixels</code></td></tr>
+        <tr><td><code>Keypad.h</code></td><td><code>Keypad(makeKeymap(keys), rowPins, colPins, rows, cols)</code>; <code>getKey</code>, <code>waitForKey</code>, <code>isPressed</code>, <code>getState</code></td></tr>
+        <tr><td><code>IRremote.h</code></td><td><code>IrReceiver.begin(pin)</code>, <code>decode()</code>, <code>decodedIRData.command</code>, <code>resume()</code> (and the older <code>IRrecv</code> / <code>decode_results</code>); NEC codes from the IR remote part</td></tr>
+        <tr><td><code>Arduino_LED_Matrix.h</code></td><td>UNO Q / UNO R4 WiFi built-in matrix: <code>begin</code>, <code>loadFrame</code>, <code>renderBitmap</code>, <code>draw</code>, <code>loadSequence</code>, <code>play</code>, <code>clear</code>, plus <code>setPixel(x, y)</code></td></tr>
+        <tr><td><code>Modulino.h</code></td><td><code>Modulino.begin()</code>; Buttons (<code>update</code>, <code>isPressed</code>, <code>setLeds</code>), Buzzer (<code>tone</code>, <code>noTone</code>), Pixels (<code>set</code>, <code>clear</code>, <code>show</code>, <code>RED</code>/<code>GREEN</code>/<code>BLUE</code>/<code>VIOLET</code>/<code>WHITE</code>, <code>ModulinoColor</code>), Knob (<code>get</code>, <code>set</code>, <code>isPressed</code>), Distance (<code>available</code>, <code>get</code>), Movement (<code>update</code>, <code>getX/Y/Z</code>), Thermo (<code>getTemperature</code>, <code>getHumidity</code>)</td></tr>
+        <tr><td><code>Arduino_RouterBridge.h</code></td><td>UNO Q only: <code>Bridge.begin</code>, <code>Bridge.provide</code> (call it from the Serial Monitor with <code>@name args</code>), <code>Bridge.call</code>/<code>notify</code> (logged, Linux side not simulated), <code>Monitor</code></td></tr>
+        <tr><td>Standard headers</td><td><code>math.h</code>, <code>stdlib.h</code>, <code>string.h</code>, <code>stdint.h</code> … (accepted, nothing extra needed)</td></tr>
+      </table>
+      <h3>Not simulated</h3>
+      <p>User-defined <code>class</code>/<code>struct</code>, pointers, templates, and libraries not listed above (for example Wire/I²C by hand, SPI, WiFi). On the UNO Q only the microcontroller side runs; the Linux/Python side is not simulated.</p>`,
+
+    trouble: () => `
+      <h2>Troubleshooting</h2>
+      <h3>My LED doesn't light up</h3>
+      <ul>
+        <li>Check the direction: the <b>anode (+, longer leg)</b> goes toward the pin, the <b>cathode (−)</b> toward GND. Hover the legs to see which is which.</li>
+        <li>Make sure the circuit reaches <b>GND</b>. Hover a pin while simulating: it shows the voltage, or "floating" if nothing drives it.</li>
+        <li>Did you call <code>pinMode(pin, OUTPUT)</code>? Without it the pin only turns on its weak pull-up (you get a warning).</li>
+        <li>Holes in the same <b>column</b> (a–e or f–j) are connected; holes in the same row are not. The center gap separates the two halves.</li>
+      </ul>
+      <h3>"LED burned out" or "pin is carrying … mA"</h3>
+      <p>Put a 220 Ω – 1 kΩ resistor in series with the LED. Stop and restart the simulation to replace a burned LED.</p>
+      <h3>digitalRead returns random values</h3>
+      <p>The input is <b>floating</b>. Use <code>pinMode(pin, INPUT_PULLUP)</code> (pressed = LOW) or add a pull-down resistor.</p>
+      <h3>Modulino "not found on the I2C bus"</h3>
+      <p>Select the module and press <b>Connect to board</b>, or wire its GND, 3.3V, SDA and SCL to the board yourself. Call <code>Modulino.begin()</code> and the module's <code>begin()</code> in <code>setup()</code>.</p>
+      <h3>A compilation error I don't understand</h3>
+      <p>Look at the red badge above the code and the highlighted line. Common causes: a missing <code>;</code>, a misspelled name (the message suggests the right one), different capitalization (<code>serial</code> vs <code>Serial</code>), or a library that isn't supported (see <b>Arduino functions &amp; libraries</b>).</p>
+      <h3>I can't move or wire parts</h3>
+      <p>The circuit is locked while the simulation runs. Press <b>■ Stop</b> first.</p>
+      <h3>No sound from the buzzer</h3>
+      <p>Check the 🔊 button in the toolbar. A <b>passive</b> buzzer needs <code>tone()</code>; an <b>active</b> one beeps with <code>digitalWrite(HIGH)</code> (change the type in its settings).</p>
+      <h3>The scope says "not connected" or shows a flat line</h3>
+      <p>Connect <b>CH1</b>/<b>CH2</b> to a hole or pin that is part of the circuit. Check the time base: a 50 Hz signal needs about 5–10 ms/div, a 10 kHz one about 20–50 µs/div. If the trace runs off the screen, change the volts per division.</p>
+      <h3>"Analog slow-motion" next to the run time</h3>
+      <p>Fast signals (high frequency, or a fast scope time base) need many tiny time steps. When the computer can't calculate them in real time, the analog part runs slower than real time so the result stays correct. A slower time base or lower frequency brings it back to real time.</p>
+      <h3>Zoom / pan with a touchpad</h3>
+      <p>Pinch to zoom and swipe with two fingers to pan. Holding <kbd>Ctrl</kbd> while scrolling always zooms.</p>`,
+
+    about: () => `
+      <h2>About Wirebench</h2>
+      <p class="sub">Version ${WB.VERSION}</p>
+      <p>A free breadboard designer and Arduino simulator for the Arduino UNO Q and similar boards.</p>
+      <table>
+        <tr><td>Author</td><td>Sudchai Boonto</td></tr>
+        <tr><td>License</td><td>MIT License · © 2026 Sudchai Boonto</td></tr>
+        <tr><td>Circuit solver</td><td>${esc(WB.Native.kind)}</td></tr>
+        <tr><td>Running as</td><td>${WB.isDesktop ? 'Desktop app (Rust · Tauri · WebView2)' : 'Web page'}</td></tr>
+        <tr><td>Boards</td><td>${Object.values(WB.BOARDS).map((b) => esc(b.short)).join(', ')}</td></tr>
+        <tr><td>Parts</td><td>${Object.keys(WB.PARTS).length} parts and boards</td></tr>
+      </table>
+      <h3>What's new in 0.6</h3>
+      <ul>
+        <li>0.6.7: circuit warnings stay on screen at least 4 seconds after the problem last occurred (then fade out) instead of flashing; warnings that differ only in a value update in place.</li>
+        <li>0.6.6: <b>Export → SPICE netlist for LTspice</b> (.cir, same component models as the simulator); Arduino boards in the schematic are full symbols with every pin (PWM, RX/TX, SDA/SCL marked); every dialog has a close button at the top right.</li>
+        <li>0.6.5: the schematic now draws the <b>wires</b> — parts are placed next to what they connect to and joined by right-angle wires with junction dots; the net-label style is still available in the preview.</li>
+        <li>0.6.4: <b>Export → Schematic diagram</b> — an A4/A3 schematic sheet drawn from your circuit, with standard symbols, net labels, a parts list and a title block; save it as SVG or PNG.</li>
+        <li>0.6.3: <b>Ctrl+Z / Ctrl+Y</b> undo and redo now also work right after editing a value in the Inspector, and with non-Latin keyboard layouts such as Thai (all Ctrl shortcuts do); "Nothing to undo" is shown when there is nothing left.</li>
+        <li>0.6.2: new board <b>Arduino Mega 2560</b> — 54 digital pins, A0–A15, Serial1–3, six interrupts — with an LED chaser example (pins 22–29, speed knob on A8); the <b>74HC595</b> example has an oscilloscope showing outputs Q0 and Q1.</li>
+        <li>0.6.1: pinouts are drawn on a light, datasheet-style background so the chip and pin names are easy to read in both themes.</li>
+        <li>0.6.0: <b>pinouts</b> — double-click a chip (555, op-amps, 74HC logic, 74HC595, CD4511, L293D, 4N35) or a transistor / MOSFET / regulator to see its pin diagram with pin numbers and names; the <b>555 timer</b> example has an oscilloscope showing the output and the timing capacitor (1/3 to 2/3 of the supply).</li>
+      </ul>
+      <h3>What's new in 0.5</h3>
+      <ul>
+        <li>0.5.10: wires drawn through your own joints now run at <b>right angles</b> through every joint (also while dragging or after removing a joint); slanted ground jumpers in the examples are laid out at right angles too.</li>
+        <li>0.5.9: <b>type to add</b> — point at the workspace and type a part name (e.g. <i>led</i>, <i>res</i>, <i>555</i>); a search box opens and Enter drops the part at the mouse. Tap <b>Space</b> to fit the whole circuit in view (hold Space and drag to pan).</li>
+        <li>0.5.8: <b>notes</b> — put sticky notes with your own text on the canvas (<b>📝 Note</b> in the toolbar, or the <b>N</b> key); choose color, text size and width; saved with the project and editable while simulating. The installer now upgrades older versions installed under the previous publisher name.</li>
+        <li>0.5.7: the oscilloscope shows <b>Vpp and frequency for small signals</b> too (below 20 mV), with three-digit readings such as 17.4 mVpp; AUTO also picks a fine enough scale for them.</li>
+        <li>0.5.6: the <b>Examples</b> menu is grouped by topic (DC circuits, Transients, AC circuits &amp; filters, Semiconductors &amp; ICs, Controlled sources, Arduino …); larger category headings in the parts list; new example: Sallen-Key high-pass filter; released under the <b>MIT License</b>.</li>
+        <li>0.5.5: <b>your own examples</b> in the desktop app: projects saved in the examples folder (Examples… → Open examples folder…) appear under <b>My examples</b> without rebuilding; new example: RLC circuit with underdamped ringing; capacitors and inductors use <b>BDF2</b> integration instead of backward Euler, so LC and RLC ringing is no longer damped too quickly; new <b>Controlled sources</b> parts (VCVS, VCCS, CCVS, CCCS) with two examples: Sallen-Key filter and transistor small-signal model.</li>
+        <li>0.5.4: the DC power supply has buttons instead of a knob, like the dual supply.</li>
+        <li>0.5.3: oscilloscope <b>X-Y mode</b> (CH1 moves the dot sideways, CH2 up and down) and an <b>INV</b> button per channel; the function generator's COM can be set to <b>floating</b>; new <b>trimmer</b> and <b>slide potentiometers</b>; new examples: LM358 amplifier + comparator, diode V-I curve in X-Y mode.</li>
+        <li>0.5.2: the <b>LM358 dual op-amp</b> has its own entry in Parts → ICs (next to the LM741); larger text in the parts list.</li>
+        <li>0.5.1: integer division works like C (<code>millis() / 1000</code> prints whole seconds, <code>7 / 2</code> is 3, <code>7.0 / 2</code> or a <code>float</code> variable gives 3.5); new <b>dual power supply</b> with tracking (± supply); <b>large breadboard</b> (2 × 63 columns, 8 power rails, 1660 holes); the oscilloscope's input jacks are spaced out like the function generator's.</li>
+        <li>About 30 new parts: DC motor, hobby gearmotor, vibration motor, light bulb, relay; 7-segment display, LED bar graph, LCD 16×2 (parallel or I2C), NeoPixel (strip, rings, jewel); 4×4 keypad, DIP switch, IR remote and receiver; 3-pin ultrasonic sensor, photodiode, ambient light sensor (phototransistor), flex sensor, force sensor, gas sensor; NPN/PNP transistors, TIP120, N/P-channel MOSFETs, voltage regulators, optocoupler; 555 timer, op-amps, 74HC logic gates, 74HC595, CD4511, L293D; coin cell, and 1.5 V / 6 V battery options. New part categories: <b>Displays</b>, <b>Semiconductors</b> and <b>ICs</b>.</li>
+        <li>New libraries: LiquidCrystal, LiquidCrystal_I2C, Adafruit_NeoPixel, Keypad, IRremote; <code>shiftOut</code> / <code>shiftIn</code> now really clock the pins.</li>
+        <li>Themes: <b>◑ Theme</b> in the toolbar switches between <b>Default</b> (slate panels, light canvas), <b>Light</b> and <b>Dark</b>. ◐ on the zoom bar still flips just the canvas.</li>
+        <li>New examples: LCD, 74HC595, NeoPixel ring, keypad, IR remote, transistor motor driver, 555 blinker.</li>
+      </ul>
+      <h3>What's new in 0.4</h3>
+      <ul>
+        <li>New parts: <b>inductor</b> and <b>zener diode</b>, simulated by both the Rust and JavaScript solvers. New examples: zener voltage regulator, RL circuit with a square wave.</li>
+        <li>Hide any part of the window: the <b>◧ Parts</b> button (${k('Ctrl+Shift+B')}) hides the whole left panel, and the ▾ button in each header collapses the Parts list, Inspector, Sketch or Serial Monitor on its own. Wirebench remembers the layout.</li>
+        <li>Multimeter: click a mode on the dial to select it directly — also while simulating and while editing.</li>
+        <li>0.4.1: click a category name in the parts list (Boards, Passive, Sensors…) to hide or show its parts; ⇕ next to the search box collapses or expands them all. Searching still finds parts in hidden categories.</li>
+      </ul>
+      <h3>What's new in 0.3.1 and 0.3.2</h3>
+      <ul>
+        <li>Show or hide the code panel with the <b>&lt;/&gt; Code</b> button or ${k('Ctrl+B')}, for more room on the canvas when you don't need a sketch. A dot on the button means new Serial Monitor output; sketch errors open the panel automatically.</li>
+        <li>Bigger oscilloscope with a clickable front panel: DC/AC coupling, separate volts/div and position for each channel, time/div buttons, and <b>AUTO</b>.</li>
+        <li>Function generator front panel: waveform keys, frequency, amplitude and offset buttons, and an <b>OUTPUT ON/OFF</b> key.</li>
+      </ul>
+      <h3>What's new in 0.3</h3>
+      <ul>
+        <li><b>Function generator</b> (sine, square, triangle, sawtooth), <b>DC power supply</b> with current limit, <b>capacitors</b> and <b>diodes</b>: build analog circuits without a microcontroller.</li>
+        <li>A <b>time-domain solver</b>: circuits with capacitors or a function generator are simulated step by step, so filters, RC charging and rectifiers work, and PWM into a capacitor shows real ripple.</li>
+        <li>Oscilloscope: time bases down to 10 µs/div, edge trigger, peak-to-peak and frequency readouts. Multimeter: AC volts and amps (rms).</li>
+        <li>New examples: RC low-pass filter, half-wave rectifier, capacitor charging, PWM + RC filter.</li>
+      </ul>
+      <h3>What's new in 0.2</h3>
+      <ul>
+        <li>Multimeter and 2-channel oscilloscope, wire auto-routing, Modulino modules, more sensors, live code checking with Arduino-style errors (including <code>#include</code>), copy/paste, touchpad zoom, and a Help menu.</li>
+      </ul>
+      <h3>How it works</h3>
+      <p>Circuits are solved with nodal analysis (the Rust <code>wb-core</code> crate), so voltages, currents and LED brightness are calculated, not faked. Circuits with capacitors or a function generator are stepped through time (BDF2 / Gear-2 integration, which keeps LC ringing accurate). Sketches are checked and translated from Arduino C++ and run against a virtual board in real time.</p>
+      <h3>Good to know</h3>
+      <p>This is a learning and prototyping aid, not the real Arduino compiler or hardware. Always double-check a real circuit before powering it.</p>
+      <p class="muted small">Arduino, UNO and Modulino are trademarks of Arduino S.r.l.; Wirebench is an independent project and is not affiliated with Arduino.</p>`,
+  };
+
+  WB.Help = {
+    TOPICS,
+    render(topic) {
+      const page = pages[topic] || pages.guide;
+      const nav = `<div class="help-nav">${TOPICS.map(([id, label]) => `<button data-help="${id}"${id === topic ? ' class="on"' : ''}>${esc(label)}</button>`).join('')}</div>`;
+      return nav + '<div class="help-body">' + page() + '</div>';
+    },
+  };
+})(window.WB);
