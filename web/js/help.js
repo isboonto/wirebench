@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '0.6.7';
+  WB.VERSION = '0.6.8';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -13,6 +13,54 @@
     ['trouble', 'Troubleshooting'],
     ['about', 'About'],
   ];
+
+  // ---------------------------------------------------------------- About page
+  const LINKS = {
+    site: 'https://isboonto.github.io/wirebench/',
+    repo: 'https://github.com/isboonto/wirebench',
+    releases: 'https://github.com/isboonto/wirebench/releases',
+    issues: 'https://github.com/isboonto/wirebench/issues',
+  };
+  const LOGO = '<svg viewBox="0 0 24 24" width="56" height="56" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="10" r="1.3" fill="currentColor"/><circle cx="11" cy="10" r="1.3" fill="currentColor"/><circle cx="15" cy="14" r="1.3" fill="currentColor"/><path d="M7 10 C 9 16, 13 16, 15 14" fill="none" stroke="#ffb020" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  const ICON = {
+    globe: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
+    code: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 7 4 12l5 5M15 7l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    download: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    bug: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 8a4 4 0 0 1 4 4v3a4 4 0 0 1-8 0v-3a4 4 0 0 1 4-4Zm0 0V5m-6 8H3m18 0h-3M6.5 8.5 4.5 7m13 1.5 2-1.5M6.5 17.5 4.5 19m13-1.5 2 1.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+  };
+  function aboutHeader() {
+    const P = WB.PARTS;
+    const types = Object.keys(P);
+    const boards = types.filter((t) => P[t].board).length;
+    const parts = types.filter((t) => !P[t].board && !P[t].holes && !P[t].annotation).length;
+    const examples = (WB.EXAMPLES || []).length;
+    const link = (key, icon, label, primary) => `<a class="about-btn${primary ? ' primary' : ''}" href="${LINKS[key]}" target="_blank" rel="noopener" data-ext>${ICON[icon]}<span>${label}</span></a>`;
+    return `
+      <div class="about-hero">
+        <div class="about-logo">${LOGO}</div>
+        <div class="about-title">
+          <h2>Wirebench</h2>
+          <p>Breadboard designer and electronics simulator for Arduino and analog circuits</p>
+          <div class="about-badges"><span class="badge accent">Version ${esc(WB.VERSION)}</span><span class="badge">${WB.isDesktop ? 'Desktop app' : 'Web version'}</span><span class="badge">MIT License</span></div>
+        </div>
+      </div>
+      <div class="about-links">
+        ${link('site', 'globe', 'Website', true)}${link('repo', 'code', 'Source code')}${link('releases', 'download', 'Download')}${link('issues', 'bug', 'Report a problem')}
+      </div>
+      <div class="about-cards">
+        <div class="about-card"><h4>Author</h4><p class="big">Sudchai Boonto</p><p class="muted small">© 2026 · released under the MIT License — free to use, change and share.</p></div>
+        <div class="about-card"><h4>Engine</h4><p>Circuit solver: <b>${esc(WB.Native.kind)}</b></p><p>Running as: <b>${WB.isDesktop ? 'Windows app (Rust · Tauri · WebView2)' : 'web page in your browser'}</b></p></div>
+        <div class="about-card"><h4>Library</h4><div class="about-stats"><div><b>${boards}</b><span>boards</span></div><div><b>${parts}</b><span>parts</span></div><div><b>${examples}</b><span>examples</span></div></div></div>
+      </div>`;
+  }
+  // "What's new in X" blocks become collapsible sections, the newest one open.
+  function changelogSections(html) {
+    let first = true;
+    return html.replace(/<h3>(What's new in [^<]+)<\/h3>\s*<ul>([\s\S]*?)<\/ul>/g, (m, title, items) => {
+      const open = first; first = false;
+      return `<details class="about-ver"${open ? ' open' : ''}><summary>${title.replace("What's new in ", 'Version ')}</summary><ul>${items}</ul></details>`;
+    });
+  }
 
   const pages = {
     guide: () => `
@@ -188,19 +236,11 @@
       <p>Pinch to zoom and swipe with two fingers to pan. Holding <kbd>Ctrl</kbd> while scrolling always zooms.</p>`,
 
     about: () => `
-      <h2>About Wirebench</h2>
-      <p class="sub">Version ${WB.VERSION}</p>
-      <p>A free breadboard designer and Arduino simulator for the Arduino UNO Q and similar boards.</p>
-      <table>
-        <tr><td>Author</td><td>Sudchai Boonto</td></tr>
-        <tr><td>License</td><td>MIT License · © 2026 Sudchai Boonto</td></tr>
-        <tr><td>Circuit solver</td><td>${esc(WB.Native.kind)}</td></tr>
-        <tr><td>Running as</td><td>${WB.isDesktop ? 'Desktop app (Rust · Tauri · WebView2)' : 'Web page'}</td></tr>
-        <tr><td>Boards</td><td>${Object.values(WB.BOARDS).map((b) => esc(b.short)).join(', ')}</td></tr>
-        <tr><td>Parts</td><td>${Object.keys(WB.PARTS).length} parts and boards</td></tr>
-      </table>
+      ${aboutHeader()}
+      <h3 class="about-h">What's new</h3>
       <h3>What's new in 0.6</h3>
       <ul>
+        <li>0.6.8: a new <b>About</b> page — version and platform at a glance, links to the website, source code, downloads and issue tracker (opened in your browser), author, engine and library cards, and this changelog in collapsible sections.</li>
         <li>0.6.7: circuit warnings stay on screen at least 4 seconds after the problem last occurred (then fade out) instead of flashing; warnings that differ only in a value update in place.</li>
         <li>0.6.6: <b>Export → SPICE netlist for LTspice</b> (.cir, same component models as the simulator); Arduino boards in the schematic are full symbols with every pin (PWM, RX/TX, SDA/SCL marked); every dialog has a close button at the top right.</li>
         <li>0.6.5: the schematic now draws the <b>wires</b> — parts are placed next to what they connect to and joined by right-angle wires with junction dots; the net-label style is still available in the preview.</li>
@@ -263,7 +303,8 @@
     render(topic) {
       const page = pages[topic] || pages.guide;
       const nav = `<div class="help-nav">${TOPICS.map(([id, label]) => `<button data-help="${id}"${id === topic ? ' class="on"' : ''}>${esc(label)}</button>`).join('')}</div>`;
-      return nav + '<div class="help-body">' + page() + '</div>';
+      const html = topic === 'about' ? changelogSections(page()) : page();
+      return nav + `<div class="help-body${topic === 'about' ? ' about' : ''}">` + html + '</div>';
     },
   };
 })(window.WB);

@@ -135,6 +135,24 @@ fn open_examples_folder() -> Result<(), String> {
     Ok(())
 }
 
+/// Open a web address in the user's default browser (About page links).
+/// Only https:// addresses are accepted, and only plain URL characters, so nothing else
+/// can be launched through this.
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    let ok = url.starts_with("https://")
+        && url.len() < 2000
+        && url.chars().all(|c| c.is_ascii_alphanumeric() || "-._~:/?#[]@!$&'()*+,;=%".contains(c));
+    if !ok {
+        return Err("only https:// links can be opened".into());
+    }
+    std::process::Command::new("rundll32")
+        .args(["url.dll,FileProtocolHandler", &url])
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// Solve a small reference circuit with the native solver, so the UI can
 /// confirm that the native core and the WebAssembly core agree.
 #[tauri::command]
@@ -147,7 +165,7 @@ fn self_test() -> f64 {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![open_project, save_file, list_examples, open_examples_folder, self_test])
+        .invoke_handler(tauri::generate_handler![open_project, save_file, list_examples, open_examples_folder, open_url, self_test])
         .run(tauri::generate_context!())
         .expect("error while running Wirebench");
 }

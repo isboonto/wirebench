@@ -621,7 +621,13 @@
       document.querySelectorAll('[data-cmd]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.cmd(b.dataset.cmd); }));
       document.addEventListener('click', () => document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open')));
       // navigation buttons inside the help dialog
-      $('#modal-body').addEventListener('click', (e) => { const b = e.target.closest('[data-help]'); if (b) this.showHelp(b.dataset.help); });
+      $('#modal-body').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-help]');
+        if (b) { this.showHelp(b.dataset.help); return; }
+        // web links (About page): in the desktop app open them in the system browser, not inside the app
+        const a = e.target.closest('a[data-ext]');
+        if (a && WB.isDesktop) { e.preventDefault(); WB.invoke('open_url', { url: a.href }).catch((err) => this.toast('Could not open the link: ' + err)); }
+      });
       const ex = $('#examples');
       for (const cat of WB.EXAMPLE_CATEGORIES) {
         const g = document.createElement('optgroup');

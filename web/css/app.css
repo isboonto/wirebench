@@ -496,3 +496,36 @@ dialog.wide #modal-body { max-height: calc(92vh - 40px); }
 /* held warnings fade out once their problem has been gone for a few seconds */
 @keyframes warnFade { from { opacity: 1; } to { opacity: 0; } }
 #warnings div.fading { animation: warnFade 0.6s ease-in forwards; }
+
+/* ------------------------------------------------ Help → About */
+.help-body.about h2 { margin: 0; }
+.about-hero { display: flex; gap: 18px; align-items: center; padding: 18px 20px; margin-bottom: 14px; border-radius: 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 22%, var(--panel2)), var(--panel2)); border: 1px solid var(--border); }
+.about-logo { flex: 0 0 auto; width: 76px; height: 76px; border-radius: 18px; display: grid; place-items: center;
+  background: var(--panel); color: var(--text); border: 1px solid var(--border); box-shadow: 0 6px 18px var(--shadow); }
+.about-title h2 { font-size: 26px; letter-spacing: .3px; }
+.about-title p { margin: 4px 0 10px; color: var(--muted); }
+.about-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.about-badges .badge { font-size: 11.5px; padding: 2px 9px; border-radius: 20px; border: 1px solid var(--border); background: var(--panel); color: var(--text); }
+.about-badges .badge.accent { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.about-links { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.about-btn { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 8px; text-decoration: none; font-size: 13px;
+  color: var(--text); background: var(--panel2); border: 1px solid var(--border); }
+.about-btn:hover { background: var(--hover); }
+.about-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.about-btn.primary:hover { filter: brightness(1.08); }
+.about-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.about-card { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.about-card h4 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.about-card p { margin: 3px 0; font-size: 13px; }
+.about-card p.big { font-size: 16px; font-weight: 600; }
+.about-stats { display: flex; gap: 14px; }
+.about-stats div { display: flex; flex-direction: column; }
+.about-stats b { font-size: 22px; line-height: 1.1; color: var(--accent); }
+.about-stats span { font-size: 11.5px; color: var(--muted); }
+.help-body.about h3.about-h { margin-top: 4px; }
+.about-ver { border: 1px solid var(--border); border-radius: 8px; margin: 6px 0; background: var(--panel2); }
+.about-ver summary { cursor: pointer; padding: 7px 12px; font-weight: 600; font-size: 13px; list-style-position: inside; }
+.about-ver[open] summary { border-bottom: 1px solid var(--border); }
+.about-ver ul { margin: 8px 0; padding: 0 14px 0 30px; font-size: 12.5px; }
+.about-ver li { margin: 3px 0; }
