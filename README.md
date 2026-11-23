@@ -18,7 +18,9 @@ This needs Rust (rustup) and the Microsoft Edge WebView2 runtime, which comes wi
 
 **In a browser:** run `node serve.js`, then open http://localhost:8080. You can also open `web/index.html` directly, but then the JavaScript fallback solver is used, because browsers block loading the WebAssembly module from `file://`.
 
-Your work is autosaved. Use **Save** / **Open** to keep projects as `.json` files. In the desktop app these use native Windows file dialogs.
+Your work is autosaved. **Save** / **Open** keep projects as **Wirebench project files (`.wbproj`)**, named after your project. In the desktop app these use native Windows file dialogs, and the installer registers `.wbproj` with Windows, so double-clicking a project file opens it in Wirebench. Older `.json` projects still open.
+
+A `.wbproj` file is readable JSON with a header (`"format": "wirebench-project"`, `formatVersion`, the Wirebench version that saved it, the save date, title and board), then one line per part and per wire, and the sketch — so projects work well in Git.
 
 ## Architecture
 

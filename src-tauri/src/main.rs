@@ -18,17 +18,34 @@ struct OpenedFile {
 async fn open_project(window: tauri::Window) -> Result<Option<OpenedFile>, String> {
     let picked = rfd::FileDialog::new()
         .set_title("Open Wirebench project")
-        .add_filter("Wirebench project", &["json", "wbproj"])
+        .add_filter("Wirebench project", &["wbproj", "json"])
         .add_filter("All files", &["*"])
         .set_parent(&window)
         .pick_file();
     let Some(path) = picked else { return Ok(None) };
-    let contents = std::fs::read_to_string(&path).map_err(|e| format!("Could not read {}: {e}", path.display()))?;
-    Ok(Some(OpenedFile {
+    read_project(&path).map(Some)
+}
+
+fn read_project(path: &std::path::Path) -> Result<OpenedFile, String> {
+    let contents = std::fs::read_to_string(path).map_err(|e| format!("Could not read {}: {e}", path.display()))?;
+    Ok(OpenedFile {
         name: path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
         path: path.display().to_string(),
         contents,
-    }))
+    })
+}
+
+/// The project file Wirebench was started with, if any: double-clicking a .wbproj file in
+/// Windows Explorer (registered by the installer) runs `wirebench.exe "C:\…\name.wbproj"`.
+#[tauri::command]
+fn startup_file() -> Option<OpenedFile> {
+    let arg = std::env::args_os().nth(1)?;
+    let path = std::path::PathBuf::from(arg);
+    let ext = path.extension()?.to_string_lossy().to_ascii_lowercase();
+    if ext != "wbproj" && ext != "json" {
+        return None;
+    }
+    read_project(&path).ok()
 }
 
 /// Show a native "Save" dialog and write text or base64-encoded bytes.
@@ -165,7 +182,7 @@ fn self_test() -> f64 {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![open_project, save_file, list_examples, open_examples_folder, open_url, self_test])
+        .invoke_handler(tauri::generate_handler![open_project, startup_file, save_file, list_examples, open_examples_folder, open_url, self_test])
         .run(tauri::generate_context!())
         .expect("error while running Wirebench");
 }

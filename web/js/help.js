@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '0.6.8';
+  WB.VERSION = '0.6.9';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -106,7 +106,7 @@
           For fast signals the analog part of the simulation runs in <b>slow motion</b> (shown on the scope and next to the run time) so every point can be calculated.</li>
       </ul>
       <h3>Saving your work</h3>
-      <p>Your work is saved automatically. Use <b>Save</b> / <b>Open</b> to keep projects as files, and <b>Export</b> for a picture of the breadboard (PNG/SVG), the sketch (.ino), a <b>schematic diagram</b> (an A4 sheet drawn from your circuit with standard symbols, a parts list and a title block — save it as SVG or PNG), or a netlist and parts list. The schematic draws the <b>wires</b>: parts are placed next to what they connect to and joined by right-angle wires; a dot marks joined wires, wires that cross without a dot are not connected, ⏚ is ground and × a pin that is not connected. Switch to <b>Net labels</b> in the preview for the label style (pins with the same label are connected).</p>
+      <p>Your work is saved automatically. Use <b>Save</b> / <b>Open</b> to keep projects as <b>Wirebench project files (.wbproj)</b> — in the desktop app you can also double-click a .wbproj file to open it — and older .json projects still open; and <b>Export</b> for a picture of the breadboard (PNG/SVG), the sketch (.ino), a <b>schematic diagram</b> (an A4 sheet drawn from your circuit with standard symbols, a parts list and a title block — save it as SVG or PNG), or a netlist and parts list. The schematic draws the <b>wires</b>: parts are placed next to what they connect to and joined by right-angle wires; a dot marks joined wires, wires that cross without a dot are not connected, ⏚ is ground and × a pin that is not connected. Switch to <b>Net labels</b> in the preview for the label style (pins with the same label are connected).</p>
       <p><b>Export → SPICE netlist for LTspice</b> writes your circuit as a <b>.cir</b> file for LTspice (File → Open, then Run), using the same component models Wirebench simulates plus BJT, MOSFET and op-amp models; the oscilloscope sets the <code>.tran</code> time. Digital parts (555, 74HC logic, displays) are listed as comments with the net of each pin. Export while the simulation runs to include the Arduino pins' present state (HIGH, LOW or PWM).</p>
       <h3>Learn from examples</h3>
       <p>The <b>Examples</b> menu has ready-made projects: blink, buttons, fading, potentiometer, traffic light, servo, LED matrix, melody, temperature, ultrasonic distance, PIR motion, Modulino, and analog electronics with the function generator, power supply and scope.</p>`,
@@ -240,6 +240,7 @@
       <h3 class="about-h">What's new</h3>
       <h3>What's new in 0.6</h3>
       <ul>
+        <li>0.6.9: projects are saved as <b>Wirebench project files (.wbproj)</b>, named after the project, with a header (format, version, date, board) and one line per part and wire; in the desktop app double-clicking a .wbproj file opens it. Older .json projects still open.</li>
         <li>0.6.8: a new <b>About</b> page — version and platform at a glance, links to the website, source code, downloads and issue tracker (opened in your browser), author, engine and library cards, and this changelog in collapsible sections.</li>
         <li>0.6.7: circuit warnings stay on screen at least 4 seconds after the problem last occurred (then fade out) instead of flashing; warnings that differ only in a value update in place.</li>
         <li>0.6.6: <b>Export → SPICE netlist for LTspice</b> (.cir, same component models as the simulator); Arduino boards in the schematic are full symbols with every pin (PWM, RX/TX, SDA/SCL marked); every dialog has a close button at the top right.</li>

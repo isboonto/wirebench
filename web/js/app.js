@@ -3,6 +3,8 @@
   const PARTS = WB.PARTS;
   const $ = (s) => document.querySelector(s);
   const LS_KEY = 'wirebench.autosave.v1';
+  // version of the .wbproj file format written by Save (1 = the older plain .json project files)
+  const PROJECT_FORMAT = 2;
   // circuit warnings on the canvas: shown at least this long after they last occurred, then faded out
   const WARN_HOLD = 4000, WARN_FADE = 600, WARN_MAX = 4;
 
@@ -152,6 +154,11 @@
       const saved = this.loadLocal();
       if (saved) this.loadProject(saved, true);
       else this.loadProject(WB.EXAMPLES[1].build(), true);
+      let docName = null;
+      try { docName = localStorage.getItem('wirebench.docName'); } catch (e) { /* storage unavailable */ }
+      this.setDocName(saved && docName ? docName : 'Untitled');
+      // desktop app started by double-clicking a .wbproj file: open that file
+      if (WB.isDesktop) WB.invoke('startup_file').then((f) => { if (f) this.openProjectText(f.contents, f.name); }).catch(() => {});
       requestAnimationFrame(() => this.editor.fit());
       WB.nativeReady.then(() => { this.refreshInspector(); this.markDirty(); });
       this.frame = this.frame.bind(this);
@@ -651,7 +658,7 @@
           get = () => WB.EXAMPLES[v].build();
         }
         if (!confirm(`Load example "${name}"? Your current project will be replaced (save it first if you need it).`)) return;
-        try { this.loadProject(get()); this.editor.fit(); }
+        try { this.loadProject(get()); this.setDocName((v.startsWith('u:') ? name : WB.EXAMPLES[v].label || name).replace(/[\\/:*?"<>|]+/g, '-')); this.editor.fit(); }
         catch (err) { alert(`Could not open example "${name}": ${err.message}`); }
       });
       this.userExamples = [];
@@ -664,10 +671,7 @@
         const f = e.target.files[0];
         e.target.value = '';
         if (!f) return;
-        f.text().then((t) => {
-          try { this.loadProject(JSON.parse(t)); this.editor.fit(); this.toast('Opened ' + f.name); }
-          catch (err) { alert('Could not open this file: ' + err.message); }
-        });
+        f.text().then((t) => this.openProjectText(t, f.name));
       });
       $('#serial-form').addEventListener('submit', (e) => {
         e.preventDefault();
@@ -874,12 +878,14 @@
         case 'new':
           if (!confirm('Start a new empty project? Unsaved changes will be lost.')) return;
           this.loadProject({ parts: [], wires: [], code: WB.DEFAULT_CODE });
+          this.setDocName('Untitled');
           break;
         case 'open': if (WB.isDesktop) this.openDesktop(); else $('#file-input').click(); break;
         case 'note': this.addNote(); break;
         case 'save': {
-          const data = JSON.stringify({ app: 'wirebench', version: 1, parts: this.project.parts, wires: this.project.wires, code: this.code.value }, null, 1);
-          this.saveAs('wirebench-project.json', new Blob([data], { type: 'application/json' }), 'Wirebench project', ['json']);
+          const name = (this.docName || 'Untitled') + '.wbproj';
+          this.saveAs(name, new Blob([this.projectFileText()], { type: 'application/json' }), 'Wirebench project', ['wbproj'])
+            .then((path) => { if (path) this.setDocName(path); });
           break;
         }
         case 'exportMenu': $('#help-menu').classList.remove('open'); $('#theme-menu').classList.remove('open'); $('#export-menu').classList.toggle('open'); break;
@@ -953,7 +959,7 @@
 
     // ---------------- files (browser download, or native dialogs in the desktop app)
     async saveAs(name, blob, filterName, exts) {
-      if (!WB.isDesktop) { WB.download(name, blob); this.toast('Saved ' + name); return; }
+      if (!WB.isDesktop) { WB.download(name, blob); this.toast('Saved ' + name); return name; }
       try {
         const args = { defaultName: name, filterName, extensions: exts, text: null, base64: null };
         if (/^(text|application\/json|image\/svg)/.test(blob.type)) args.text = await blob.text();
@@ -965,7 +971,8 @@
         }
         const path = await WB.invoke('save_file', args);
         if (path) this.toast('Saved ' + path);
-      } catch (e) { alert('Could not save: ' + e); }
+        return path || null;
+      } catch (e) { alert('Could not save: ' + e); return null; }
     }
     // Example projects saved as files in %APPDATA%\Wirebench\examples (or an "examples"
     // folder next to wirebench.exe) are listed under "My examples" — no rebuild needed.
@@ -1000,11 +1007,56 @@
     async openDesktop() {
       try {
         const f = await WB.invoke('open_project');
-        if (!f) return;
-        this.loadProject(JSON.parse(f.contents));
-        this.editor.fit();
-        this.toast('Opened ' + f.name);
+        if (f) this.openProjectText(f.contents, f.name);
       } catch (e) { alert('Could not open this file: ' + e); }
+    }
+
+    // ---------------- project files (.wbproj)
+    // A Wirebench project file is JSON with a header saying what it is, so other programs and
+    // future versions can recognise it:
+    //   format        "wirebench-project"   formatVersion  2 (1 = the older plain .json files)
+    //   generator     "Wirebench 0.6.8"     saved          ISO date/time
+    //   title, board  then parts, wires and the sketch code
+    // Each part and wire is written on its own line: readable, and small, clean diffs in Git.
+    projectFileText() {
+      const board = this.boardPart();
+      const head = {
+        format: 'wirebench-project',
+        formatVersion: PROJECT_FORMAT,
+        generator: 'Wirebench ' + (WB.VERSION || ''),
+        saved: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
+        title: this.docName || 'Untitled',
+        board: board ? board.type : null,
+      };
+      // fixed, readable field order inside each part / wire; anything else keeps its place after them
+      const ordered = (o, keys) => Object.fromEntries([...keys.filter((k) => k in o).map((k) => [k, o[k]]), ...Object.entries(o).filter(([k]) => !keys.includes(k))]);
+      const list = (arr, keys) => (arr.length ? '[\n' + arr.map((x) => '    ' + JSON.stringify(ordered(x, keys))).join(',\n') + '\n  ]' : '[]');
+      return '{\n'
+        + Object.entries(head).map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`).join('\n') + '\n'
+        + `  "parts": ${list(this.project.parts, ['id', 'type', 'name', 'x', 'y', 'rot', 'props'])},\n`
+        + `  "wires": ${list(this.project.wires, ['id', 'a', 'b', 'color', 'pts', 'auto'])},\n`
+        + `  "code": ${JSON.stringify(this.code.value)}\n}\n`;
+    }
+    // Open project text (from the file dialog, the web file picker, or a double-clicked file).
+    openProjectText(text, fileName) {
+      let o;
+      try { o = JSON.parse(text); } catch (e) { alert(`Could not open ${fileName || 'this file'}: it is not a Wirebench project (${e.message}).`); return false; }
+      if (!o || typeof o !== 'object' || (o.format && o.format !== 'wirebench-project') || !Array.isArray(o.parts || [])) {
+        alert(`Could not open ${fileName || 'this file'}: it is not a Wirebench project.`); return false;
+      }
+      if ((o.formatVersion || 1) > PROJECT_FORMAT) this.toast(`This project was saved by a newer Wirebench (${o.generator || 'unknown version'}); some parts may be missing.`);
+      this.loadProject(o);
+      this.setDocName(fileName || o.title || 'Untitled');
+      this.editor.fit();
+      this.toast('Opened ' + this.docName);
+      return true;
+    }
+    // Name of the open document (without folder and extension); used for Save and the page title.
+    setDocName(nameOrPath) {
+      const base = String(nameOrPath || 'Untitled').split(/[\\/]/).pop().replace(/\.(wbproj|json)$/i, '').trim();
+      this.docName = base || 'Untitled';
+      try { localStorage.setItem('wirebench.docName', this.docName); } catch (e) { /* storage unavailable */ }
+      document.title = `${this.docName} — Wirebench`;
     }
 
     // ---------------- export / netlist
