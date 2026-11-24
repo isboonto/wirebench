@@ -274,8 +274,8 @@
     return { V: Vavg, reach: reachable(N, els), samples };
   }
 
-  function solve(topo, project, sim, opts) {
-    opts = opts || {};
+  // Every part's circuit elements, with compact node numbers (ca, cb, …) for the solvers.
+  function makeElements(topo, project, sim, opts) {
     let next = topo.nodeCount;
     const els = [];
     const partEls = {};
@@ -284,7 +284,7 @@
       const def = WB.PARTS[part.type];
       if (!def || !def.elements) continue;
       const state = sim.partState[part.id] || (sim.partState[part.id] = {});
-      const ctx = { part, props: part.props || {}, sim, state, ui: (opts.transient && opts.transient[part.id]) || {}, n: nodeFn(part), newNode: () => next++ };
+      const ctx = { part, props: part.props || {}, sim, state, ui: (opts.transient && opts.transient[part.id]) || {}, n: nodeFn(part), newNode: () => next++, sweep: opts.sweep || null };
       const list = (def.elements(ctx) || []).filter((e) => e.a >= 0 && e.b >= 0 && e.a !== undefined && e.b !== undefined && !(e.cond && (e.cond.a < 0 || e.cond.b < 0)) && !(e.t === 'G' && (!(e.p >= 0) || !(e.q >= 0))));
       for (const e of list) { e.part = part.id; els.push(e); }
       partEls[part.id] = list;
@@ -298,10 +298,15 @@
       if (e.t === 'G') { e.cp = cn(e.p); e.cq = cn(e.q); }
       if (e.w) for (const node of e.w) if (node >= 0) cn(node);
     }
-    const N = map.size;
-    curMap = map;
     // the Rust solver handles R, V, D, C, L; behavioural parts use the JavaScript solver
     const behavioural = els.some((e) => e.t === 'G' || e.upd || e.commit || e.off !== undefined);
+    return { els, partEls, map, N: map.size, next, nodeFn, behavioural };
+  }
+
+  function solve(topo, project, sim, opts) {
+    opts = opts || {};
+    const { els, partEls, map, N, next, nodeFn, behavioural } = makeElements(topo, project, sim, opts);
+    curMap = map;
     const native = WB.Native && WB.Native.ready && WB.Native.transient && !opts.forceJS && !behavioural;
     // Circuits with capacitors or function generators are simulated through time.
     const an = opts.analog;
@@ -401,5 +406,73 @@
     return { V, floating, vis, warnings, elements: els, wave, analog };
   }
 
-  WB.Circuit = { build, solve, solveNetwork, transientNetwork, srcAt };
+  // ------------------------------------------------------------------
+  // Bode plot: a stepped-sine frequency sweep, like a real network analyser. For each
+  // frequency the Bode plotter's own generator (element tag 'bode-src', between its OUT and
+  // COM pins) drives the circuit with a small sine, the circuit is simulated through time with
+  // the normal transient solver (so op-amps, transistors and diodes behave as usual) until the
+  // response has settled, and amplitude and phase are measured with a DFT over whole periods:
+  //   H(f) = V(IN) / V(OUT)  →  gain in dB and phase in degrees.
+  // Every other generator is set to zero AC (its DC offset stays), as in a SPICE .ac analysis.
+  // opts: { partId, freqs[], amp, sim, onProgress(done, total) } → Promise of
+  //   { f[], db[], ph[], ok[] } (ok = settled within the time limit), or { error }.
+  async function bodeSweep(topo, project, opts) {
+    const sim = opts.sim;
+    const { els, map, N, behavioural } = makeElements(topo, project, sim, { sweep: { id: opts.partId, amp: opts.amp } });
+    const src = els.find((e) => e.tag === 'bode-src' && e.part === opts.partId);
+    const inEl = els.find((e) => e.tag === 'bode-in' && e.part === opts.partId);
+    if (!src) return { error: 'Connect the Bode plotter: OUT drives the circuit input, COM to circuit ground.' };
+    if (!inEl) return { error: 'Connect the Bode plotter IN to the circuit output.' };
+    for (const e of els) if (e !== src && e.shape) e.amp = 0;
+    const native = WB.Native && WB.Native.ready && WB.Native.transient && !behavioural;
+    // DC operating point: capacitors charged and inductor currents flowing as in steady DC,
+    // so each frequency starts without the slow DC settling.
+    curMap = map;
+    const dc = solveNetwork(N, els).V;
+    const init = els.map((e) => (e.t === 'C' ? dc[e.ca] - dc[e.cb] : e.t === 'L' ? (dc[e.ca] - dc[e.cb]) / rwOf(e) : 0));
+    const probes = [src.ca, src.cb, inEl.ca];
+    const S = 100, P = 2; // steps per period, periods per measuring block
+    const out = { f: [], db: [], ph: [], ok: [] };
+    for (let k = 0; k < opts.freqs.length; k++) {
+      const f = opts.freqs[k], dt = 1 / (f * S), w = 2 * Math.PI * f;
+      src.freq = f;
+      els.forEach((e, i) => {
+        if (e.t === 'C') { e.vc = init[i]; e.vc1 = NaN; }
+        else if (e.t === 'L') { e.il = init[i]; e.il1 = NaN; }
+      });
+      curMap = map; // the live simulation may have run since the last frequency
+      let prev = null, H = null, ok = false, t = 0;
+      for (let block = 0; block < 150; block++) {
+        const r = native ? WB.Native.transient(N, els, t, dt, P * S, probes, 1) : transientNetwork(N, els, t, dt, P * S, probes, 1);
+        t += P * S * dt;
+        let orr = 0, oi = 0, ir = 0, ii = 0;
+        const s = r.samples;
+        for (let o = 0; o + 4 <= s.length; o += 4) {
+          const c = Math.cos(w * s[o]), sn = -Math.sin(w * s[o]);
+          const vo = s[o + 1] - s[o + 2], vi = s[o + 3] - s[o + 2];
+          orr += vo * c; oi += vo * sn; ir += vi * c; ii += vi * sn;
+        }
+        const d = orr * orr + oi * oi;
+        if (d < 1e-30) break;
+        H = [(ir * orr + ii * oi) / d, (ii * orr - ir * oi) / d];
+        const mag = Math.hypot(H[0], H[1]);
+        if (prev && block >= 2 && Math.hypot(H[0] - prev[0], H[1] - prev[1]) <= 1e-3 * mag + 1e-7) { ok = true; break; }
+        prev = H;
+      }
+      if (!H) return { error: 'The Bode plotter output is shorted or not connected to anything.' };
+      out.f.push(f);
+      out.db.push(20 * Math.log10(Math.max(1e-12, Math.hypot(H[0], H[1]))));
+      // phase, unwrapped so it doesn't jump by 360° between neighbouring points
+      let ph = (Math.atan2(H[1], H[0]) * 180) / Math.PI;
+      if (out.ph.length) { const pv = out.ph[out.ph.length - 1]; while (ph - pv > 180) ph -= 360; while (ph - pv < -180) ph += 360; }
+      out.ph.push(ph);
+      out.ok.push(ok);
+      if (opts.onProgress) opts.onProgress(k + 1, opts.freqs.length, out);
+      if (opts.cancelled && opts.cancelled()) return { error: 'cancelled' };
+      await new Promise((res) => setTimeout(res, 0)); // keep the window responsive
+    }
+    return out;
+  }
+
+  WB.Circuit = { build, solve, solveNetwork, transientNetwork, srcAt, bodeSweep };
 })(window.WB);

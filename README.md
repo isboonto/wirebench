@@ -1,6 +1,6 @@
 # Wirebench 0.6
 
-A free, offline breadboard designer and electronics simulator. Inspired by the breadboard view in tools like Fritzing, with built-in simulation for the **Arduino UNO Q** and similar boards, and bench instruments (multimeter, oscilloscope, function generator, power supply) for analog circuits with or without a microcontroller.
+A free, offline breadboard designer and electronics simulator. Inspired by the breadboard view in tools like Fritzing, with built-in simulation for the **Arduino UNO Q** and similar boards, and bench instruments (multimeter, oscilloscope, Bode plotter, logic analyzer, function generator, power supply) for analog circuits with or without a microcontroller.
 
 ## Run it
 
@@ -61,6 +61,8 @@ New to Wirebench? Open **Help → Getting started** (or press **F1**) in the app
 **Instruments**
 - **Multimeter:** click a mode on the dial to select it; DC and AC (rms) voltage and current, and resistance.
 - **2-channel oscilloscope:** clickable front panel with time/div (10 µs to 1 s), per-channel volts/div (10 mV to 20 V), DC/AC coupling, position and INV, AUTO (autoset), and X-Y mode; edge trigger; average or AC rms / peak-to-peak / frequency readouts.
+- **Bode plotter:** OUT drives the circuit with a small sine, IN measures the output; SWEEP measures gain (dB) and phase from 1 Hz to 1 MHz (stepped-sine through the full simulator, so op-amps and transistors work too) and marks the −3 dB points. SPICE export turns it into a `.ac` analysis.
+- **8-channel logic analyzer:** timing diagrams of digital signals with an edge trigger; records every edge of fast sequences such as `shiftOut()` (about 4 µs per Arduino call, as on a real UNO), shows PWM, and reads out frequencies.
 - **Function generator** (new in 0.3): sine, square, triangle or sawtooth, 0.1 Hz–1 MHz, amplitude and DC offset, 50 Ω output; clickable front panel (waveform keys, frequency ÷10/−/+/×10, amplitude, offset, OUTPUT ON/OFF).
 - **Dual power supply** (new in 0.5.1): two independent 0–30 V channels with current limits, or tracking mode for a ± supply.
 - **DC power supply** (new in 0.3): 0–30 V with an adjustable current limit (CV/CC), set with front-panel buttons.

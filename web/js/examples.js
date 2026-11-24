@@ -1112,6 +1112,92 @@ void loop() {
   });
 
   EX.push({
+    name: 'UNO R3 · Logic analyzer: watch shiftOut() and a 74HC595', build: () => {
+      const p = EX.find((e) => e.name === 'UNO R3 · 74HC595 shift register: 8 LEDs').build();
+      p.code = `// The logic analyzer records digital signals against time - here every bit that
+// shiftOut() sends to the 74HC595, which is far too fast for the oscilloscope.
+//   CH1 = DS (data, pin 11)   CH2 = SHCP (clock, pin 12)   CH3 = STCP (latch, pin 8)
+//   CH4..CH7 = outputs Q0..Q3
+// It triggers on the falling edge of the latch (CH3) at 20 us/div, so each screen shows
+// one complete show() call: the latch goes LOW, eight clock pulses each shift one data bit
+// in (MSB first: read CH1 at every rising edge of CH2), then the latch goes HIGH and the
+// outputs CH4..CH7 change all at once.
+// Each digitalWrite takes about 4 us, as on a real UNO - so one byte takes ~100 us.
+// Try it: TIME/DIV + to see more, or set TRIG to OFF for a rolling display of the outputs
+// at 50 ms/div.
+const int dataPin = 11;   // DS   (pin 14)
+const int latchPin = 8;   // STCP (pin 12)
+const int clockPin = 12;  // SHCP (pin 11)
+
+void show(byte bits) {
+  digitalWrite(latchPin, LOW);
+  shiftOut(dataPin, clockPin, MSBFIRST, bits);
+  digitalWrite(latchPin, HIGH);
+}
+
+void setup() {
+  pinMode(dataPin, OUTPUT);
+  pinMode(latchPin, OUTPUT);
+  pinMode(clockPin, OUTPUT);
+}
+
+void loop() {
+  for (int n = 0; n < 16; n++) { show(n); delay(300); }   // binary counter on Q0..Q3
+}
+`;
+      p.parts = p.parts.filter((q) => q.id !== 'osc');
+      p.wires = p.wires.filter((w) => w.a.part !== 'osc' && w.b.part !== 'osc');
+      add(p, 'la', 'logicanalyzer', [880, 600], 0, { tdiv: 0.02, trig: 3, edge: 'fall', thr: 1.4 }, 'LA1');
+      const holes = ['c54', 'c57', 'c56', 'c53', 'h52', 'h53', 'h54'];
+      const cols = ['#f2c200', '#00b3b3', '#e84393', '#2ecc71', '#f08c00', '#9b59b6', '#e74c3c'];
+      holes.forEach((hl, i) => rw(p, ['la', 'CH' + (i + 1)], ['bb', hl], cols[i]));
+      rw(p, ['la', 'GND'], ['bb', rail('BN', 56)], '#1f1f1f');
+      p.wires.forEach((w, i) => { w.id = 'w' + i; }); // unique ids after removing the scope's wires
+      return p;
+    },
+  });
+
+  EX.push({
+    name: 'Electronics · Bode plot: RC low-pass and Sallen-Key filters', build: () => {
+      const p = { parts: [], wires: [], code: NOCODE(`// The Bode plotter measures a circuit's frequency response: its OUT drives the
+// circuit with a small sine, IN measures the output, and SWEEP steps the frequency
+// from START to STOP. Yellow = gain in dB, cyan dashed = phase in degrees.
+// Two filters, one plotter each - press SWEEP on both:
+//  - top: RC low-pass, R = 1 kΩ, C = 100 nF. Cut-off f = 1 / (2π·R·C) ≈ 1.59 kHz:
+//    -3 dB and -45° there, then -20 dB per decade (-90° phase).
+//  - bottom: Sallen-Key low-pass (VCVS gain 1), f0 ≈ 1.07 kHz, Q ≈ 0.74:
+//    -40 dB per decade and -180° phase - twice as steep as the RC filter.
+// Try it: change C1 or the resistors and sweep again; set the VCVS gain to 1.5 and
+// watch a peak appear near f0.`) };
+      const G = '#1f1f1f';
+      add(p, 'bp1', 'bode', [140, 330], 0, { fstart: 10, fstop: 1e5, ppd: 10, amp: 0.1 }, 'BP1');
+      add(p, 'rA', 'resistor', [150, 40], 0, { ohms: 1000 }, 'R1');
+      add(p, 'cA', 'capacitor', [250, 70], 0, { farads: 100e-9 }, 'C1');
+      rw(p, ['bp1', 'OUT'], ['rA', '1'], '#d62828');
+      rw(p, ['rA', '2'], ['cA', '1'], '#2f7de1');
+      rw(p, ['cA', '2'], ['bp1', 'COM'], G);
+      rw(p, ['bp1', 'IN'], ['cA', '1'], '#f2c200');
+      add(p, 'bp2', 'bode', [560, 330], 0, { fstart: 10, fstop: 1e5, ppd: 10, amp: 0.1 }, 'BP2');
+      add(p, 'r1', 'resistor', [560, 40], 0, { ohms: 10000 }, 'R2');
+      add(p, 'r2', 'resistor', [640, 40], 0, { ohms: 10000 }, 'R3');
+      add(p, 'c1', 'capacitor', [720, -40], 0, { farads: 22e-9 }, 'C2');
+      add(p, 'c2', 'capacitor', [700, 70], 0, { farads: 10e-9 }, 'C3');
+      add(p, 'e1', 'vcvs', [780, 40], 0, { gain: 1 }, 'E1');
+      rw(p, ['bp2', 'OUT'], ['r1', '1'], '#d62828');
+      rw(p, ['r1', '2'], ['r2', '1'], '#7f8c8d');
+      rw(p, ['r1', '2'], ['c1', '1'], '#7f8c8d');
+      rw(p, ['r2', '2'], ['c2', '1'], '#2f7de1');
+      rw(p, ['r2', '2'], ['e1', 'C+'], '#2f7de1');
+      rw(p, ['c1', '2'], ['e1', 'O+'], '#00b3b3');
+      rw(p, ['c2', '2'], ['bp2', 'COM'], G);
+      rw(p, ['e1', 'C-'], ['bp2', 'COM'], G);
+      rw(p, ['e1', 'O-'], ['bp2', 'COM'], G);
+      rw(p, ['bp2', 'IN'], ['e1', 'O+'], '#f2c200');
+      return p;
+    },
+  });
+
+  EX.push({
     name: 'UNO R3 · NeoPixel ring rainbow', build: () => {
       const p = P('board-uno-r3', `#include <Adafruit_NeoPixel.h>
 
@@ -1382,12 +1468,12 @@ void loop() {
   const CATS = [
     ['DC circuits', ['No code · Battery, switch and LED', 'Electronics · Zener voltage regulator']],
     ['Transients (RC, RL, RLC)', ['Electronics · Capacitor charging (power supply + switch)', 'Electronics · RL circuit: inductor with a square wave', 'Electronics · RLC circuit: underdamped ringing']],
-    ['AC circuits & filters', ['Electronics · RC low-pass filter (function generator + scope)', 'Electronics · Half-wave rectifier with smoothing capacitor']],
+    ['AC circuits & filters', ['Electronics · RC low-pass filter (function generator + scope)', 'Electronics · Bode plot: RC low-pass and Sallen-Key filters', 'Electronics · Half-wave rectifier with smoothing capacitor']],
     ['Semiconductors & ICs', ['Electronics · Diode V-I curve (scope in X-Y mode)', 'Electronics · 555 timer LED blinker', 'Electronics · LM358 op-amp: amplifier + comparator']],
     ['Controlled sources', ['Controlled sources · Sallen-Key low-pass filter (VCVS)', 'Controlled sources · Sallen-Key high-pass filter (VCVS)', 'Controlled sources · Transistor small-signal model (CCCS)']],
     ['Arduino basics', ['Mega 2560 · LED chaser on pins 22–29 + speed knob on A8', 'UNO Q · Blink (built-in LED)', 'UNO Q · Blink an external LED', 'UNO Q · Button controls LED', 'UNO Q · Fade an LED (PWM)', 'UNO Q · Potentiometer dimmer + Serial', 'UNO R3 · Traffic light', 'Nano · on a breadboard']],
     ['Arduino + measuring & analog', ['UNO Q · Measuring: multimeter & oscilloscope (v0.2)', 'UNO Q · PWM + RC filter = analog voltage', 'UNO R3 · Transistor motor driver (PWM speed)']],
-    ['Arduino output: displays, sound & motion', ['UNO Q · LED matrix bouncing dot', 'UNO R4 WiFi · LED matrix heartbeat', 'UNO R3 · LCD 16×2: hello + seconds counter', 'UNO R3 · 74HC595 shift register: 8 LEDs', 'UNO R3 · NeoPixel ring rainbow', 'UNO R3 · Melody on a piezo buzzer', 'UNO R4 WiFi · Servo sweep']],
+    ['Arduino output: displays, sound & motion', ['UNO Q · LED matrix bouncing dot', 'UNO R4 WiFi · LED matrix heartbeat', 'UNO R3 · LCD 16×2: hello + seconds counter', 'UNO R3 · 74HC595 shift register: 8 LEDs', 'UNO R3 · Logic analyzer: watch shiftOut() and a 74HC595', 'UNO R3 · NeoPixel ring rainbow', 'UNO R3 · Melody on a piezo buzzer', 'UNO R4 WiFi · Servo sweep']],
     ['Arduino input & sensors', ['UNO Q · TMP36 thermometer', 'UNO R3 · Ultrasonic distance (HC-SR04)', 'UNO Q · PIR motion detector', 'UNO R3 · Keypad 4×4 to the Serial Monitor', 'UNO R3 · IR remote control', 'UNO Q · Modulino Buttons, Pixels & Buzzer', 'UNO Q · Modulino sensors (Knob, Distance, Thermo, Movement)']],
   ];
   const catOf = new Map();

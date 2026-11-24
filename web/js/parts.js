@@ -1325,6 +1325,300 @@
     },
   });
 
+  // ---------------------------------------------------------------- Bode plotter
+  // A frequency-response analyser: OUT drives the circuit's input with a small sine, IN measures
+  // the output, COM is earthed (like the scope's GND). SWEEP steps the frequency from START to
+  // STOP and plots gain (dB, yellow) and phase (degrees, cyan dashed) against log frequency:
+  //   H(f) = V(IN) / V(OUT). See WB.Circuit.bodeSweep for how it is measured.
+  const BODE = { x0: -96, y0: -222, w: 224, h: 128, div: 8 };
+  const BODE_F = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1e3, 2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5, 1e6].map((f) => [f, WB.fmtHz(f)]);
+  const BODE_PPD = [[5, '5 points / decade (quick)'], [10, '10 points / decade'], [20, '20 points / decade (fine)']];
+  const BODE_AMP = [[0.01, '10 mV'], [0.05, '50 mV'], [0.1, '100 mV'], [0.5, '0.5 V'], [1, '1 V']].map(([v, l]) => [v, l + ' amplitude']);
+  const BBTN = [
+    { a: 'f0-', x: 160, y: -206, w: 14, h: 13, t: '−' }, { a: 'f0+', x: 206, y: -206, w: 14, h: 13, t: '+' },
+    { a: 'f1-', x: 160, y: -175, w: 14, h: 13, t: '−' }, { a: 'f1+', x: 206, y: -175, w: 14, h: 13, t: '+' },
+    { a: 'ppd', x: 160, y: -149, w: 60, h: 13 },
+    { a: 'sweep', x: 160, y: -126, w: 60, h: 22, t: 'SWEEP' },
+  ];
+  WB.bodeResults = new Map(); // part id -> { f, db, ph, ok, status, done, total, error, key }
+  const bodeFreqs = (p) => {
+    let a = +p.props.fstart || 10, b = +p.props.fstop || 1e5;
+    if (b < a) [a, b] = [b, a];
+    const ppd = +p.props.ppd || 10, n = Math.max(2, Math.round(Math.log10(b / a) * ppd) + 1);
+    return Array.from({ length: n }, (_, i) => a * Math.pow(b / a, i / (n - 1)));
+  };
+  // −3 dB points relative to the highest gain (log-interpolated between sweep points)
+  function bodeCorners(r) {
+    let iMax = 0;
+    r.db.forEach((d, i) => { if (d > r.db[iMax]) iMax = i; });
+    const lvl = r.db[iMax] - 3, out = [];
+    const cross = (i, j) => { const t = (lvl - r.db[i]) / (r.db[j] - r.db[i]); return { f: r.f[i] * Math.pow(r.f[j] / r.f[i], t), ph: r.ph[i] + t * (r.ph[j] - r.ph[i]) }; };
+    for (let i = iMax; i > 0; i--) if (r.db[i - 1] < lvl) { out.push(cross(i, i - 1)); break; }
+    for (let i = iMax; i < r.db.length - 1; i++) if (r.db[i + 1] < lvl) { out.push(cross(i, i + 1)); break; }
+    return { iMax, corners: out.sort((x, y) => x.f - y.f) };
+  }
+  WB.defPart('bode', {
+    label: 'Bode plotter', category: 'Instruments', prefix: 'BP', dynamic: true, interact: 'panel',
+    groundPins: ['COM'], // earthed, like the scope's ground
+    defaults: { fstart: 10, fstop: 1e5, ppd: 10, amp: 0.1 },
+    pins: () => [
+      { id: 'OUT', label: 'OUT — sine generator: connect to the circuit input', x: 0, y: 0, kind: 'pwr' },
+      { id: 'IN', label: 'IN — measuring input: connect to the circuit output', x: 20, y: 0 },
+      { id: 'COM', label: 'COM — ground (connect to circuit GND)', x: 40, y: 0, kind: 'gnd' },
+    ],
+    bbox: () => [-112, -238, 344, 242],
+    summary: (p) => `${WB.fmtHz(+p.props.fstart || 10)} … ${WB.fmtHz(+p.props.fstop || 1e5)}, ${+p.props.ppd || 10} points/decade`,
+    inspector: [
+      { key: 'fstart', label: 'Start frequency', type: 'select', options: BODE_F, live: true },
+      { key: 'fstop', label: 'Stop frequency', type: 'select', options: BODE_F, live: true },
+      { key: 'ppd', label: 'Resolution', type: 'select', options: BODE_PPD, live: true },
+      { key: 'amp', label: 'Test signal', type: 'select', options: BODE_AMP, live: true },
+    ],
+    // During a sweep OUT is a sine source (50 Ω, like a function generator); otherwise it holds 0 V.
+    elements(c) {
+      const sw = c.sweep && c.sweep.id === c.part.id;
+      return [
+        sw ? { t: 'V', a: c.n('OUT'), b: c.n('COM'), v: 0, r: 50, shape: 1, freq: 1000, amp: c.sweep.amp || 0.1, tag: 'bode-src' }
+          : { t: 'V', a: c.n('OUT'), b: c.n('COM'), v: 0, r: 50, tag: 'bode-src' },
+        { t: 'R', a: c.n('IN'), b: c.n('COM'), r: 1e6, tag: 'bode-in' },
+      ];
+    },
+    hit: (lx, ly) => {
+      const b = BBTN.find((q) => lx >= q.x - 1 && lx <= q.x + q.w + 1 && ly >= q.y - 1 && ly <= q.y + q.h + 1);
+      return b ? b.a : null;
+    },
+    panelAction(p, act, app) {
+      const pr = p.props;
+      if (act === 'sweep') { app.runBodeSweep(p); return; }
+      if (act === 'ppd') { const l = BODE_PPD.map((o) => o[0]); pr.ppd = l[(l.indexOf(+pr.ppd || 10) + 1) % l.length]; return; }
+      const k = act.startsWith('f0') ? 'fstart' : 'fstop';
+      pr[k] = stepOpt(BODE_F, pr[k] || (k === 'fstart' ? 10 : 1e5), act.endsWith('+') ? 1 : -1);
+    },
+    render(p) {
+      const { x0, y0, w, h, div } = BODE;
+      const r = WB.bodeResults.get(p.id);
+      const f0 = +p.props.fstart || 10, f1 = +p.props.fstop || 1e5;
+      const lo = Math.min(f0, f1), hi = Math.max(f0, f1);
+      const X = (f) => x0 + (w * Math.log10(f / lo)) / Math.log10(hi / lo);
+      // decade grid lines (with 2 and 5 as fainter lines)
+      let grid = '', flab = '';
+      for (let d = Math.floor(Math.log10(lo)); d <= Math.ceil(Math.log10(hi)); d++) {
+        for (const m of [1, 2, 5]) {
+          const f = m * Math.pow(10, d);
+          if (f < lo * 0.999 || f > hi * 1.001) continue;
+          const x = X(f).toFixed(1);
+          grid += `<line x1="${x}" y1="${y0}" x2="${x}" y2="${y0 + h}" stroke="${m === 1 ? '#2e5a40' : '#1a3324'}"/>`;
+          if (m === 1 || (m !== 1 && hi / lo < 200)) flab += `<text x="${x}" y="${y0 + h + 8}" font-size="5.5" text-anchor="middle" fill="#9fbfaa" font-family="monospace">${WB.fmtHz(f).replace(' ', '')}</text>`;
+        }
+      }
+      for (let j = 1; j < div; j++) grid += `<line x1="${x0}" y1="${y0 + (j * h) / div}" x2="${x0 + w}" y2="${y0 + (j * h) / div}" stroke="#1f3a2a"/>`;
+      let traces = '', glab = '', plab = '', info = '', msg = '';
+      const has = r && r.f && r.f.length > 1 && r.key === `${lo}|${hi}`;
+      if (has) {
+        const mx = Math.max(...r.db), mn = Math.min(...r.db);
+        const step = mx - mn > 80 ? 20 : 10;
+        const top = Math.ceil((mx + 1) / step) * step, bot = top - step * div;
+        const Y = (db) => y0 + (h * (top - WB.clamp(db, bot, top))) / (top - bot);
+        const phTop = 180 * Math.ceil(Math.max(...r.ph) / 180 - 1e-9) || 180, phBot = phTop - 360;
+        const YP = (ph) => y0 + (h * (phTop - WB.clamp(ph, phBot, phTop))) / 360;
+        const n = r.f.length;
+        traces += `<path d="${r.f.map((f, i) => (i ? 'L' : 'M') + X(f).toFixed(1) + ',' + YP(r.ph[i]).toFixed(1)).join('')}" fill="none" stroke="#3fd0ff" stroke-width="1.1" stroke-dasharray="3 2"/>`;
+        traces += `<path d="${r.f.map((f, i) => (i ? 'L' : 'M') + X(f).toFixed(1) + ',' + Y(r.db[i]).toFixed(1)).join('')}" fill="none" stroke="#ffd23f" stroke-width="1.5" stroke-linejoin="round"/>`;
+        for (let j = 0; j <= div; j += 2) {
+          glab += `<text x="${x0 - 3}" y="${y0 + (j * h) / div + 2}" font-size="5.5" text-anchor="end" fill="#ffd23f" font-family="monospace">${top - j * step}</text>`;
+          plab += `<text x="${x0 + w + 3}" y="${y0 + (j * h) / div + 2}" font-size="5.5" fill="#3fd0ff" font-family="monospace">${phTop - j * 45}°</text>`;
+        }
+        if (r.status === 'done') {
+          const { iMax, corners } = bodeCorners(r);
+          const fmtDb = (d) => (d >= 0 ? '+' : '') + d.toFixed(1) + ' dB';
+          info = `max ${fmtDb(r.db[iMax])} @ ${WB.fmtHz(r.f[iMax])}`;
+          info += corners.length ? `   −3 dB: ${corners.map((c) => WB.fmtHz(c.f) + ' (' + Math.round(c.ph) + '°)').join(', ')}` : '   no −3 dB point in range';
+          for (const c of corners) traces += `<line x1="${X(c.f).toFixed(1)}" y1="${y0}" x2="${X(c.f).toFixed(1)}" y2="${y0 + h}" stroke="#ff7a59" stroke-width=".7" stroke-dasharray="2 2"/>`;
+          if (r.ok.some((o) => !o)) msg = 'some points did not fully settle';
+        }
+        if (n < r.total) traces += `<line x1="${X(r.f[n - 1]).toFixed(1)}" y1="${y0}" x2="${X(r.f[n - 1]).toFixed(1)}" y2="${y0 + h}" stroke="#7fbf95" stroke-width=".6"/>`;
+      }
+      const status = !r ? 'Press SWEEP to measure the frequency response'
+        : r.error ? r.error
+          : r.status === 'running' ? `Sweeping… ${Math.round((100 * (r.done || 0)) / (r.total || 1))} %`
+            : !has ? 'Settings changed — press SWEEP again' : '';
+      const btn = (b) => {
+        const sweep = b.a === 'sweep', ppd = b.a === 'ppd';
+        const label = ppd ? `${+p.props.ppd || 10} pts/dec` : sweep && r && r.status === 'running' ? 'STOP' : b.t;
+        return `<g style="cursor:pointer"><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="${sweep ? 4 : 2.5}" fill="${sweep ? '#2d5fa8' : '#232831'}" stroke="${sweep ? '#7fb0ff' : '#6a7486'}" stroke-width=".8"/>
+          <text x="${b.x + b.w / 2}" y="${b.y + (sweep ? 14.5 : ppd ? 9 : 10)}" font-size="${sweep ? 8 : ppd ? 6.2 : 9}" text-anchor="middle" fill="#eef1f6" font-family="sans-serif" font-weight="700">${label}</text></g>`;
+      };
+      const val = (y, v) => `<text x="190" y="${y}" font-size="6.5" text-anchor="middle" fill="#fff" font-family="monospace">${WB.fmtHz(v)}</text>`;
+      return `<rect x="-110" y="-236" width="340" height="238" rx="9" fill="#3b4250" stroke="#1d2129"/>
+        <rect x="${x0 - 8}" y="${y0 - 8}" width="${w + 30}" height="${h + 34}" rx="4" fill="#0b0f0c"/>
+        <g stroke-width=".6">${grid}</g>
+        <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="none" stroke="#2e5a40" stroke-width=".8"/>
+        ${traces}${glab}${plab}${flab}
+        <text x="${x0 + w / 2}" y="${y0 + h / 2}" font-size="7.5" text-anchor="middle" fill="${r && r.error ? '#ff9a7a' : '#4f8a65'}" font-family="sans-serif">${WB.esc(status)}</text>
+        <text x="${x0 + w - 2}" y="${y0 + 8}" font-size="5.5" text-anchor="end" fill="#7fbf95" font-family="monospace">${WB.esc(msg)}</text>
+        <text x="${x0}" y="${y0 + h + 22}" font-size="6.5" fill="#d8dde6" font-family="monospace"><tspan fill="#ffd23f">— gain (dB)</tspan>  <tspan fill="#3fd0ff">- - phase</tspan>  ${WB.esc(info)}</text>
+        <text x="190" y="-212" font-size="5.5" text-anchor="middle" fill="#cfd5df" font-family="sans-serif" font-weight="700">START</text>${val(-197, lo)}
+        <text x="190" y="-181" font-size="5.5" text-anchor="middle" fill="#cfd5df" font-family="sans-serif" font-weight="700">STOP</text>${val(-166, hi)}
+        ${BBTN.map(btn).join('')}
+        <text x="220" y="-60" font-size="7" text-anchor="end" fill="#9aa5b6" font-family="sans-serif" font-weight="700">BODE PLOTTER</text>
+        <text x="220" y="-51" font-size="5" text-anchor="end" fill="#7d8798" font-family="sans-serif">OUT → circuit in · IN ← circuit out</text>
+        <circle cx="0" cy="-13" r="5.5" fill="#111" stroke="#d62828" stroke-width="2"/><circle cx="20" cy="-13" r="5.5" fill="#111" stroke="#ffd23f" stroke-width="2"/><circle cx="40" cy="-13" r="5.5" fill="#111" stroke="#888" stroke-width="2"/>
+        <text x="0" y="-22.5" font-size="5.5" text-anchor="middle" fill="#ff8a7a" font-family="sans-serif" font-weight="700">OUT</text><text x="20" y="-22.5" font-size="5.5" text-anchor="middle" fill="#ffd23f" font-family="sans-serif" font-weight="700">IN</text><text x="40" y="-22.5" font-size="5.5" text-anchor="middle" fill="#ddd" font-family="sans-serif" font-weight="700">⏚ COM</text>
+        <path d="M0,-7.5 V0" stroke="#d62828" stroke-width="2"/><path d="M20,-7.5 V0" stroke="#ffd23f" stroke-width="2"/><path d="M40,-7.5 V0" stroke="#222" stroke-width="2"/>`;
+    },
+  });
+  WB.bodeFreqs = bodeFreqs;
+
+  // ---------------------------------------------------------------- Logic analyzer (8 channels)
+  // Records the logic level (HIGH above the threshold) of CH1…CH8 against time and draws them as
+  // timing diagrams, like a real logic analyzer. GND is earthed. While it is in the circuit the
+  // app solves after every digitalWrite (clocked), so fast sequences such as shiftOut() are
+  // captured edge by edge; each Arduino call takes ~4 µs of simulated time, as on a real UNO.
+  // PWM pins show their square wave. TRIG picks the channel whose edge starts the screen.
+  const LA = { x0: 4, y0: -222, w: 236, lane: 17, n: 8 };
+  const LA_COL = ['#ffd23f', '#3fd0ff', '#ff7ab6', '#7dff8a', '#ffa24c', '#b59cff', '#ff6b6b', '#e6e6e6'];
+  const LA_TDIV = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]
+    .map((ms) => [ms, (ms < 1 ? +(ms * 1000).toPrecision(3) + ' µs' : ms < 1000 ? ms + ' ms' : ms / 1000 + ' s') + '/div']);
+  const LA_TRIG = [[0, 'Off (rolling display)']].concat(Array.from({ length: 8 }, (_, i) => [i + 1, 'CH' + (i + 1)]));
+  const LA_THR = [[0.8, '0.8 V'], [1.4, '1.4 V (TTL, 3.3 V and 5 V logic)'], [2.5, '2.5 V (5 V CMOS)']];
+  const LABTN = [
+    { a: 'tdiv-', x: 262, y: -206, w: 14, h: 13, t: '−' }, { a: 'tdiv+', x: 306, y: -206, w: 14, h: 13, t: '+' },
+    { a: 'trig', x: 262, y: -168, w: 58, h: 14 }, { a: 'edge', x: 262, y: -150, w: 58, h: 14 },
+  ];
+  WB.defPart('logicanalyzer', {
+    label: 'Logic analyzer', category: 'Instruments', prefix: 'LA', dynamic: true, interact: 'panel', clocked: true,
+    groundPins: ['GND'],
+    defaults: { tdiv: 1, trig: 0, edge: 'rise', thr: 1.4 },
+    pins: () => Array.from({ length: 8 }, (_, i) => ({ id: 'CH' + (i + 1), label: `CH${i + 1} input`, x: i * 10, y: 0 }))
+      .concat([{ id: 'GND', label: 'Ground (connect to circuit GND)', x: 90, y: 0, kind: 'gnd' }]),
+    bbox: () => [-26, -238, 354, 242],
+    summary: (p) => `${optLabel(LA_TDIV, p.props.tdiv)}, trigger ${+p.props.trig ? 'CH' + p.props.trig + (p.props.edge === 'fall' ? ' falling' : ' rising') : 'off'}`,
+    inspector: [
+      { key: 'tdiv', label: 'Time base', type: 'select', options: LA_TDIV, live: true },
+      { key: 'trig', label: 'Trigger channel', type: 'select', options: LA_TRIG, live: true },
+      { key: 'edge', label: 'Trigger edge', type: 'select', options: [['rise', 'Rising ↑'], ['fall', 'Falling ↓']], live: true },
+      { key: 'thr', label: 'Logic threshold', type: 'select', options: LA_THR, live: true },
+    ],
+    elements: (c) => Array.from({ length: 8 }, (_, i) => ({ t: 'R', a: c.n('CH' + (i + 1)), b: c.n('GND'), r: 1e6 })),
+    hit: (lx, ly) => {
+      const b = LABTN.find((q) => lx >= q.x - 1 && lx <= q.x + q.w + 1 && ly >= q.y - 1 && ly <= q.y + q.h + 1);
+      return b ? b.a : null;
+    },
+    panelAction(p, act) {
+      const pr = p.props;
+      if (act === 'tdiv-' || act === 'tdiv+') pr.tdiv = stepOpt(LA_TDIV, pr.tdiv, act.endsWith('+') ? 1 : -1);
+      else if (act === 'trig') pr.trig = ((+pr.trig || 0) + 1) % 9;
+      else if (act === 'edge') pr.edge = pr.edge === 'fall' ? 'rise' : 'fall';
+    },
+    render(p) {
+      const { x0, y0, w, lane, n } = LA, h = lane * n;
+      let grid = '';
+      for (let i = 1; i < 10; i++) grid += `<line x1="${x0 + (i * w) / 10}" y1="${y0}" x2="${x0 + (i * w) / 10}" y2="${y0 + h}"/>`;
+      let lanes = '';
+      for (let k = 0; k < n; k++) {
+        const y = y0 + k * lane;
+        if (k) lanes += `<line x1="${x0}" y1="${y}" x2="${x0 + w}" y2="${y}" stroke="#1a2a20" stroke-width=".5"/>`;
+        lanes += `<text x="${x0 - 3}" y="${y + lane / 2 + 2}" font-size="6" text-anchor="end" fill="${LA_COL[k]}" font-family="monospace" font-weight="700">${k + 1}</text>
+          <path class="lb${k}" d="" fill="${LA_COL[k]}" fill-opacity=".28" stroke="none"/>
+          <path class="ln${k}" d="" fill="none" stroke="${LA_COL[k]}" stroke-width="1.1" stroke-linejoin="miter"/>
+          <text class="lf${k}" x="${x0 + w - 2}" y="${y + 7}" font-size="5" text-anchor="end" fill="${LA_COL[k]}" font-family="monospace" opacity=".85"></text>`;
+      }
+      const trig = +p.props.trig || 0, fall = p.props.edge === 'fall';
+      const btn = (b) => {
+        const label = b.a === 'trig' ? (trig ? 'TRIG CH' + trig : 'TRIG OFF') : b.a === 'edge' ? (fall ? 'EDGE ↓' : 'EDGE ↑') : b.t;
+        const on = b.a === 'trig' && trig;
+        return `<g style="cursor:pointer"><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="2.5" fill="${on ? '#2d5fa8' : '#232831'}" stroke="${on ? '#7fb0ff' : '#6a7486'}" stroke-width=".8"/>
+          <text x="${b.x + b.w / 2}" y="${b.y + (b.t ? 10 : 9.6)}" font-size="${b.t ? 9 : 6.5}" text-anchor="middle" fill="#eef1f6" font-family="sans-serif" font-weight="700">${label}</text></g>`;
+      };
+      const pinsSvg = Array.from({ length: 8 }, (_, i) => `<circle cx="${i * 10}" cy="-13" r="3.6" fill="#111" stroke="${LA_COL[i]}" stroke-width="1.6"/><text x="${i * 10}" y="-20" font-size="4.6" text-anchor="middle" fill="${LA_COL[i]}" font-family="sans-serif" font-weight="700">${i + 1}</text><path d="M${i * 10},-9.4 V0" stroke="${LA_COL[i]}" stroke-width="1.5"/>`).join('');
+      return `<rect x="-24" y="-236" width="350" height="238" rx="9" fill="#3b4250" stroke="#1d2129"/>
+        <rect x="-18" y="${y0 - 6}" width="${w + 28}" height="${h + 30}" rx="4" fill="#0b0f0c"/>
+        <g stroke="#1f3a2a" stroke-width=".5">${grid}</g>
+        ${lanes}
+        <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="none" stroke="#2e5a40" stroke-width=".8"/>
+        <path class="la-trig" d="" stroke="#ff7a59" stroke-width=".8" stroke-dasharray="2 2"/>
+        <text class="la-msg" x="${x0 + w / 2}" y="${y0 + h / 2}" font-size="7.5" text-anchor="middle" fill="#4f8a65" font-family="sans-serif">Start the simulation to record signals</text>
+        <text class="la-ro" x="${x0}" y="${y0 + h + 15}" font-size="6.5" fill="#d8dde6" font-family="monospace">${optLabel(LA_TDIV, p.props.tdiv)}</text>
+        <text x="291" y="-212" font-size="5.5" text-anchor="middle" fill="#cfd5df" font-family="sans-serif" font-weight="700">TIME / DIV</text>
+        <text x="291" y="-197" font-size="6.2" text-anchor="middle" fill="#fff" font-family="monospace">${optLabel(LA_TDIV, p.props.tdiv).replace('/div', '')}</text>
+        <text x="291" y="-174" font-size="5.5" text-anchor="middle" fill="#cfd5df" font-family="sans-serif" font-weight="700">TRIGGER</text>
+        ${LABTN.map(btn).join('')}
+        <text x="320" y="-60" font-size="7" text-anchor="end" fill="#9aa5b6" font-family="sans-serif" font-weight="700">LOGIC ANALYZER</text>
+        <text x="320" y="-51" font-size="5" text-anchor="end" fill="#7d8798" font-family="sans-serif">8 channels · threshold ${+p.props.thr || 1.4} V</text>
+        ${pinsSvg}
+        <circle cx="90" cy="-13" r="3.6" fill="#111" stroke="#888" stroke-width="1.6"/><text x="90" y="-20" font-size="4.6" text-anchor="middle" fill="#ddd" font-family="sans-serif" font-weight="700">GND</text><path d="M90,-9.4 V0" stroke="#222" stroke-width="1.5"/>`;
+    },
+    // Every frame while simulating: draw the recorded levels for the current window.
+    liveUpdate(p, g, app) {
+      const buf = app.sim && app.sim.la && app.sim.la[p.id];
+      if (!buf || !buf.ev.length) return;
+      const ev = buf.ev, { x0, y0, w, lane, n } = LA;
+      const W = (+p.props.tdiv || 1) * 10;
+      const rt = app.runtime;
+      let now = buf.analog ? buf.tEnd : rt ? rt.millis() : performance.now() - app.sim.t0;
+      now = Math.max(now, ev[ev.length - 1].t);
+      // trigger: the latest edge on the trigger channel with a full screen after it (else the latest edge)
+      const tc = (+p.props.trig || 0) - 1, fall = p.props.edge === 'fall';
+      let te = null, full = false;
+      if (tc >= 0) {
+        for (let i = ev.length - 1; i > 0; i--) {
+          const a = ev[i - 1].lv[tc], b = ev[i].lv[tc];
+          if (a == null || b == null || a === b || (fall ? b !== 0 : b !== 1)) continue;
+          if (te === null) te = ev[i].t;
+          if (ev[i].t <= now - 0.9 * W) { te = ev[i].t; full = true; break; }
+        }
+      }
+      const t0 = te !== null ? te - 0.1 * W : now - W, t1 = t0 + W, tEnd = Math.min(t1, now);
+      const X = (t) => x0 + (w * (t - t0)) / W;
+      // first event at or before t0
+      let lo = 0, hi = ev.length - 1;
+      while (lo < hi) { const m = (lo + hi + 1) >> 1; if (ev[m].t <= t0) lo = m; else hi = m - 1; }
+      const first = ev[lo].t <= t0 ? lo : 0;
+      for (let k = 0; k < n; k++) {
+        const yH = y0 + k * lane + 3.5, yL = y0 + (k + 1) * lane - 3.5;
+        let d = '', band = '', rises = [], prevLv = null;
+        for (let i = first; i < ev.length && ev[i].t < tEnd; i++) {
+          const e = ev[i], ta = Math.max(t0, e.t), tb = Math.min(tEnd, i + 1 < ev.length ? ev[i + 1].t : tEnd);
+          if (tb <= ta && i + 1 < ev.length) { prevLv = e.lv[k]; continue; }
+          const lv = e.lv[k], pw = e.pw[k];
+          if (lv == null) { prevLv = null; continue; }
+          if (prevLv === 0 && lv === 1 && e.t >= t0) rises.push(e.t);
+          const xa = X(ta), xb = X(Math.max(tb, ta));
+          if (pw && pw.T > 0) {
+            const px = (w * pw.T) / W;
+            if (px < 3) band += `M${xa.toFixed(1)},${yH}H${xb.toFixed(1)}V${yL}H${xa.toFixed(1)}z`;
+            else {
+              // square wave from the segment start, at most ~400 cycles
+              let t = ta, s = `M${xa.toFixed(1)},${yL}`;
+              for (let c = 0; t < tb && c < 400; c++) {
+                const xr = X(t), xf = X(Math.min(tb, t + pw.d * pw.T)), xn = X(Math.min(tb, t + pw.T));
+                s += `L${xr.toFixed(1)},${yL}L${xr.toFixed(1)},${yH}L${xf.toFixed(1)},${yH}L${xf.toFixed(1)},${yL}L${xn.toFixed(1)},${yL}`;
+                rises.push(t);
+                t += pw.T;
+              }
+              d += s;
+            }
+          } else {
+            const y = lv ? yH : yL;
+            d += (prevLv == null || d === '' ? `M${xa.toFixed(1)},${y}` : `L${xa.toFixed(1)},${y}`) + `L${xb.toFixed(1)},${y}`;
+          }
+          prevLv = lv;
+        }
+        g.querySelector('.ln' + k).setAttribute('d', d);
+        g.querySelector('.lb' + k).setAttribute('d', band);
+        const last = ev[ev.length - 1];
+        const lf = g.querySelector('.lf' + k);
+        if (last.lv[k] == null) lf.textContent = '—';
+        else if (last.pw[k]) lf.textContent = `${WB.fmtHz(1000 / last.pw[k].T)} ${Math.round(last.pw[k].d * 100)}%`;
+        else if (rises.length >= 2) lf.textContent = WB.fmtHz((1000 * (rises.length - 1)) / (rises[rises.length - 1] - rises[0]));
+        else lf.textContent = '';
+      }
+      g.querySelector('.la-msg').textContent = '';
+      g.querySelector('.la-trig').setAttribute('d', te !== null ? `M${X(te).toFixed(1)},${y0}V${y0 + n * lane}` : '');
+      g.querySelector('.la-ro').textContent = `${optLabel(LA_TDIV, p.props.tdiv)}  ` + (tc < 0 ? 'ROLL' : te === null ? `TRIG CH${tc + 1} ${fall ? '↓' : '↑'} waiting…` : `TRIG CH${tc + 1} ${fall ? '↓' : '↑'}${full ? '' : ' (capturing)'}`);
+    },
+  });
+
   // ---------------------------------------------------------------- Modulino (I2C / Qwiic modules)
   // Each module has the Qwiic signals GND, 3.3 V, SDA, SCL as pins along its bottom edge.
   // The sketch talks to it through the Modulino library (see runtime.js); a module is found

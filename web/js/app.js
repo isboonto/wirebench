@@ -1078,6 +1078,31 @@
     }
 
     // ---------------- files (browser download, or native dialogs in the desktop app)
+    // Bode plotter: run a frequency sweep (or stop the one that is running). It works on its own
+    // copy of the circuit state, so it runs whether or not the simulation is running.
+    async runBodeSweep(p) {
+      const cur = WB.bodeResults.get(p.id);
+      if (cur && cur.status === 'running') { cur.cancel = true; return; }
+      const lo = Math.min(+p.props.fstart || 10, +p.props.fstop || 1e5), hi = Math.max(+p.props.fstart || 10, +p.props.fstop || 1e5);
+      const freqs = WB.bodeFreqs(p);
+      const r = { f: [], db: [], ph: [], ok: [], status: 'running', done: 0, total: freqs.length, key: `${lo}|${hi}` };
+      WB.bodeResults.set(p.id, r);
+      const redraw = () => { if (this.part(p.id)) this.editor.rerenderBody(p); };
+      redraw();
+      const sim = { pins: this.sim ? this.sim.pins : {}, servos: [], modulino: {}, scope: {}, analog: { t: 0 }, matrix: null, partState: {}, warned: new Set(), t0: performance.now(), lcd: {}, neo: {}, irq: [] };
+      let res;
+      try {
+        res = await WB.Circuit.bodeSweep(this.getTopo(), this.project, {
+          partId: p.id, freqs, amp: +p.props.amp || 0.1, sim, cancelled: () => r.cancel,
+          onProgress: (done, total, out) => { Object.assign(r, { f: out.f, db: out.db, ph: out.ph, ok: out.ok, done }); redraw(); },
+        });
+      } catch (e) { res = { error: 'Sweep failed: ' + e.message }; }
+      if (WB.bodeResults.get(p.id) !== r) return;
+      if (res.error === 'cancelled') r.status = 'done';
+      else if (res.error) { r.status = 'error'; r.error = res.error; }
+      else { Object.assign(r, res); r.status = 'done'; }
+      redraw();
+    }
     // Toolbar: compact it step by step (classes c1…c9, see app.css) until everything fits.
     fitToolbar() {
       const tb = $('#toolbar');
@@ -1488,6 +1513,7 @@
       const analog = this.analogRequest();
       this.results = WB.Circuit.solve(this.getTopo(), this.project, this.sim, { boardId: b && b.id, transient: this.transient, analog });
       if (this.results.analog) this.captureAnalog(analog, this.results.analog);
+      else this.captureLogic();
       // a part changed its own state (e.g. power supply switched to current limiting): solve again
       if (Object.values(this.results.vis).some((v) => v.again)) this.dirty = true;
       if (this.runtime) this.runtime.onSolved();
@@ -1629,6 +1655,19 @@
         }
         an.scopes.push({ p, idx, W: W * 1000, fine });
       }
+      // logic analyzers record from the same time-domain samples
+      an.las = [];
+      for (const p of this.project.parts) {
+        if (p.type !== 'logicanalyzer') continue;
+        const idx = {};
+        for (const id of ['CH1', 'CH2', 'CH3', 'CH4', 'CH5', 'CH6', 'CH7', 'CH8', 'GND']) {
+          const k = topo.nodeOf.get(p.id + ':' + id);
+          idx[id] = { k, i: an.probes.length };
+          an.probes.push(k === undefined ? 0 : k);
+        }
+        an.las.push({ p, idx });
+        res = Math.min(res, (+p.props.tdiv || 1) * 10 / 1000 / 500);
+      }
       an.res = res;
       return an;
     }
@@ -1653,6 +1692,66 @@
         while (drop < buf.length - 2 && buf[drop].t < keep) drop++;
         if (buf.length - drop > 6000) drop = buf.length - 6000;
         if (drop) buf.splice(0, drop);
+      }
+      for (const la of an.las || []) {
+        const ok = (id) => { const k = la.idx[id].k; return k !== undefined && topo.nets[k] && topo.nets[k].length > 1 && !(k !== 0 && R.floating.has(k)); };
+        const conn = [1, 2, 3, 4, 5, 6, 7, 8].map((c) => ok('CH' + c));
+        const thr = +la.p.props.thr || 1.4;
+        const buf = this.laBuffer(la.p, true);
+        for (let o = 0; o + P <= S.length; o += P) {
+          const gnd = S[o + 1 + la.idx.GND.i];
+          const lv = conn.map((c, j) => (c ? (S[o + 1 + la.idx['CH' + (j + 1)].i] - gnd > thr ? 1 : 0) : null));
+          this.laPush(buf, S[o] * 1000, lv, [null, null, null, null, null, null, null, null]);
+        }
+        if (S.length >= P) buf.tEnd = S[S.length - P] * 1000;
+      }
+    }
+    // ---------------- logic analyzer recording
+    laBuffer(p, analog) {
+      const all = this.sim.la || (this.sim.la = {});
+      let b = all[p.id];
+      if (!b || b.analog !== analog) b = all[p.id] = { ev: [], key: null, analog, tEnd: 0 };
+      return b;
+    }
+    laPush(buf, t, lv, pw) {
+      const key = lv.join() + '|' + pw.map((x) => (x ? x.d.toFixed(3) + '/' + x.T.toFixed(4) : '')).join();
+      if (key === buf.key) return;
+      buf.key = key;
+      buf.ev.push({ t, lv, pw });
+      // keep ~12 s of history (and at most 40000 changes)
+      let drop = 0;
+      while (drop < buf.ev.length - 2 && buf.ev[drop + 1].t < t - 12000) drop++;
+      if (buf.ev.length - drop > 40000) drop = buf.ev.length - 40000;
+      if (drop) buf.ev.splice(0, drop);
+    }
+    // After a DC / digital solve: record the analyzers' channel levels (and PWM) when they change.
+    // Each change is stamped with the sketch's time, at least 4 µs after the previous one, so
+    // the edges of a fast sequence (shiftOut) are spread out as on a real board.
+    captureLogic() {
+      const R = this.results;
+      if (!R || R.analog) return;
+      const topo = this.getTopo();
+      for (const p of this.project.parts) {
+        if (p.type !== 'logicanalyzer') continue;
+        const n = (id) => topo.nodeOf.get(p.id + ':' + id);
+        const ng = n('GND'), g0 = ng ? R.V[ng] : 0, thr = +p.props.thr || 1.4;
+        const lv = [], pw = [];
+        for (let c = 1; c <= 8; c++) {
+          const k = n('CH' + c);
+          if (k === undefined || !topo.nets[k] || topo.nets[k].length < 2 || (k !== 0 && R.floating.has(k))) { lv.push(null); pw.push(null); continue; }
+          const v = (k ? R.V[k] : 0) - g0, wv = R.wave(k);
+          if (wv && wv.hi - g0 > thr && wv.lo - g0 < thr) { lv.push(1); pw.push({ d: wv.duty, T: wv.periodMs }); }
+          else { lv.push(v > thr ? 1 : 0); pw.push(null); }
+        }
+        const buf = this.laBuffer(p, false);
+        const rt = this.runtime, base = rt ? rt.millis() : performance.now() - this.sim.t0;
+        const prev = buf.ev.length ? buf.ev[buf.ev.length - 1].t : -Infinity;
+        // no pause (delay / yield) since the last change: the sketch ran straight on, ~4 µs per call
+        const burst = rt && buf.epoch === rt.lastYield && prev > -Infinity;
+        const t = burst ? prev + 0.004 : Math.max(base, prev + 0.004);
+        const before = buf.ev.length;
+        this.laPush(buf, t, lv, pw);
+        if (buf.ev.length !== before || !burst) buf.epoch = rt ? rt.lastYield : null;
       }
     }
     // Record oscilloscope channel voltages (and PWM waveform) once per frame.
@@ -1773,7 +1872,7 @@
       const b = this.boardPart();
       const spec = b ? PARTS[b.type].board : null;
       if (WB.scopeAuto) WB.scopeAuto.clear();
-      this.sim = { pins: {}, servos: [], modulino: {}, scope: {}, analog: { t: 0, lastReal: null }, matrix: spec && spec.matrix ? new Uint8Array(spec.matrix.w * spec.matrix.h) : null, partState: {}, warned: new Set(), t0: performance.now(), lcd: {}, neo: {}, irq: [] };
+      this.sim = { pins: {}, servos: [], modulino: {}, scope: {}, analog: { t: 0, lastReal: null }, matrix: spec && spec.matrix ? new Uint8Array(spec.matrix.w * spec.matrix.h) : null, partState: {}, warned: new Set(), t0: performance.now(), lcd: {}, neo: {}, irq: [], la: {} };
       // chips that react to clock edges (74HC595): solve after every digitalWrite so no edge is missed
       this.clocked = this.project.parts.some((p) => PARTS[p.type] && PARTS[p.type].clocked);
       this.setRunUI(true);

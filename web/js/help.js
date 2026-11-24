@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '0.7.3';
+  WB.VERSION = '0.8.0';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -95,6 +95,8 @@
         <li><b>Multimeter</b> (Parts → Instruments): connect the <b>COM</b> jack to ground or the low side and <b>VΩ</b> to the point you measure. Click a mode on the dial (or the knob, to step to the next one) to choose <b>V</b> (DC voltage), <b>V~</b> (AC voltage, rms), <b>A</b> (DC current), <b>A~</b> (AC current, rms) and <b>Ω</b> (resistance).
           For current, put the meter <b>in series</b> using the <b>A</b> and <b>COM</b> jacks. Measure resistance with the circuit unpowered. Readings appear while the simulation runs; in DC modes PWM and AC signals read as their average, like a real meter. AC modes show the rms of the changing part only.</li>
         <li><b>Voltmeter</b> and <b>Ammeter (compact)</b> (Parts → Instruments): small panel meters with two pins 0.1" apart, so they plug straight into the breadboard and stay on the circuit — handy when you want to watch several values at once. Connect the voltmeter <b>across</b> the part (+ to the point you measure, − to the low side; 10 MΩ input). Put the ammeter <b>in series</b> — current flows in at + and out at − (50 mΩ shunt). Click the <b>DC / AC</b> badge to switch between DC and true-RMS AC readings.</li>
+        <li><b>Bode plotter</b> (Parts → Instruments): measures a circuit's <b>frequency response</b>. Connect <b>OUT</b> to the circuit's input (instead of a function generator), <b>IN</b> to its output and <b>COM</b> to ground, then press <b>SWEEP</b> — no need to start the simulation. It steps a small sine from START to STOP and plots the <b>gain in dB</b> (yellow) and the <b>phase</b> (cyan, dashed) on a logarithmic frequency axis, and marks the <b>−3 dB</b> points (orange). Each frequency is simulated until it has settled, so op-amps, transistors and diodes behave as in the real circuit; keep the test signal small (100 mV) so amplifiers don't clip. Other generators are set to zero while it sweeps.</li>
+        <li><b>Logic analyzer</b> (Parts → Instruments): eight digital channels shown as timing diagrams — ideal for fast signals such as <code>shiftOut()</code>, I²C-style clock and data, servo pulses and button bounce. HIGH means above the threshold (1.4 V by default). <b>TIME/DIV</b> sets the time base (1 µs to 1 s); <b>TRIG</b> picks the channel whose rising or falling (<b>EDGE</b>) edge starts the screen, or OFF for a rolling display. Each Arduino call takes about 4 µs of simulated time, as on a real UNO, so a byte sent with shiftOut() takes about 100 µs. Measured frequencies (and PWM duty) appear at the right of each channel.</li>
         <li><b>Oscilloscope</b>: connect <b>CH1</b>/<b>CH2</b> to the signals (and <b>GND</b> to circuit ground). Its front panel has clickable buttons, also while simulating:
           <ul>
             <li><b>TIME / DIV − +</b>: time base, 10 µs to 1 s per division.</li>
@@ -240,6 +242,10 @@
     about: () => `
       ${aboutHeader()}
       <h3 class="about-h">What's new</h3>
+      <h3>What's new in 0.8</h3>
+      <ul>
+        <li>0.8.0: two new instruments. The <b>Bode plotter</b> sweeps a small sine from START to STOP and plots gain (dB) and phase against frequency, with the −3 dB points marked — it simulates every frequency through the full solver, so op-amps and transistors work too (SPICE export: an <code>.ac</code> analysis). The 8-channel <b>logic analyzer</b> draws timing diagrams with an edge trigger and records every edge of fast sequences such as <code>shiftOut()</code>. New examples: <i>Bode plot: RC low-pass and Sallen-Key filters</i> and <i>Logic analyzer: watch shiftOut() and a 74HC595</i>.</li>
+      </ul>
       <h3>What's new in 0.7</h3>
       <ul>
         <li>0.7.3: one <b>File</b> menu for New, Open, Save, Export and Theme, and small line icons in front of every menu item (File, Help, right-click and category menus) and on the toolbar's edit buttons.</li>

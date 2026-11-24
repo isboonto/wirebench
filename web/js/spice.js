@@ -173,7 +173,7 @@
         else if (e.t === 'G') { lines.push(`${name} ${a} ${b} ${nodeName(e.p)} ${nodeName(e.q)} ${num(e.gm)}`); if (e.i0) lines.push(`I_${name.replace(/^G_?/, '')} ${a} ${b} ${num(e.i0)}`); }
         else if (e.t === 'V') {
           srcNote = '';
-          const spec = source(e);
+          const spec = source(e) + (e.tag === 'bode-src' ? ' AC 1' : '');
           const notes = [srcNote, note.replace(/^ ; /, '')].filter(Boolean).join('; ');
           lines.push(`${name} ${a} ${b} ${spec} Rser=${num(e.r)}${notes ? ' ; ' + notes : ''}`); // comment last: ';' ends the line for SPICE
         }
@@ -223,7 +223,12 @@
 
     // ---------------------------------------------------------------- analysis
     let analysis;
-    if (timeDomain || scopes.length) {
+    const bode = parts.find((p) => p.type === 'bode');
+    if (bode) {
+      // Bode plotter: an AC analysis over its frequency range (plot V(IN) — its source has AC 1)
+      const f0 = Math.min(+bode.props.fstart || 10, +bode.props.fstop || 1e5), f1 = Math.max(+bode.props.fstart || 10, +bode.props.fstop || 1e5);
+      analysis = `.ac dec ${+bode.props.ppd || 10} ${num(f0)} ${num(f1)}`;
+    } else if (timeDomain || scopes.length) {
       const T = Math.max(tStop, scopeWindow ? 3 * scopeWindow : 0) || 0.1;
       analysis = `.tran 0 ${num(T)} 0 ${num(T / 2000)}`;
     } else analysis = '.op';
@@ -232,6 +237,8 @@
       return `* ${s.name}: CH1 = ${ch('CH1')}, CH2 = ${ch('CH2')}  (${s.props.tdiv >= 1 ? s.props.tdiv + ' ms' : s.props.tdiv * 1000 + ' µs'}/div)`;
     });
     const meters = parts.filter((p) => p.type === 'multimeter').map((p) => `* ${p.name}: ${p.props.mode || 'V'} between ${byPart(p, String(p.props.mode || 'V').startsWith('A') ? 'A' : 'V') || '—'} and ${byPart(p, 'COM') || '—'}`);
+    if (bode) meters.push(`* ${bode.name}: Bode plot = V(${byPart(bode, 'IN') || '?'}) in dB and phase (its OUT source ${byPart(bode, 'OUT') || '?'} has AC 1)`);
+    for (const la of parts.filter((p) => p.type === 'logicanalyzer')) meters.push(`* ${la.name}: logic analyzer on ${[1, 2, 3, 4, 5, 6, 7, 8].map((c) => byPart(la, 'CH' + c)).filter((nm) => nm && !/^NC/.test(nm)).join(', ') || 'no nets'}`);
     meters.push(...parts.filter((p) => p.type === 'voltmeter' || p.type === 'ammeter').map((p) => `* ${p.name}: ${p.type === 'voltmeter' ? 'V' : 'A'}${p.props.mode === 'AC' ? ' (AC rms)' : ''} between ${byPart(p, '+') || '—'} (+) and ${byPart(p, '-') || '—'} (−)`));
 
     // ---------------------------------------------------------------- text
