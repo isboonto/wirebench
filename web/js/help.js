@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '0.7.1';
+  WB.VERSION = '0.7.2';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -69,7 +69,7 @@
       <ol>
         <li><b>Add a board.</b> Drag an <b>Arduino UNO Q</b> (or another board) from <b>Parts → Boards</b> onto the canvas, or double-click it. A project has one board.</li>
         <li><b>Add parts.</b> Drag parts (LEDs, resistors, buttons, sensors, Modulino…) onto the canvas or the breadboard, or double-click them in the parts list. Quicker: point at the workspace and just <b>type the part name</b> (for example <i>led</i> or <i>res</i>) — a search box opens; press Enter to drop the part at the mouse. Legs placed in breadboard holes connect automatically — connected holes turn green.</li>
-        <li><b>Wire it up.</b> Click a pin or hole to start a jumper wire, then click another pin to finish. The wire is <b>auto-routed</b> into a tidy right-angle path around parts (and re-routes when you move a part). Click empty space on the way to place joints yourself instead; the wire still runs at right angles through your joints (also when you drag a joint later). Right-click a wire to auto-route it, add or remove joints, or change its color; <b>✨ Tidy wires</b> tidies everything at once.
+        <li><b>Wire it up.</b> Click a pin or hole to start a jumper wire, then click another pin to finish. The wire is <b>auto-routed</b> into a tidy right-angle path around parts (and re-routes when you move a part). Click empty space on the way to place joints yourself instead; the wire still runs at right angles through your joints (also when you drag a joint later). Right-click a wire to auto-route it, add or remove joints, or change its color; <b>Tidy wires</b> (toolbar) tidies everything at once.
           Modulino modules have a <b>Connect to board</b> button that wires them to the Qwiic connector for you.</li>
         <li><b>Configure parts.</b> Double-click a part to change its settings (resistance, LED color, sensor values…).</li>
         <li><b>Write the sketch.</b> Type Arduino code in the <b>Sketch</b> panel. Errors are checked as you type — a red badge shows the problem and the line turns red. Press <b>✓ Verify</b> to check explicitly.</li>
@@ -136,7 +136,7 @@
           ['Double-click a wire', 'Add a joint there'],
           ['Drag a joint / wire end', 'Move the joint / re-attach the wire'],
           ['Right-click a wire', 'Auto-route it, add/remove joints, change color'],
-          ['✨ Tidy wires (toolbar)', 'Auto-route the selected wires, or all wires'],
+          ['Tidy wires (toolbar)', 'Auto-route the selected wires, or all wires'],
         ]],
         ['View', [
           ['Mouse wheel / pinch', 'Zoom'],
@@ -242,6 +242,7 @@
       <h3 class="about-h">What's new</h3>
       <h3>What's new in 0.7</h3>
       <ul>
+        <li>0.7.2: fixed the <b>◧ Parts</b> button — hiding the left panel showed a black area instead of a wider canvas. <b>Tidy wires</b> and auto-route now have a wire-route icon instead of ✨.</li>
         <li>0.7.1: <b>unsaved changes</b> are tracked — a ● in the title and on Save, and Wirebench asks <i>Save / Don't save / Cancel</i> before New, Open, an example, a double-clicked project or closing the window (the desktop window title now shows the project name). New <b>compact Voltmeter and Ammeter</b> (Parts → Instruments): small panel meters that plug into the breadboard, with DC / AC (true RMS) readings. The toolbar now fits any window width without buttons overlapping; on narrower windows New / Open / Save move into a <b>File</b> menu.</li>
         <li>0.7.0: <b>rearrange the part categories</b> — drag a category heading up or down the parts list, or right-click it for Move to top / up / down / bottom and Reset category order; your order is remembered. Opening or closing the <b>code panel</b> or the parts panel now <b>refits the circuit</b> to the space left.</li>
       </ul>

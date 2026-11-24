@@ -285,7 +285,7 @@
     setAutoRoute(on) {
       this.autoRoute = on;
       try { localStorage.setItem('wirebench.autoroute', on ? 'on' : 'off'); } catch (e) { /* storage unavailable */ }
-      this.toast(on ? '✨ New wires will be auto-routed' : 'Auto-routing of new wires is off');
+      this.toast(on ? 'New wires will be auto-routed' : 'Auto-routing of new wires is off');
     }
     // Tidy the selected wires, or every wire when none is selected.
     tidyAllWires() {
@@ -293,7 +293,7 @@
       const wires = sel.length ? sel : this.project.wires;
       if (!wires.length) { this.toast('There are no wires to tidy.'); return; }
       let n = 0;
-      if (this.mutate(() => { n = WB.Router.routeMany(this, wires); })) this.toast(`✨ Tidied ${n} wire${n === 1 ? '' : 's'}`);
+      if (this.mutate(() => { n = WB.Router.routeMany(this, wires); })) this.toast(`Tidied ${n} wire${n === 1 ? '' : 's'}`);
     }
     // ---------------- clipboard (Ctrl+C / Ctrl+X / Ctrl+V)
     copySelection(cut) {
@@ -392,7 +392,7 @@
           <div class="muted small">${WB.esc(pa ? pa.name : '?')}.${WB.esc(w.a.pin)} → ${WB.esc(pb ? pb.name : '?')}.${WB.esc(w.b.pin)}</div>
           <label class="field-label">Color</label>
           <div class="swatches">${WB.WIRE_COLORS.map((c) => `<button class="sw${c === w.color ? ' on' : ''}" data-color="${c}" style="background:${c}"></button>`).join('')}</div>
-          <div class="insp-actions"><button data-act="autoroute">✨ Auto-route</button><button data-act="straight">Remove joints</button><button data-act="del" class="danger">Delete</button></div>`;
+          <div class="insp-actions"><button data-act="autoroute"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2.5 12.5H7.5V3.5H13.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="2.5" cy="12.5" r="1.9" fill="currentColor"/><circle cx="13.5" cy="3.5" r="1.9" fill="currentColor"/></svg> Auto-route</button><button data-act="straight">Remove joints</button><button data-act="del" class="danger">Delete</button></div>`;
         el.querySelectorAll('.sw').forEach((b) => b.addEventListener('click', () => this.mutate(() => { w.color = b.dataset.color; })));
         this.bindInspectorActions(el, w);
         if (this.locked()) this.lockForm(el);
