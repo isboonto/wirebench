@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '0.9.2';
+  WB.VERSION = '0.10.0';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -203,6 +203,7 @@
         <tr><td><code>LiquidCrystal_I2C.h</code>, <code>Wire.h</code></td><td>LCD 16×2 with the I2C backpack (set the LCD's Interface to I2C, wire SDA/SCL): <code>init</code>/<code>begin</code>, <code>backlight</code>/<code>noBacklight</code> and the methods above</td></tr>
         <tr><td><code>Adafruit_NeoPixel.h</code></td><td><code>Adafruit_NeoPixel strip(n, pin, NEO_GRB + NEO_KHZ800)</code>; <code>begin</code>, <code>show</code>, <code>setPixelColor</code>, <code>Color</code>, <code>ColorHSV</code>, <code>fill</code>, <code>clear</code>, <code>setBrightness</code>, <code>numPixels</code></td></tr>
         <tr><td><code>Keypad.h</code></td><td><code>Keypad(makeKeymap(keys), rowPins, colPins, rows, cols)</code>; <code>getKey</code>, <code>waitForKey</code>, <code>isPressed</code>, <code>getState</code></td></tr>
+        <tr><td><code>SoftwareSerial.h</code></td><td><code>SoftwareSerial nex(rx, tx)</code>; <code>begin</code>, <code>print</code>, <code>write</code>, <code>available</code>, <code>read</code>, <code>listen</code>. Talks to a <b>Nextion touch display</b> wired to those pins (display TX → rx, display RX → tx). Send Nextion instructions ending with three <code>0xFF</code> bytes, e.g. <code>t0.txt="hi"</code>, <code>n0.val=5</code>, <code>page 1</code>, <code>get n0.val</code>; touch events come back as <code>0x65 page id event FF FF FF</code>. A Nextion on D0/D1 works with <code>Serial</code> too (Mega: <code>Serial1</code>–<code>3</code>). The screen design is the display's <b>Screen layout</b> setting.</td></tr>
         <tr><td><code>IRremote.h</code></td><td><code>IrReceiver.begin(pin)</code>, <code>decode()</code>, <code>decodedIRData.command</code>, <code>resume()</code> (and the older <code>IRrecv</code> / <code>decode_results</code>); NEC codes from the IR remote part</td></tr>
         <tr><td><code>Arduino_LED_Matrix.h</code></td><td>UNO Q / UNO R4 WiFi built-in matrix: <code>begin</code>, <code>loadFrame</code>, <code>renderBitmap</code>, <code>draw</code>, <code>loadSequence</code>, <code>play</code>, <code>clear</code>, plus <code>setPixel(x, y)</code></td></tr>
         <tr><td><code>Modulino.h</code></td><td><code>Modulino.begin()</code>; Buttons (<code>update</code>, <code>isPressed</code>, <code>setLeds</code>), Buzzer (<code>tone</code>, <code>noTone</code>), Pixels (<code>set</code>, <code>clear</code>, <code>show</code>, <code>RED</code>/<code>GREEN</code>/<code>BLUE</code>/<code>VIOLET</code>/<code>WHITE</code>, <code>ModulinoColor</code>), Knob (<code>get</code>, <code>set</code>, <code>isPressed</code>), Distance (<code>available</code>, <code>get</code>), Movement (<code>update</code>, <code>getX/Y/Z</code>), Thermo (<code>getTemperature</code>, <code>getHumidity</code>)</td></tr>
@@ -243,6 +244,10 @@
     about: () => `
       ${aboutHeader()}
       <h3 class="about-h">What's new</h3>
+      <h3>What's new in 0.10</h3>
+      <ul>
+        <li>0.10.0: new part <b>Nextion 7" touch display</b> (Displays). Design its screen in the <b>Screen layout</b> setting — one object per line with the Nextion Editor's names (text, number, float, button, toggle, checkbox, slider, progress bar, gauge, waveform; several pages) — and drive it with the real Nextion instructions (<code>t0.txt="hi"</code>, <code>n0.val=5</code>, <code>page 1</code>, <code>get</code>, <code>vis</code>, <code>cls</code>/<code>fill</code>/<code>line</code>/<code>cir</code>/<code>xstr</code>, <code>add</code> …, each ending with three <code>0xFF</code>). Touch it while the simulation runs: it sends real touch events (<code>0x65 page id event</code>), <code>get</code> replies and error codes. New library <b>SoftwareSerial.h</b>; a Nextion on D0/D1 also works with <code>Serial</code> (Mega: <code>Serial1</code>–<code>3</code>). Warnings for swapped TX/RX, a different baud rate and wrong attribute names. New example: <i>UNO R3 · Nextion 7" touch display</i>.</li>
+      </ul>
       <h3>What's new in 0.9</h3>
       <ul>
         <li>0.9.2: <b>Export → Schematic diagram</b> and <b>Print</b> always start with the connections drawn as <b>wires</b>. Net labels is still one click away (“Connections: Wires | Net labels”), but is no longer remembered — a remembered choice made it look as if the wires had disappeared.</li>

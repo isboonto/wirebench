@@ -1,4 +1,4 @@
-# Wirebench 0.9
+# Wirebench 0.10
 
 A free, offline breadboard designer and electronics simulator. Inspired by the breadboard view in tools like Fritzing, with built-in simulation for the **Arduino UNO Q** and similar boards, and bench instruments (multimeter, oscilloscope, Bode plotter, logic analyzer, function generator, power supply) for analog circuits with or without a microcontroller.
 
@@ -72,7 +72,7 @@ The function generator's COM and the scope's GND are earthed like real bench ins
 
 **Parts** (about 70, grouped in collapsible categories):
 - *Output:* LED (6 colors), RGB LED, piezo buzzer (with sound), micro servo, DC motor, hobby gearmotor, vibration motor, light bulb, 5 V relay (SPDT).
-- *Displays:* 7-segment display (common cathode/anode), 10-LED bar graph, LCD 16×2 (parallel or I2C backpack), NeoPixel strip / ring (12, 16, 24) / jewel / single.
+- *Displays:* 7-segment display (common cathode/anode), 10-LED bar graph, LCD 16×2 (parallel or I2C backpack), Nextion 7" touch display (screen layout + real Nextion serial instructions and touch events), NeoPixel strip / ring (12, 16, 24) / jewel / single.
 - *Input:* pushbutton, slide switch, potentiometer, slide potentiometer, 4×4 keypad, DIP switch (4/6/8), IR remote.
 - *Sensors:* photoresistor, TMP36, PIR, HC-SR04 and 3-pin ultrasonic, soil moisture, tilt switch, IR receiver, photodiode, ambient light sensor (phototransistor), flex sensor, force sensor (FSR), gas sensor.
 - *Passive:* resistor (color bands), trimmer potentiometer, ceramic and electrolytic capacitors, diodes (1N4148, 1N4001, Schottky), zener diodes (3.3–12 V), inductors (10 µH – 1 H).
@@ -92,10 +92,10 @@ The function generator's COM and the scope's GND are earthed like real bench ins
 
 **Sketch (Arduino code)**
 - Supported: `pinMode`, `digitalWrite/Read`, `analogRead/Write`, `analogReadResolution`, `delay`, `millis`, `micros`, `tone/noTone`, `map`, `constrain`, `random`, the bit helpers, `attachInterrupt`, `Serial` (print, println, printf, read, parseInt…), `String`, arrays, `#define`, `static` locals, `switch`, and range-for.
-- Libraries: `LiquidCrystal`, `LiquidCrystal_I2C`, `Adafruit_NeoPixel`, `Keypad`, `IRremote`, `Servo`, `Arduino_LED_Matrix` / `ArduinoLEDMatrix` (`begin`, `loadFrame`, `renderBitmap`, `draw`, `loadSequence`/`play`, plus a `setPixel(x, y)` helper).
+- Libraries: `LiquidCrystal`, `LiquidCrystal_I2C`, `Adafruit_NeoPixel`, `Keypad`, `IRremote`, `SoftwareSerial` (talks to the Nextion display), `Servo`, `Arduino_LED_Matrix` / `ArduinoLEDMatrix` (`begin`, `loadFrame`, `renderBitmap`, `draw`, `loadSequence`/`play`, plus a `setPixel(x, y)` helper).
 - UNO Q: `Monitor` works like `Serial`. `Bridge.provide("name", fn)` functions can be called from the Serial Monitor by typing `@name arg1 arg2`.
 - Errors point to the right line of your sketch, as you type and before running. The checks cover missing `;` and unbalanced brackets, misspelled or undeclared names (with a "did you mean" suggestion), and `#include` problems: a library that isn't available, wrong capitalization, a library that doesn't suit the selected board, or a library class used without its `#include`.
-- Supported `#include`s: `Servo.h`, `LiquidCrystal.h`, `LiquidCrystal_I2C.h`, `Wire.h`, `Adafruit_NeoPixel.h`, `Keypad.h`, `IRremote.h`, `Arduino_LED_Matrix.h` (UNO Q, UNO R4 WiFi), `Modulino.h`, `Arduino_RouterBridge.h` (UNO Q), and standard headers such as `math.h`.
+- Supported `#include`s: `Servo.h`, `LiquidCrystal.h`, `LiquidCrystal_I2C.h`, `Wire.h`, `Adafruit_NeoPixel.h`, `Keypad.h`, `IRremote.h`, `SoftwareSerial.h`, `Arduino_LED_Matrix.h` (UNO Q, UNO R4 WiFi), `Modulino.h`, `Arduino_RouterBridge.h` (UNO Q), and standard headers such as `math.h`.
 
 ## How it works (and its limits)
 
@@ -123,6 +123,7 @@ web/css/app.css       styles
 web/js/util.js        helpers
 web/js/parts.js       part library (graphics, pins, electrical models)
 web/js/parts-more.js  motors, displays, keypad, IR, transistors, regulators, chips
+web/js/nextion.js     Nextion touch display (screen layout, instruction set, touch events)
 web/js/boards.js      microcontroller boards
 web/js/circuit.js     netlist builder + JavaScript fallback solver
 web/js/native.js      loads the Rust solver; desktop bridge

@@ -1002,6 +1002,79 @@ void loop() {
   });
 
   EX.push({
+    name: 'UNO R3 · Nextion 7" touch display: knob, bar, gauge and LED buttons', build: () => {
+      const p = P('board-uno-r3', `#include <SoftwareSerial.h>
+
+// A Nextion touch display on SoftwareSerial: its TX goes to pin 10, its RX to pin 11.
+// The screen design is the display's "Screen layout" setting (select the display
+// to see it): t0 t1 text, n0 number, j0 progress bar, b0 b1 buttons, z0 gauge.
+// Run the simulation, turn the knob, and touch LED ON / LED OFF on the screen.
+SoftwareSerial nex(10, 11);   // RX, TX
+
+const int LED = 7;
+
+// Every Nextion instruction ends with three 0xFF bytes.
+void sendCmd(String cmd) {
+  nex.print(cmd);
+  nex.write(0xFF);
+  nex.write(0xFF);
+  nex.write(0xFF);
+}
+
+void setup() {
+  pinMode(LED, OUTPUT);
+  Serial.begin(9600);
+  nex.begin(9600);   // the Nextion's factory setting
+}
+
+byte msg[7];
+int len = 0;
+
+void loop() {
+  // 1. Show the potentiometer as a number, a bar (0-100) and a gauge (0-180 degrees).
+  int v = analogRead(A0);
+  sendCmd("n0.val=" + String(v));
+  sendCmd("j0.val=" + String(map(v, 0, 1023, 0, 100)));
+  sendCmd("z0.val=" + String(map(v, 0, 1023, 0, 180)));
+
+  // 2. Touch events arrive as 7 bytes: 0x65, page, component id, event, FF FF FF.
+  while (nex.available()) {
+    byte b = nex.read();
+    if (len == 0 && b != 0x65) continue;   // skip anything until a touch event starts
+    msg[len++] = b;
+    if (len == 7) {
+      len = 0;
+      Serial.print("touch: page ");
+      Serial.print(msg[1]);
+      Serial.print(", component ");
+      Serial.println(msg[2]);
+      if (msg[2] == 5) digitalWrite(LED, HIGH);   // b0 "LED ON" is component 5
+      if (msg[2] == 6) digitalWrite(LED, LOW);    // b1 "LED OFF" is component 6
+    }
+  }
+  delay(100);
+}
+`);
+      add(p, 'hmi', 'nextion', [600, 470], 0, {}, 'HMI1');
+      add(p, 'pot', 'pot', [70, 330], 0, { ohms: 10000, pos: 0.5 }, 'POT1');
+      add(p, 'r1', 'resistor', [190, 330], 0, { ohms: 220 }, 'R1');
+      add(p, 'led', 'led', [270, 330], 0, { color: 'red' }, 'LED1');
+      const G = '#1f1f1f', R = '#d62828';
+      rw(p, ['hmi', '5V'], ['board', '5V'], R);
+      rw(p, ['hmi', 'GND'], ['board', 'GND'], G);
+      rw(p, ['hmi', 'TX'], ['board', 'D10'], '#2f7de1');
+      rw(p, ['hmi', 'RX'], ['board', 'D11'], '#f2c200');
+      rw(p, ['pot', '1'], ['board', 'GND2'], G);
+      rw(p, ['pot', '2'], ['board', '5V'], R);
+      rw(p, ['pot', 'W'], ['board', 'A0'], '#1f9e3a');
+      rw(p, ['board', 'D7'], ['r1', '1'], '#f08c00');
+      rw(p, ['r1', '2'], ['led', 'A'], '#f08c00');
+      rw(p, ['led', 'K'], ['board', 'GND2'], G);
+      return p;
+    },
+  });
+
+  EX.push({
     name: 'Mega 2560 · LED chaser on pins 22–29 + speed knob on A8', build: () => {
       const p = { parts: [], wires: [], code: `// The Arduino Mega 2560 has 54 digital pins and 16 analog inputs.
 // Eight LEDs on pins 22..29 (the double header at the right end of the board)

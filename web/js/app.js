@@ -2066,7 +2066,7 @@
       const b = this.boardPart();
       const spec = b ? PARTS[b.type].board : null;
       if (WB.scopeAuto) WB.scopeAuto.clear();
-      this.sim = { pins: {}, servos: [], modulino: {}, scope: {}, analog: { t: 0, lastReal: null }, matrix: spec && spec.matrix ? new Uint8Array(spec.matrix.w * spec.matrix.h) : null, partState: {}, warned: new Set(), t0: performance.now(), lcd: {}, neo: {}, irq: [], la: {} };
+      this.sim = { pins: {}, servos: [], modulino: {}, scope: {}, analog: { t: 0, lastReal: null }, matrix: spec && spec.matrix ? new Uint8Array(spec.matrix.w * spec.matrix.h) : null, partState: {}, warned: new Set(), t0: performance.now(), lcd: {}, neo: {}, irq: [], la: {}, nex: {} };
       // chips that react to clock edges (74HC595): solve after every digitalWrite so no edge is missed
       this.clocked = this.project.parts.some((p) => PARTS[p.type] && PARTS[p.type].clocked);
       this.setRunUI(true);

@@ -387,44 +387,139 @@
       api.interrupts = () => {};
       api.noInterrupts = () => {};
 
-      // ---------------- Serial
-      const out = (s) => rt.app.serialOut(s);
-      const serial = {
-        begin() {}, end() {}, flush() {}, setTimeout() {},
-        print(v, f) { const s = fmtNum(v, f); out(s); return s.length; },
-        println(v, f) { const s = (v === undefined ? '' : fmtNum(v, f)) + '\n'; out(s); return s.length; },
-        write(v) { out(typeof v === 'number' ? String.fromCharCode(v) : fmtNum(v)); return 1; },
-        printf(f, ...a) { const s = cprintf(f, a); out(s); return s.length; },
-        available() { return rt.inbuf.length; },
+      // ---------------- Serial ports
+      // Bytes in a receive buffer are 1-character strings (typed in the Serial Monitor) or numbers
+      // (bytes from a device such as a Nextion display); chr() turns either into a character.
+      const chr = (x) => (typeof x === 'number' ? String.fromCharCode(x) : x);
+      const toBytes = (s) => Array.from(String(s), (c) => c.charCodeAt(0) & 255);
+      // A device wired to a port's pins: a Nextion display whose RX is on the port's TX pin and
+      // whose TX is on the port's RX pin. Returns its simulated device, or null.
+      const nexClaimed = new Set();
+      function nexOn(rxPin, txPin, who) {
+        rt.app.ensureSolved();
+        const part = rt.app.wiredParts('nextion', { RX: txPin, TX: rxPin }).find((p) => !nexClaimed.has(p.id));
+        if (!part) {
+          if (who && rt.app.wiredParts('nextion', { RX: rxPin, TX: txPin }).length) rt.warnOnce('nexswap:' + rxPin, `${who}: the Nextion's TX and RX are swapped. Its TX goes to the Arduino's RX pin (${rxPin}) and its RX to the Arduino's TX pin (${txPin}).`);
+          return null;
+        }
+        nexClaimed.add(part.id);
+        const d = WB.Nextion.deviceFor(rt.sim, part);
+        d.powered = rt.app.partVolts(part, '5V', 'GND') > 4.2;
+        d.log = (key, msg) => rt.warnOnce(key, msg);
+        if (!d.powered) rt.warnOnce('nexpow:' + part.id, `${part.name}: no power — wire its +5V and GND.`);
+        return d;
+      }
+      // Stream methods shared by every port: this.buf (receive buffer), this.emit(string) sends.
+      const streamMethods = {
+        print(v, f) { const s = fmtNum(v, f); this.emit(s); return s.length; },
+        println(v, f) { const s = (v === undefined ? '' : fmtNum(v, f)) + '\n'; this.emit(s); return s.length; },
+        write(v, n) {
+          if (typeof v === 'number') { this.emit(String.fromCharCode(v & 255)); return 1; }
+          let s = Array.isArray(v) ? v.map((c) => (typeof c === 'number' ? String.fromCharCode(c & 255) : c)).join('') : fmtNum(v);
+          if (n !== undefined) s = s.slice(0, Math.max(0, Math.trunc(n)));
+          this.emit(s);
+          return s.length;
+        },
+        printf(f, ...a) { const s = cprintf(f, a); this.emit(s); return s.length; },
+        available() { return this.buf.length; },
         availableForWrite() { return 63; },
-        read() { return rt.inbuf.length ? rt.inbuf.shift() : -1; },
-        peek() { return rt.inbuf.length ? rt.inbuf[0] : -1; },
-        readString() { const s = rt.inbuf.join(''); rt.inbuf.length = 0; return s; },
+        read() { return this.buf.length ? this.buf.shift() : -1; },
+        peek() { return this.buf.length ? this.buf[0] : -1; },
+        readString() { const s = this.buf.map(chr).join(''); this.buf.length = 0; return s; },
         readStringUntil(c) {
-          const i = rt.inbuf.indexOf(String(c));
-          const s = rt.inbuf.splice(0, i < 0 ? rt.inbuf.length : i + 1);
+          const t = chr(c);
+          const i = this.buf.findIndex((x) => chr(x) === t);
+          const s = this.buf.splice(0, i < 0 ? this.buf.length : i + 1);
           if (i >= 0) s.pop();
-          return s.join('');
+          return s.map(chr).join('');
+        },
+        readBytes(dst, n) {
+          let k = 0;
+          while (k < n && this.buf.length) { const x = this.buf.shift(); dst[k++] = typeof x === 'number' ? x : x.charCodeAt(0); }
+          return k;
         },
         parseInt() {
-          while (rt.inbuf.length && !/[-0-9]/.test(rt.inbuf[0])) rt.inbuf.shift();
+          const b = this.buf;
+          while (b.length && !/[-0-9]/.test(chr(b[0]))) b.shift();
           let s = '';
-          if (rt.inbuf[0] === '-') s += rt.inbuf.shift();
-          while (rt.inbuf.length && /[0-9]/.test(rt.inbuf[0])) s += rt.inbuf.shift();
+          if (chr(b[0]) === '-') s += chr(b.shift());
+          while (b.length && /[0-9]/.test(chr(b[0]))) s += chr(b.shift());
           return parseInt(s, 10) || 0;
         },
         parseFloat() {
-          while (rt.inbuf.length && !/[-0-9.]/.test(rt.inbuf[0])) rt.inbuf.shift();
+          const b = this.buf;
+          while (b.length && !/[-0-9.]/.test(chr(b[0]))) b.shift();
           let s = '';
-          while (rt.inbuf.length && /[-0-9.]/.test(rt.inbuf[0])) s += rt.inbuf.shift();
+          while (b.length && /[-0-9.]/.test(chr(b[0]))) s += chr(b.shift());
           return parseFloat(s) || 0;
         },
+        setTimeout() {}, flush() {},
       };
+      // Hardware serial: everything sent shows in the Serial Monitor (as on a real board, where the
+      // USB chip listens on the same pins); a Nextion wired to the port's pins gets it too.
+      const out = (s) => rt.app.serialOut(s);
+      function hwSerial(rxPin, txPin, label) {
+        return Object.assign(Object.create(streamMethods), {
+          buf: rt.inbuf, baud: 9600, dev: undefined,
+          begin(b) { if (b) this.baud = Math.trunc(b); this.link(); },
+          end() {},
+          link() {
+            if (this.dev !== undefined) return this.dev;
+            this.dev = rxPin && WB.worldPin(rt.board, rxPin) && WB.worldPin(rt.board, txPin) ? nexOn(rxPin, txPin, label) : null;
+            if (this.dev) { const d = this.dev; d.sink = (bytes) => { if (this.baud === d.baud) rt.inbuf.push(...bytes); }; d.powerOn(); }
+            return this.dev;
+          },
+          emit(s) {
+            out(s);
+            const d = this.link();
+            if (!d) return;
+            if (this.baud !== d.baud) { rt.warnOnce('nexbaud:' + label, `${label}.begin(${this.baud}) but the Nextion is set to ${d.baud} baud — it only receives garbage. Use the same rate on both sides.`); return; }
+            for (const b of toBytes(s)) d.feed(b);
+          },
+        });
+      }
+      // Which pins each hardware port uses: Serial on D0/D1 for the AVR boards (UNO R3, Nano, Mega);
+      // on the UNO R4 and UNO Q, Serial is the USB port and Serial1 is on D0/D1.
+      const avr = !!spec.avr, mega = spec.layout === 'mega';
+      const serial = hwSerial(avr ? 'D0' : null, 'D1', 'Serial');
       api.Serial = serial;
-      api.Serial1 = serial;
-      api.Serial2 = serial; // Mega 2560: extra hardware serial ports, shown in the same Serial Monitor
-      api.Serial3 = serial;
+      api.Serial1 = mega ? hwSerial('D19', 'D18', 'Serial1') : avr ? serial : hwSerial('D0', 'D1', 'Serial1');
+      api.Serial2 = mega ? hwSerial('D17', 'D16', 'Serial2') : serial;
+      api.Serial3 = mega ? hwSerial('D15', 'D14', 'Serial3') : serial;
       api.SerialUSB = serial;
+
+      // SoftwareSerial(rx, tx): a serial port on any two pins. The simulator connects it to a
+      // Nextion display wired to those pins (display TX -> rx pin, display RX -> tx pin).
+      class SoftwareSerial {
+        constructor(rx, tx) { this.rx = rt.pinName(rx); this.tx = rt.pinName(tx); this.buf = []; this.baud = 9600; this.dev = undefined; this.on = false; }
+        begin(b) {
+          this.baud = Math.trunc(b) || 9600;
+          this.on = true;
+          if (!this.rx || !this.tx) throw new Error(`SoftwareSerial: a pin given to SoftwareSerial does not exist on ${spec.label}`);
+          if (this.dev !== undefined) return;
+          const d = (this.dev = nexOn(this.rx, this.tx, `SoftwareSerial(${this.rx}, ${this.tx})`));
+          if (!d) { rt.warnOnce('ss:' + this.rx, `SoftwareSerial(${this.rx}, ${this.tx}): nothing the simulator can talk to is wired to these pins. Wire a Nextion display: its TX to ${this.rx}, its RX to ${this.tx}.`); return; }
+          d.sink = (bytes) => {
+            if (!this.on || this.baud !== d.baud) return;
+            this.buf.push(...bytes);
+            if (this.buf.length > 64) this.buf.splice(0, this.buf.length - 64);   // 64-byte receive buffer, as on the real library
+          };
+          d.powerOn();
+        }
+        end() { this.on = false; }
+        listen() { this.on = true; return true; }
+        isListening() { return this.on; }
+        overflow() { return false; }
+        emit(s) {
+          if (!this.on) { rt.warnOnce('ssbeg:' + this.rx, `SoftwareSerial(${this.rx}, ${this.tx}): call begin(9600) in setup() before sending.`); return; }
+          const d = this.dev;
+          if (!d) return;
+          if (this.baud !== d.baud) { rt.warnOnce('nexbaud:' + this.rx, `SoftwareSerial begin(${this.baud}) but the Nextion is set to ${d.baud} baud — it only receives garbage. Use the same rate on both sides.`); return; }
+          for (const b of toBytes(s)) d.feed(b);
+        }
+      }
+      for (const k of Object.keys(streamMethods)) SoftwareSerial.prototype[k] = SoftwareSerial.prototype[k] || streamMethods[k];
+      api.SoftwareSerial = SoftwareSerial;
       api.Monitor = serial; // UNO Q: Monitor object of the Bridge library
 
       // ---------------- Bridge (UNO Q MCU <-> Linux RPC) — simulated stub
