@@ -1,6 +1,6 @@
 [package]
 name = "wirebench"
-version = "0.6.9"
+version = "0.7.0"
 edition = "2021"
 description = "Wirebench — breadboard designer and Arduino simulator"
 authors = ["Sudchai Boonto"]

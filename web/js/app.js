@@ -569,14 +569,109 @@
     }
 
     // ---------------- palette
+    // Order of the part categories: the user's saved order, then any category it doesn't list yet
+    // (e.g. new in this version) in the default order.
+    categoryOrder() {
+      let saved = [];
+      try { saved = JSON.parse(localStorage.getItem('wirebench.catOrder') || '[]'); } catch (e) { /* storage unavailable */ }
+      const known = new Set(WB.CATEGORIES);
+      const order = (Array.isArray(saved) ? saved : []).filter((c) => known.has(c));
+      for (const c of WB.CATEGORIES) if (!order.includes(c)) order.push(c);
+      return order;
+    }
+    // Put the categories in this order (moves the existing elements, so nothing is rebuilt).
+    setCategoryOrder(order, quiet) {
+      const pal = $('#palette');
+      for (const c of order) { const el = [...pal.querySelectorAll(':scope > .cat')].find((x) => x.dataset.cat === c); if (el) pal.appendChild(el); }
+      const isDefault = order.every((c, i) => c === WB.CATEGORIES[i]);
+      try { if (isDefault) localStorage.removeItem('wirebench.catOrder'); else localStorage.setItem('wirebench.catOrder', JSON.stringify(order)); } catch (e) { /* storage unavailable */ }
+      if (!quiet) this.toast(isDefault ? 'Categories back in the default order' : 'Category order saved');
+    }
+    moveCategory(cat, where) {
+      const order = this.categoryOrder(), i = order.indexOf(cat);
+      if (i < 0) return;
+      order.splice(i, 1);
+      const j = where === 'top' ? 0 : where === 'bottom' ? order.length : where === 'up' ? Math.max(0, i - 1) : Math.min(order.length, i + 1);
+      order.splice(j, 0, cat);
+      this.setCategoryOrder(order);
+    }
+    // Right-click a category heading: move it, or reset the order.
+    showCategoryMenu(cat, x, y) {
+      let m = $('#cat-menu');
+      if (!m) {
+        m = document.createElement('div');
+        m.id = 'cat-menu';
+        document.body.appendChild(m);
+        m.addEventListener('click', (e) => {
+          const b = e.target.closest('button[data-move]');
+          if (!b) return;
+          m.classList.remove('open');
+          if (b.dataset.move === 'reset') this.setCategoryOrder(WB.CATEGORIES.slice());
+          else this.moveCategory(m.dataset.cat, b.dataset.move);
+        });
+        document.addEventListener('pointerdown', (e) => { if (!m.contains(e.target)) m.classList.remove('open'); }, true);
+      }
+      const order = this.categoryOrder(), i = order.indexOf(cat), last = order.length - 1;
+      const isDefault = order.every((c, k) => c === WB.CATEGORIES[k]);
+      m.dataset.cat = cat;
+      m.innerHTML = `<div class="cm-title">${WB.esc(cat)}</div>
+        <button data-move="top"${i === 0 ? ' disabled' : ''}>Move to top</button>
+        <button data-move="up"${i === 0 ? ' disabled' : ''}>Move up</button>
+        <button data-move="down"${i === last ? ' disabled' : ''}>Move down</button>
+        <button data-move="bottom"${i === last ? ' disabled' : ''}>Move to bottom</button>
+        <hr><button data-move="reset"${isDefault ? ' disabled' : ''}>Reset category order</button>
+        <div class="cm-hint">Tip: you can also drag a heading up or down.</div>`;
+      m.classList.add('open');
+      m.style.left = Math.min(x, window.innerWidth - 230) + 'px';
+      m.style.top = Math.min(y, window.innerHeight - 220) + 'px';
+    }
+    // Drag a category heading to a new place in the list (a line shows where it will go).
+    bindCategoryDrag() {
+      const pal = $('#palette');
+      let dragging = null;
+      const clear = () => pal.querySelectorAll('.cat.drop-before, .cat.drop-after').forEach((c) => c.classList.remove('drop-before', 'drop-after'));
+      const target = (e) => {
+        const cats = [...pal.querySelectorAll(':scope > .cat')].filter((c) => c.style.display !== 'none');
+        for (const c of cats) { const r = c.querySelector('.cat-title').getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) return { el: c, before: true }; }
+        return cats.length ? { el: cats[cats.length - 1], before: false } : null;
+      };
+      pal.addEventListener('dragstart', (e) => {
+        const t = e.target.closest && e.target.closest('.cat-title');
+        if (!t) return;
+        dragging = t.parentElement.dataset.cat;
+        e.dataTransfer.setData('text/x-wb-cat', dragging);
+        e.dataTransfer.effectAllowed = 'move';
+        t.parentElement.classList.add('dragging');
+      });
+      pal.addEventListener('dragover', (e) => {
+        if (!dragging) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        clear();
+        const tg = target(e);
+        if (tg) tg.el.classList.add(tg.before ? 'drop-before' : 'drop-after');
+      });
+      pal.addEventListener('drop', (e) => {
+        if (!dragging) return;
+        e.preventDefault();
+        const tg = target(e);
+        clear();
+        if (!tg || tg.el.dataset.cat === dragging) return;
+        const order = this.categoryOrder().filter((c) => c !== dragging);
+        const k = order.indexOf(tg.el.dataset.cat);
+        order.splice(tg.before ? k : k + 1, 0, dragging);
+        this.setCategoryOrder(order);
+      });
+      pal.addEventListener('dragend', () => { clear(); pal.querySelectorAll('.cat.dragging').forEach((c) => c.classList.remove('dragging')); dragging = null; });
+    }
     buildPalette() {
       const pal = $('#palette');
       let html = '';
-      for (const cat of WB.CATEGORIES) {
+      for (const cat of this.categoryOrder()) {
         const types = Object.keys(PARTS).filter((t) => PARTS[t].category === cat);
         if (!types.length) continue;
         const shut = this.hiddenCats.has(cat);
-        html += `<div class="cat${shut ? ' collapsed' : ''}" data-cat="${WB.esc(cat)}"><button class="cat-title" title="Click to hide / show ${WB.esc(cat)}"><span class="chev">${shut ? '▸' : '▾'}</span><span>${WB.esc(cat)}</span><span class="count">${types.length}</span></button><div class="tiles">`;
+        html += `<div class="cat${shut ? ' collapsed' : ''}" data-cat="${WB.esc(cat)}"><button class="cat-title" draggable="true" title="Click to hide / show ${WB.esc(cat)} · drag to move it · right-click for more"><span class="chev">${shut ? '▸' : '▾'}</span><span>${WB.esc(cat)}</span><span class="count">${types.length}</span></button><div class="tiles">`;
         for (const t of types) {
           const def = PARTS[t];
           const props = WB.clone(def.defaults);
@@ -589,10 +684,14 @@
         html += '</div></div>';
       }
       pal.innerHTML = html;
-      pal.querySelectorAll('.cat-title').forEach((b) => b.addEventListener('click', () => {
-        const cat = b.parentElement.dataset.cat;
-        this.setCategory(cat, this.hiddenCats.has(cat));
-      }));
+      pal.querySelectorAll('.cat-title').forEach((b) => {
+        b.addEventListener('click', () => {
+          const cat = b.parentElement.dataset.cat;
+          this.setCategory(cat, this.hiddenCats.has(cat));
+        });
+        b.addEventListener('contextmenu', (e) => { e.preventDefault(); this.showCategoryMenu(b.parentElement.dataset.cat, e.clientX, e.clientY); });
+      });
+      this.bindCategoryDrag();
       pal.querySelectorAll('.tile').forEach((tile) => {
         tile.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/x-wb-part', tile.dataset.type); e.dataTransfer.setData('text/plain', tile.dataset.type); e.dataTransfer.effectAllowed = 'copy'; });
         // Single click only explains; double-click (or drag and drop) adds the part.
@@ -1197,6 +1296,13 @@
       $('#btn-left').classList.toggle('active', show);
       this.saveLayout();
       if (!quiet) this.toast(show ? 'Parts panel shown' : 'Parts panel hidden (Ctrl+Shift+B to show it)');
+      this.fitAfterResize();
+    }
+    // A side panel opened or closed: once the new layout is in place, fit the circuit to the
+    // workspace's new size (it would otherwise be cut off, or sit small in a corner).
+    fitAfterResize() {
+      cancelAnimationFrame(this._fitRaf);
+      this._fitRaf = requestAnimationFrame(() => requestAnimationFrame(() => { if (this.editor) this.editor.fit(); }));
     }
     saveLayout() {
       const b = document.body.classList;
@@ -1225,6 +1331,7 @@
       if (b) { b.classList.toggle('active', show); b.classList.remove('news'); }
       try { localStorage.setItem('wirebench.codePanel', show ? 'shown' : 'hidden'); } catch (e) { /* storage unavailable */ }
       if (!quiet) this.toast(show ? 'Code panel shown' : 'Code panel hidden — more room for the circuit (Ctrl+B to show it)');
+      this.fitAfterResize();
     }
     clearConsole() { const c = $('#console'); c.textContent = ''; c.classList.remove('has'); }
     serialOut(s) { this.serialBuf += s; }

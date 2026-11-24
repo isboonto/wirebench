@@ -529,3 +529,21 @@ dialog.wide #modal-body { max-height: calc(92vh - 40px); }
 .about-ver[open] summary { border-bottom: 1px solid var(--border); }
 .about-ver ul { margin: 8px 0; padding: 0 14px 0 30px; font-size: 12.5px; }
 .about-ver li { margin: 3px 0; }
+
+/* ------------------------------------------------ part categories: drag to reorder, right-click menu */
+.cat-title { cursor: pointer; }
+.cat-title:active { cursor: grabbing; }
+.cat.dragging { opacity: .45; }
+.cat.drop-before > .cat-title { box-shadow: 0 -3px 0 0 var(--accent); }
+.cat.drop-after { box-shadow: 0 3px 0 0 var(--accent); }
+#cat-menu {
+  display: none; position: fixed; z-index: 60; min-width: 210px; padding: 4px;
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 10px 30px var(--shadow);
+}
+#cat-menu.open { display: block; }
+#cat-menu .cm-title { padding: 5px 10px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+#cat-menu button { display: block; width: 100%; border: 0; background: transparent; text-align: left; padding: 5px 10px; border-radius: 5px; }
+#cat-menu button:hover { background: var(--menu-hover); }
+#cat-menu button[disabled] { opacity: .4; pointer-events: none; }
+#cat-menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
+#cat-menu .cm-hint { padding: 4px 10px 3px; font-size: 11px; color: var(--muted); }

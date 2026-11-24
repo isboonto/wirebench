@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '0.6.9';
+  WB.VERSION = '0.7.0';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -146,8 +146,9 @@
         ]],
         ['Sketch & simulation', [
           ['Ctrl+Enter', 'Start / stop simulation'],
-          ['Ctrl+B', 'Show / hide the code panel'],
+          ['Ctrl+B', 'Show / hide the code panel (the circuit is refitted to the new space)'],
           ['Ctrl+Shift+B', 'Show / hide the parts panel'],
+          ['Drag a category heading', 'Reorder the parts list (right-click a heading: move up / down / to top, or reset the order)'],
           ['Ctrl+S / Ctrl+O', 'Save / open project'],
           ['Tab', 'Indent in the code editor'],
           ['F1', 'Open this help'],
@@ -238,6 +239,10 @@
     about: () => `
       ${aboutHeader()}
       <h3 class="about-h">What's new</h3>
+      <h3>What's new in 0.7</h3>
+      <ul>
+        <li>0.7.0: <b>rearrange the part categories</b> — drag a category heading up or down the parts list, or right-click it for Move to top / up / down / bottom and Reset category order; your order is remembered. Opening or closing the <b>code panel</b> or the parts panel now <b>refits the circuit</b> to the space left.</li>
+      </ul>
       <h3>What's new in 0.6</h3>
       <ul>
         <li>0.6.9: projects are saved as <b>Wirebench project files (.wbproj)</b>, named after the project, with a header (format, version, date, board) and one line per part and wire; in the desktop app double-clicking a .wbproj file opens it. Older .json projects still open.</li>

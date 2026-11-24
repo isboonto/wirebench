@@ -5038,7 +5038,7 @@ dependencies = [
 
 [[package]]
 name = "wirebench"
-version = "0.6.9"
+version = "0.7.0"
 dependencies = [
  "base64 0.22.1",
  "rfd",
