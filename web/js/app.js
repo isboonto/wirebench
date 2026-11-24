@@ -1379,8 +1379,10 @@
     showSchematic() {
       document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
       if (!this.project.parts.some((p) => PARTS[p.type] && !PARTS[p.type].holes && !PARTS[p.type].annotation)) { this.toast('Add some parts first — the schematic is drawn from the circuit on the workspace.'); return; }
+      // Always opens with wires; Net labels is a choice for this preview only (a remembered
+      // "Net labels" looked like the wires had gone missing). Clears the old remembered choice.
       let mode = 'wires';
-      try { mode = localStorage.getItem('wirebench.schMode') || 'wires'; } catch (e) { /* storage unavailable */ }
+      try { localStorage.removeItem('wirebench.schMode'); } catch (e) { /* storage unavailable */ }
       let sch;
       const render = () => {
         sch = WB.Schematic.build(this, { mode });
@@ -1390,12 +1392,11 @@
         $('#modal-body').innerHTML = `<h2>Schematic</h2>
           <p class="muted small">Drawn from the circuit on the workspace: ${sch.parts} parts, ${sch.nets} nets. ${how} The breadboard itself isn't drawn — only what it connects.</p>
           <div class="sch-actions">
-            <span class="seg"><button data-mode="wires" class="${mode === 'wires' ? 'on' : ''}">Wires</button><button data-mode="labels" class="${mode === 'labels' ? 'on' : ''}">Net labels</button></span>
+            <span class="muted small">Connections:</span><span class="seg"><button data-mode="wires" class="${mode === 'wires' ? 'on' : ''}">Wires</button><button data-mode="labels" class="${mode === 'labels' ? 'on' : ''}">Net labels</button></span>
             <button data-sch="svg">Save as SVG (vector)</button><button data-sch="png">Save as PNG (image)</button></div>
           <div class="sch-preview">${sch.svg}</div>`;
         $('#modal-body').querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => {
           mode = b.dataset.mode;
-          try { localStorage.setItem('wirebench.schMode', mode); } catch (e) { /* storage unavailable */ }
           render();
         }));
         $('#modal-body').querySelectorAll('[data-sch]').forEach((b) => b.addEventListener('click', () => {
@@ -1538,7 +1539,7 @@
         <div class="sa-actions"><button data-pa="print" class="primary">Print…</button><button data-pa="cancel">Cancel</button></div>`;
       dlg.querySelector('[data-pf="paper"]').value = st.paper || 'A4';
       dlg.querySelector('[data-pf="orient"]').value = st.orient || 'landscape';
-      dlg.querySelector('[data-pf="schMode"]').value = st.schMode === 'labels' ? 'labels' : 'wires';
+      dlg.querySelector('[data-pf="schMode"]').value = 'wires'; // always starts with wires, like the schematic export
       dlg.onclick = (e) => {
         const b = e.target.closest('[data-pa]');
         if (!b) return;
