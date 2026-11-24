@@ -1,4 +1,4 @@
-# Wirebench 0.6
+# Wirebench 0.8
 
 A free, offline breadboard designer and electronics simulator. Inspired by the breadboard view in tools like Fritzing, with built-in simulation for the **Arduino UNO Q** and similar boards, and bench instruments (multimeter, oscilloscope, Bode plotter, logic analyzer, function generator, power supply) for analog circuits with or without a microcontroller.
 
@@ -6,7 +6,7 @@ A free, offline breadboard designer and electronics simulator. Inspired by the b
 
 **In a browser, nothing to install:** open **https://isboonto.github.io/wirebench/**. The site is rebuilt from the `web` folder by `.github/workflows/pages.yml` on every push to `main` that changes it.
 
-**Windows installer:** download `Wirebench_<version>_x64-setup.exe` (or the `.msi`) from the [Releases page](https://github.com/isboonto/wirebench/releases).
+**Windows installer:** ready-made installers will be published on the [Releases page](https://github.com/isboonto/wirebench/releases) from version 1.0. Until then, use the website above or build the installer yourself with `.\build.ps1 -Installer`.
 
 **Desktop app (Windows, native Rust):** run `target\release\wirebench.exe`. To build it yourself:
 
