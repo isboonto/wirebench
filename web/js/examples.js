@@ -1227,6 +1227,106 @@ void loop() {
   });
 
   EX.push({
+    name: 'CYD 7" · touch screen: draw, LED buttons, backlight brightness', build: () => {
+      const p = P('board-cyd7', `#include <Arduino_GFX_Library.h>
+#include <TAMC_GT911.h>
+#include <Wire.h>
+
+// 7-inch CYD (ESP32-8048S070C): 800 x 480 RGB panel + GT911 capacitive touch.
+// Run the simulation, then draw in the box, touch LED ON / LED OFF / CLEAR,
+// and touch the bar on the right to change the screen brightness.
+
+#define GFX_BL 2   // backlight
+
+Arduino_ESP32RGBPanel *rgbpanel = new Arduino_ESP32RGBPanel(
+  41 /* DE */, 40 /* VSYNC */, 39 /* HSYNC */, 42 /* PCLK */,
+  14 /* R0 */, 21 /* R1 */, 47 /* R2 */, 48 /* R3 */, 45 /* R4 */,
+  9 /* G0 */, 46 /* G1 */, 3 /* G2 */, 8 /* G3 */, 16 /* G4 */, 1 /* G5 */,
+  15 /* B0 */, 7 /* B1 */, 6 /* B2 */, 5 /* B3 */, 4 /* B4 */,
+  0 /* hsync_polarity */, 210 /* hsync_front_porch */, 30 /* hsync_pulse_width */, 16 /* hsync_back_porch */,
+  0 /* vsync_polarity */, 22 /* vsync_front_porch */, 13 /* vsync_pulse_width */, 10 /* vsync_back_porch */,
+  1 /* pclk_active_neg */, 16000000 /* prefer_speed */);
+Arduino_RGB_Display *gfx = new Arduino_RGB_Display(800, 480, rgbpanel, 0 /* rotation */, true /* auto_flush */);
+
+// GT911 touch controller: I2C on 19 / 20, INT 18, RST 38
+#define TOUCH_SDA 19
+#define TOUCH_SCL 20
+#define TOUCH_INT 18
+#define TOUCH_RST 38
+TAMC_GT911 ts = TAMC_GT911(TOUCH_SDA, TOUCH_SCL, TOUCH_INT, TOUCH_RST, 800, 480);
+
+const int LED = 17;     // on the P3 connector
+int brightness = 200;   // backlight PWM, 0..255
+
+void drawButton(int x, String label, uint16_t color) {
+  gfx->fillRoundRect(x, 400, 170, 64, 12, color);
+  gfx->setTextColor(WHITE);
+  gfx->setTextSize(3);
+  gfx->setCursor(x + 85 - label.length() * 9, 421);
+  gfx->print(label);
+}
+
+void drawBrightness() {
+  gfx->fillRect(596, 400, 190, 64, BLACK);
+  gfx->drawRoundRect(600, 410, 184, 44, 8, WHITE);
+  gfx->fillRoundRect(604, 414, map(brightness, 0, 255, 0, 176), 36, 6, YELLOW);
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(LED, OUTPUT);
+  Wire.begin(TOUCH_SDA, TOUCH_SCL);
+  ts.begin();
+  ts.setRotation(ROTATION_NORMAL);
+
+  gfx->begin();
+  ledcAttach(GFX_BL, 5000, 8);   // backlight on, with PWM so it can be dimmed
+  ledcWrite(GFX_BL, brightness);
+
+  gfx->fillScreen(BLACK);
+  gfx->setTextColor(CYAN);
+  gfx->setTextSize(4);
+  gfx->setCursor(20, 18);
+  gfx->println("Wirebench + 7-inch CYD");
+  gfx->drawRect(16, 70, 768, 316, DARKGREY);
+  drawButton(16, "LED ON", DARKGREEN);
+  drawButton(204, "LED OFF", MAROON);
+  drawButton(392, "CLEAR", NAVY);
+  drawBrightness();
+}
+
+void loop() {
+  ts.read();
+  if (ts.isTouched) {
+    // with ROTATION_NORMAL the GT911 point comes mirrored: map it back to screen pixels
+    int x = map(ts.points[0].x, 800, 0, 0, 799);
+    int y = map(ts.points[0].y, 480, 0, 0, 479);
+    if (x > 20 && x < 780 && y > 74 && y < 382) {
+      gfx->fillCircle(x, y, 5, YELLOW);
+    } else if (y >= 400) {
+      if (x < 186) digitalWrite(LED, HIGH);
+      else if (x < 374) digitalWrite(LED, LOW);
+      else if (x < 562) gfx->fillRect(17, 71, 766, 314, BLACK);
+      else {
+        brightness = constrain(map(x, 604, 780, 20, 255), 20, 255);
+        ledcWrite(GFX_BL, brightness);
+        drawBrightness();
+      }
+    }
+  }
+  delay(10);
+}
+`);
+      add(p, 'r1', 'resistor', [470, 540], 0, { ohms: 220 }, 'R1');
+      add(p, 'led', 'led', [550, 540], 0, { color: 'red' }, 'LED1');
+      rw(p, ['board', 'D17'], ['r1', '1'], '#f08c00');
+      rw(p, ['r1', '2'], ['led', 'A'], '#f08c00');
+      rw(p, ['led', 'K'], ['board', 'GND2'], '#1f1f1f');
+      return p;
+    },
+  });
+
+  EX.push({
     name: 'Mega 2560 · LED chaser on pins 22–29 + speed knob on A8', build: () => {
       const p = { parts: [], wires: [], code: `// The Arduino Mega 2560 has 54 digital pins and 16 analog inputs.
 // Eight LEDs on pins 22..29 (the double header at the right end of the board)

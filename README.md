@@ -1,4 +1,4 @@
-# Wirebench 0.11
+# Wirebench 0.12
 
 A free, offline breadboard designer and electronics simulator. Inspired by the breadboard view in tools like Fritzing, with built-in simulation for the **Arduino UNO Q** and similar boards, and bench instruments (multimeter, oscilloscope, Bode plotter, logic analyzer, function generator, power supply) for analog circuits with or without a microcontroller.
 
@@ -59,6 +59,7 @@ New to Wirebench? Open **Help → Getting started** (or press **F1**) in the app
 | Arduino Nano | 5 V | plugs straight into the breadboard |
 | Arduino Mega 2560 | 5 V | 54 digital pins (D0–D53, 15 PWM), A0–A15 (= pins 54–69), `Serial1`–`Serial3`, interrupts 0–5 on pins 2, 3, 21, 20, 19, 18 |
 | CYD — ESP32 Cheap Yellow Display (ESP32-2432S028R) | 3.3 V | 320×240 touch screen (TFT_eSPI, XPT2046_Touchscreen), RGB LED, light sensor, BOOT button, speaker, ESP32 `ledc` PWM and 12-bit ADC |
+| CYD 7" — ESP32-S3 (ESP32-8048S070C) | 3.3 V | 800×480 capacitive touch screen (Arduino_GFX, TAMC_GT911), backlight on GPIO2, BOOT button |
 
 **Instruments**
 - **Multimeter:** click a mode on the dial to select it; DC and AC (rms) voltage and current, and resistance.
@@ -96,7 +97,7 @@ The function generator's COM and the scope's GND are earthed like real bench ins
 - Libraries: `LiquidCrystal`, `LiquidCrystal_I2C`, `Adafruit_NeoPixel`, `Keypad`, `IRremote`, `SoftwareSerial` (talks to the Nextion display), `Servo`, `Arduino_LED_Matrix` / `ArduinoLEDMatrix` (`begin`, `loadFrame`, `renderBitmap`, `draw`, `loadSequence`/`play`, plus a `setPixel(x, y)` helper).
 - UNO Q: `Monitor` works like `Serial`. `Bridge.provide("name", fn)` functions can be called from the Serial Monitor by typing `@name arg1 arg2`.
 - Errors point to the right line of your sketch, as you type and before running. The checks cover missing `;` and unbalanced brackets, misspelled or undeclared names (with a "did you mean" suggestion), and `#include` problems: a library that isn't available, wrong capitalization, a library that doesn't suit the selected board, or a library class used without its `#include`.
-- Supported `#include`s: `Servo.h`, `LiquidCrystal.h`, `LiquidCrystal_I2C.h`, `Wire.h`, `Adafruit_NeoPixel.h`, `Keypad.h`, `IRremote.h`, `SoftwareSerial.h`, `SPI.h`, `TFT_eSPI.h` + `XPT2046_Touchscreen.h` (CYD), `Arduino_LED_Matrix.h` (UNO Q, UNO R4 WiFi), `Modulino.h`, `Arduino_RouterBridge.h` (UNO Q), and standard headers such as `math.h`.
+- Supported `#include`s: `Servo.h`, `LiquidCrystal.h`, `LiquidCrystal_I2C.h`, `Wire.h`, `Adafruit_NeoPixel.h`, `Keypad.h`, `IRremote.h`, `SoftwareSerial.h`, `SPI.h`, `TFT_eSPI.h` + `XPT2046_Touchscreen.h` (CYD), `Arduino_GFX_Library.h` + `TAMC_GT911.h` (CYD 7"), `Arduino_LED_Matrix.h` (UNO Q, UNO R4 WiFi), `Modulino.h`, `Arduino_RouterBridge.h` (UNO Q), and standard headers such as `math.h`.
 
 ## How it works (and its limits)
 
@@ -126,7 +127,7 @@ web/js/parts.js       part library (graphics, pins, electrical models)
 web/js/parts-more.js  motors, displays, keypad, IR, transistors, regulators, chips
 web/js/nextion.js     Nextion touch display (screen layout, instruction set, touch events)
 web/js/boards.js      microcontroller boards
-web/js/cyd.js         CYD (ESP32 Cheap Yellow Display): screen, touch, TFT_eSPI / XPT2046 / ESP32 functions
+web/js/cyd.js         CYD boards (2.8" and 7"): screens, touch, TFT_eSPI / Arduino_GFX / XPT2046 / GT911 / ESP32 functions
 web/js/circuit.js     netlist builder + JavaScript fallback solver
 web/js/native.js      loads the Rust solver; desktop bridge
 web/js/sketch.js      Arduino C++ → JavaScript translator

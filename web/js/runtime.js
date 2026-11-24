@@ -224,6 +224,7 @@
       // ESP32: analog pins are GPIO numbers (A0 = 36 …), serial config for Serial2.begin(baud, SERIAL_8N1, rx, tx)
       if (spec.esp32) Object.assign(C, { A0: 36, A3: 39, A4: 32, A5: 33, A6: 34, A7: 35, A10: 4, A11: 0, A12: 2, A13: 15, A14: 13, A15: 12, A16: 14, A17: 27, A18: 25, A19: 26,
         LED_BUILTIN: 2, SDA: 21, SCL: 22, SERIAL_8N1: 0x800001c, SERIAL_8E1: 0x800001e, SERIAL_8O1: 0x800001f });
+      if (spec.constants) Object.assign(C, spec.constants); // board-specific pin names (ESP32-S3: A0 = 1 …)
       Object.assign(api, C);
 
       api.pinMode = (p, m) => {

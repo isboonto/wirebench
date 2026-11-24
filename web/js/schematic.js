@@ -166,7 +166,7 @@
     if (!i2cOnA && !mega && has('SDA')) left.push(null, { id: 'SDA', name: 'SDA' }, { id: 'SCL', name: 'SCL' });
     const right = [];
     const dTop = mega ? 21 : 13;
-    if (spec.cyd) { Object.assign(fn, { D1: 'TX', D3: 'RX', D21: 'BL', D35: 'in' }); for (const n of range(0, 39)) if (has('D' + n)) right.push({ id: 'D' + n, name: 'IO' + n, fn: fn['D' + n] }); }
+    if (spec.esp32) { Object.assign(fn, spec.cyd7 ? { D43: 'TX', D44: 'RX', D19: 'SDA', D20: 'SCL' } : { D1: 'TX', D3: 'RX', D21: 'BL', D35: 'in' }); for (const n of range(0, 48)) if (has('D' + n)) right.push({ id: 'D' + n, name: 'IO' + n, fn: fn['D' + n] }); }
     else for (const n of range(0, dTop)) { if (n === 8 || (mega && n === 14)) right.push(null); right.push(digital(n)); }
     if (mega) { bottom.push(null); for (const n of range(22, 53)) bottom.push(digital(n)); }
 

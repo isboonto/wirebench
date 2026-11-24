@@ -51,13 +51,16 @@
   };
 
   // ---------------------------------------------------------------- screen device
-  // The panel is drawn on a 320 x 240 canvas in its landscape orientation (rotation 1).
-  function screenOf(sim) {
+  // A screen is drawn on a canvas of its own size (W x H) in the panel's landscape orientation;
+  // `base` is the rotation number that draws without turning: 1 for TFT_eSPI on the 2.8" CYD,
+  // 0 for Arduino_GFX on the 7" one.
+  const SCREEN28 = { W: 320, H: 240, base: 1 }, SCREEN7 = { W: 800, H: 480, base: 0 };
+  function screenOf(sim, S) {
     if (!sim.cyd) {
       const cv = document.createElement('canvas');
-      cv.width = W; cv.height = H;
+      cv.width = S.W; cv.height = S.H;
       const ctx = cv.getContext('2d');
-      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, S.W, S.H);
       sim.cyd = { cv, ctx, ver: 1, url: null, urlVer: 0, invert: false };
     }
     return sim.cyd;
@@ -67,15 +70,18 @@
     return d.url;
   }
 
-  // rotation -> canvas transform, logical size
-  const ROT = [
-    { w: 240, h: 320, m: [0, -1, 1, 0, 0, 240] },
-    { w: 320, h: 240, m: [1, 0, 0, 1, 0, 0] },
-    { w: 240, h: 320, m: [0, 1, -1, 0, 320, 0] },
-    { w: 320, h: 240, m: [-1, 0, 0, -1, 320, 240] },
-  ];
-  // landscape panel point -> logical point for a rotation (inverse of the transforms above)
-  const toLogical = (r, X, Y) => (r === 1 ? [X, Y] : r === 3 ? [W - 1 - X, H - 1 - Y] : r === 0 ? [H - 1 - Y, X] : [Y, W - 1 - X]);
+  // rotation -> canvas transform and logical size (quarter turns counted from the screen's base rotation)
+  const turns = (S, r) => (((r - S.base) % 4) + 4) % 4;
+  function rotOf(S, r) {
+    const k = turns(S, r);
+    return k === 0 ? { w: S.W, h: S.H, m: [1, 0, 0, 1, 0, 0] } : k === 2 ? { w: S.W, h: S.H, m: [-1, 0, 0, -1, S.W, S.H] }
+      : k === 1 ? { w: S.H, h: S.W, m: [0, 1, -1, 0, S.W, 0] } : { w: S.H, h: S.W, m: [0, -1, 1, 0, 0, S.H] };
+  }
+  // panel point -> logical point for a rotation (inverse of the transforms above)
+  function toLogical(S, r, X, Y) {
+    const k = turns(S, r);
+    return k === 0 ? [X, Y] : k === 2 ? [S.W - 1 - X, S.H - 1 - Y] : k === 3 ? [S.H - 1 - Y, X] : [Y, S.W - 1 - X];
+  }
 
   // TFT_eSPI fonts: height in pixels at size 1, and how they are drawn here
   const FONTS = {
@@ -100,18 +106,22 @@
   function extendApi(api, rt) {
     const fmt = WB.rtFmt.fmtNum, cprintf = WB.rtFmt.cprintf;
     const num = (v) => Math.trunc(Number(v)) || 0;
-    Object.assign(api, TFT_COLORS, DATUMS, { TFT_WIDTH: 240, TFT_HEIGHT: 320, VSPI: 3, HSPI: 2, FSPI: 1, SPI_MODE0: 0, SPI_MODE1: 1, SPI_MODE2: 2, SPI_MODE3: 3 });
+    const spec28 = !!rt.spec.cyd, spec7 = !!rt.spec.cyd7;
+    const touchNow = () => { const t = rt.app.transient[rt.board.id]; return t && t.touch; };
+    if (spec28) Object.assign(api, TFT_COLORS, DATUMS, { TFT_WIDTH: 240, TFT_HEIGHT: 320 });
+    Object.assign(api, { VSPI: 3, HSPI: 2, FSPI: 1, SPI_MODE0: 0, SPI_MODE1: 1, SPI_MODE2: 2, SPI_MODE3: 3 });
 
     class TFT {
-      constructor() {
+      constructor(S) {
+        this.S = S || SCREEN28;
         this.rot = 0; this.cx = 0; this.cy = 0; this.fg = 0xffff; this.bg = 0xffff; this.size = 1; this.font = 1;
         this.datum = 0; this.wrapX = true; this.pad = 0;
       }
-      get d() { return screenOf(rt.sim); }
+      get d() { return screenOf(rt.sim, this.S); }
       get ctx() {
         if (!rt.running) throw WB.STOP;
         const c = this.d.ctx;
-        c.setTransform(...ROT[this.rot].m);
+        c.setTransform(...rotOf(this.S, this.rot).m);
         return c;
       }
       done() { this.d.ver++; rt.dirty(); }
@@ -124,8 +134,8 @@
       begin() { this.init(); }
       setRotation(r) { this.rot = ((num(r) % 4) + 4) % 4; }
       getRotation() { return this.rot; }
-      width() { return ROT[this.rot].w; }
-      height() { return ROT[this.rot].h; }
+      width() { return rotOf(this.S, this.rot).w; }
+      height() { return rotOf(this.S, this.rot).h; }
       invertDisplay(i) { this.d.invert = !!i; this.done(); }
       setSwapBytes() {} getSwapBytes() { return false; } startWrite() {} endWrite() {} setViewport() {} resetViewport() {}
       color565(r, g, b) { return ((num(r) & 0xf8) << 8) | ((num(g) & 0xfc) << 3) | (num(b) >> 3); }
@@ -135,11 +145,8 @@
       fillScreen(c) { this.fill(c).fillRect(0, 0, this.width(), this.height()); this.done(); }
       drawPixel(x, y, c) { this.fill(c).fillRect(num(x), num(y), 1, 1); this.done(); }
       readPixel(x, y) {
-        let [X, Y] = [num(x), num(y)];
-        const m = ROT[this.rot].m;
-        const px = m[0] * X + m[2] * Y + m[4], py = m[1] * X + m[3] * Y + m[5];
-        const R = this.rot === 0 ? [px, py - 1] : this.rot === 2 ? [px - 1, py] : this.rot === 3 ? [px - 1, py - 1] : [px, py];
-        const p = this.d.ctx.getImageData(R[0], R[1], 1, 1).data;
+        const X = num(x) + 0.5, Y = num(y) + 0.5, m = rotOf(this.S, this.rot).m;
+        const p = this.d.ctx.getImageData(Math.floor(m[0] * X + m[2] * Y + m[4]), Math.floor(m[1] * X + m[3] * Y + m[5]), 1, 1).data;
         return this.color565(p[0], p[1], p[2]);
       }
       fillRect(x, y, w, h, c) { if (num(w) > 0 && num(h) > 0) this.fill(c).fillRect(num(x), num(y), num(w), num(h)); this.done(); }
@@ -232,7 +239,7 @@
       getCursorX() { return this.cx; }
       getCursorY() { return this.cy; }
       setTextColor(fg, bg) { this.fg = num(fg) & 0xffff; this.bg = bg === undefined ? this.fg : num(bg) & 0xffff; }
-      setTextSize(s) { this.size = WB.clamp(num(s), 1, 7); }
+      setTextSize(s) { this.size = WB.clamp(num(s), 1, 20); }
       setTextFont(f) {
         f = num(f);
         if (!FONTS[f]) { rt.warnOnce('tftfont' + f, `TFT_eSPI: font ${f} is not loaded — the fonts are 1, 2, 4, 6, 7 and 8 (font 1 is used).`); f = 1; }
@@ -327,13 +334,12 @@
         return w;
       }
     }
-    const tftFactory = function () { return new TFT(); };
-    api.TFT_eSPI = tftFactory;
+    const tftFactory = function () { return new TFT(SCREEN28); };
+    if (spec28) api.TFT_eSPI = tftFactory;
 
     // ---------------- XPT2046 touch controller
     class TSPoint { constructor(x, y, z) { this.x = num(x); this.y = num(y); this.z = num(z); } }
     api.TS_Point = function (x, y, z) { return new TSPoint(x, y, z); };
-    const touchNow = () => { const t = rt.app.transient[rt.board.id]; return t && t.touch; };
     class Touch {
       constructor() { this.rot = 1; }
       begin() { return true; }
@@ -346,12 +352,76 @@
         const t = touchNow();
         if (!t) return new TSPoint(0, 0, 0);
         // raw 12-bit readings across the panel, as the CYD's XPT2046 gives them (about 200…3700 / 240…3800)
-        const r = ROT[this.rot], [x, y] = toLogical(this.rot, t[0], t[1]);
+        const r = rotOf(SCREEN28, this.rot), [x, y] = toLogical(SCREEN28, this.rot, t[0], t[1]);
         const jit = () => Math.round((Math.random() - 0.5) * 16);
         return new TSPoint(200 + Math.round((x / r.w) * 3500) + jit(), 240 + Math.round((y / r.h) * 3560) + jit(), 900 + Math.round(Math.random() * 300));
       }
     }
-    api.XPT2046_Touchscreen = function () { return new Touch(); };
+    if (spec28) api.XPT2046_Touchscreen = function () { return new Touch(); };
+
+    // ---------------- Arduino_GFX ("GFX Library for Arduino") on the 7" CYD's 800 x 480 RGB panel
+    class GFX extends TFT {
+      constructor(rot) { super(SCREEN7); this.rot = ((num(rot) % 4) + 4) % 4; this.began = 0; this.hinted = false; }
+      begin() { this.began = rt.millis() || 1; this.done(); return true; }
+      init() { return this.begin(); }
+      done() {
+        super.done();
+        // the panel stays dark until the sketch switches the backlight (GPIO2) on — say so once
+        if (!this.hinted && this.began && rt.millis() - this.began > 1500) {
+          this.hinted = true;
+          const st = rt.sim.pins.D2;
+          if (!st || st.mode !== 'OUTPUT' || (!st.value && st.duty == null))
+            rt.warnOnce('gfxbl', 'The screen stays dark: its backlight is GPIO2. Add pinMode(2, OUTPUT); digitalWrite(2, HIGH); after gfx->begin() (or dim it with ledcAttach(2, 5000, 8); ledcWrite(2, 128);).');
+        }
+      }
+      setTextSize(sx) { super.setTextSize(sx); }
+      setTextFont() { this.setFont(); }
+      setFont() { rt.warnOnce('gfxfont', 'Arduino_GFX: setFont() (u8g2 / GFX fonts) is not simulated — the built-in 6×8 font is used; make it bigger with setTextSize().'); }
+      setUTF8Print() {} flush() {} displayOn() {} displayOff() {}
+      // Arduino_GFX arcs: angles in degrees, 0 = 3 o'clock, clockwise; r1 / r2 = outer / inner radius
+      arcPath(x, y, r1, r2, a0, a1) {
+        const s0 = (Number(a0) * Math.PI) / 180, s1 = (Number(a1) * Math.PI) / 180;
+        return (g) => { g.arc(num(x) + 0.5, num(y) + 0.5, Math.max(num(r1), num(r2)), s0, s1); g.arc(num(x) + 0.5, num(y) + 0.5, Math.min(num(r1), num(r2)), s1, s0, true); g.closePath(); };
+      }
+      fillArc(x, y, r1, r2, a0, a1, c) { this.path(this.arcPath(x, y, r1, r2, a0, a1), c, true); }
+      drawArc(x, y, r1, r2, a0, a1, c) { this.path(this.arcPath(x, y, r1, r2, a0, a1), c, false); }
+    }
+    const GFX_COLORS = { BLACK: 0x0000, NAVY: 0x000f, DARKGREEN: 0x03e0, DARKCYAN: 0x03ef, MAROON: 0x7800, PURPLE: 0x780f, OLIVE: 0x7be0,
+      LIGHTGREY: 0xc618, DARKGREY: 0x7bef, BLUE: 0x001f, GREEN: 0x07e0, CYAN: 0x07ff, RED: 0xf800, MAGENTA: 0xf81f, YELLOW: 0xffe0,
+      WHITE: 0xffff, ORANGE: 0xfd20, GREENYELLOW: 0xafe5, PINK: 0xfc18 };
+    if (spec7) {
+      for (const [k, v] of Object.entries(GFX_COLORS)) { api[k] = v; api['RGB565_' + k] = v; }
+      api.GFX_NOT_DEFINED = -1;
+      // the panel bus only has to exist: its pins and timing are fixed on this board
+      api.Arduino_ESP32RGBPanel = function () { return { rgbPanel: true }; };
+      api.Arduino_RGB_Display = function (w, h, bus, rot) {
+        if (num(w) !== 800 || num(h) !== 480) rt.warnOnce('gfxsize', `Arduino_RGB_Display(${w}, ${h}, …): the 7" CYD's panel is 800 × 480.`);
+        return new GFX(rot);
+      };
+      api.Arduino_GFX = api.Arduino_RGB_Display;
+      // ---------------- TAMC_GT911 capacitive touch (I2C 19/20, INT 18, RST 38 on this board)
+      Object.assign(api, { ROTATION_LEFT: 0, ROTATION_INVERTED: 1, ROTATION_RIGHT: 2, ROTATION_NORMAL: 3, GT911_ADDR1: 0x5d, GT911_ADDR2: 0x14 });
+      class GT911 {
+        constructor(sda, scl, irq, rst, w, h) { this.w = num(w) || 800; this.h = num(h) || 480; this.rot = 3; this.isTouched = false; this.touches = 0; this.points = [0, 1, 2, 3, 4].map(() => ({ x: 0, y: 0, size: 0 })); }
+        begin() { if (!rt.running) throw WB.STOP; }
+        setRotation(r) { this.rot = num(r); }
+        setResolution(w, h) { this.w = num(w); this.h = num(h); }
+        read() {
+          if (!rt.running) throw WB.STOP;
+          const t = touchNow();
+          this.isTouched = !!t; this.touches = t ? 1 : 0;
+          if (!t) return;
+          // the GT911 reports panel pixels (scaled to the resolution given to the constructor);
+          // TAMC_GT911 then turns them for its rotation — ROTATION_NORMAL mirrors both axes
+          let x = Math.round((t[0] * this.w) / 800), y = Math.round((t[1] * this.h) / 480);
+          if (this.rot === 3) { x = this.w - x; y = this.h - y; }
+          else if (this.rot === 0) [x, y] = [y, this.w - x];
+          else if (this.rot === 2) [x, y] = [this.h - y, x];
+          this.points[0] = { x, y, size: 20 + Math.round(Math.random() * 10) };
+        }
+      }
+      api.TAMC_GT911 = function (...a) { return new GT911(...a); };
+    }
 
     // ---------------- SPI (the screen and touch buses are internal, so this only needs to exist)
     const spiObj = () => ({ begin() {}, end() {}, transfer() { return 0; }, transfer16() { return 0; }, beginTransaction() {}, endTransaction() {}, setFrequency() {}, setDataMode() {}, setBitOrder() {} });
@@ -397,6 +467,18 @@
   // ---------------------------------------------------------------- drawing the board
   const T = (x, y, s, txt, fill, extra) => `<text x="${x}" y="${y}" font-size="${s}" text-anchor="middle" fill="${fill}" font-family="sans-serif"${extra || ''}>${txt}</text>`;
   const LIVE = { d: null };
+  // connector housings along the bottom edge, pins at height y, pin names above them
+  function connSVG(conns, pins, y, S) {
+    let s = '';
+    for (const cn of conns) {
+      s += `<rect x="${cn.x - 6}" y="${y - 6}" width="${(cn.pins.length - 1) * 10 + 12}" height="12" rx="1.5" fill="#f4f2ea" stroke="#9a968a"/><text x="${cn.x - 9}" y="${y + 3}" font-size="5.5" text-anchor="end" fill="${S}" font-family="sans-serif" font-weight="700">${cn.name}</text>`;
+      cn.pins.forEach(([id], i) => {
+        const p = pins.find((q) => q.id === id);
+        s += `<rect x="${cn.x + i * 10 - 2.5}" y="${y - 2.5}" width="5" height="5" fill="#000"/><text transform="translate(${cn.x + i * 10 + 1.8},${y - 9}) rotate(-90)" font-size="4.6" fill="${S}" font-family="monospace">${p.short}</text>`;
+      });
+    }
+    return s;
+  }
 
   WB.defPart('board-cyd', {
     label: spec.label, category: 'Boards', prefix: 'U', dynamic: true, layer: 1, board: spec, interact: 'touch',
@@ -475,14 +557,7 @@
         return `${on ? `<circle cx="${x}" cy="${y}" r="${7 + 5 * Math.max(r, g, b)}" fill="${col}" opacity=".55" filter="url(#wbGlow)"/>` : ''}
           <rect x="${x - 4}" y="${y - 4}" width="8" height="8" rx="1" fill="${on ? col : '#f2f0ea'}" stroke="#0005" stroke-width=".5"/>`;
       };
-      let conn = '';
-      for (const cn of CONN) {
-        conn += `<rect x="${cn.x - 6}" y="234" width="${(cn.pins.length - 1) * 10 + 12}" height="12" rx="1.5" fill="#f4f2ea" stroke="#9a968a"/><text x="${cn.x - 9}" y="243" font-size="5.5" text-anchor="end" fill="${S}" font-family="sans-serif" font-weight="700">${cn.name}</text>`;
-        cn.pins.forEach(([id], i) => {
-          const p = PINS.find((q) => q.id === id);
-          conn += `<rect x="${cn.x + i * 10 - 2.5}" y="237.5" width="5" height="5" fill="#000"/><text transform="translate(${cn.x + i * 10 + 1.8},231) rotate(-90)" font-size="4.6" fill="${S}" font-family="monospace">${p.short}</text>`;
-        });
-      }
+      const conn = connSVG(CONN, PINS, 240, S);
       const pressed = vis.pressed;
       return `<rect x="0" y="0" width="${BW}" height="${BH}" rx="5" fill="${spec.pcb}" stroke="#8a7210"/>
         <circle cx="8" cy="8" r="3.5" fill="#f6f1d8" stroke="#a8901c"/><circle cx="${BW - 8}" cy="8" r="3.5" fill="#f6f1d8" stroke="#a8901c"/>
@@ -503,5 +578,99 @@
     },
   });
 
-  WB.CYD = { extendApi, spec };
+  // ---------------------------------------------------------------- the 7" CYD (ESP32-8048S070C)
+  // ESP32-S3 with an 800 x 480 RGB-parallel panel (Arduino_GFX library), GT911 capacitive touch
+  // (TAMC_GT911), backlight on GPIO2. Connectors: P1 (5 V, TX 43, RX 44, GND), P2 (IO19, IO11–13),
+  // P3 (IO17–20) and P4 (3.3 V, IO17, IO18, GND).
+  const W7 = 800, H7 = 480, K7 = 0.75, SX7 = 20, SY7 = 20, BW7 = 640, BH7 = 444;
+  const panelPins = [1, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 21, 39, 40, 41, 42, 45, 46, 47, 48];
+  const spec7 = {
+    label: 'CYD 7" — ESP32-S3 Cheap Yellow Display (ESP32-8048S070C)', short: 'CYD 7"', layout: 'cyd7', vcc: 3.3, esp32: true, cyd7: true,
+    digitalCount: 49, analogCount: 0, analogBase: 100, adcBits: 12,
+    adcPins: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+    pwm: [0, 2, 11, 12, 13, 17, 18, 19, 20, 43, 44],
+    reserved: Object.assign(Object.fromEntries(panelPins.map((g) => [g, 'the display (RGB panel)'])), { 38: 'the touch controller (RST)', 10: 'the SD card (CS)', 35: 'the PSRAM', 36: 'the PSRAM', 37: 'the PSRAM' }),
+    constants: { A0: 1, A1: 2, A2: 3, A3: 4, A4: 5, A5: 6, A6: 7, A7: 8, A8: 9, A9: 10, A10: 11, A11: 12, A12: 13, A13: 14, A14: 15, A15: 16, A16: 17, A17: 18, A18: 19, A19: 20, SDA: 19, SCL: 20, LED_BUILTIN: 2 },
+    serialPins: ['D44', 'D43'],
+    i2c: { sda: 'D19', scl: 'D20' },
+    pcb: '#1b1d22', silk: '#d8dde4',
+    info: 'ESP32-S3 (240 MHz, 8 MB PSRAM; Wi-Fi/Bluetooth not simulated), 3.3 V logic, 12-bit ADC. 7" 800×480 capacitive touch screen (Arduino_GFX + TAMC_GT911 libraries; GPIO2 = backlight), BOOT button on 0. Pins on the connectors: IO17, IO18 (also the touch INT), IO19/IO20 (I2C, shared with the touch controller), IO11–13 (SD card SPI), TX 43 / RX 44.',
+  };
+  WB.BOARDS['board-cyd7'] = spec7;
+  const CONN7 = [
+    { name: 'P1', x: 40, pins: [['VIN', '5V (power in)'], ['D43', 'TX · GPIO43 (Serial)'], ['D44', 'RX · GPIO44 (Serial)'], ['GND', 'GND']] },
+    { name: 'P2', x: 140, pins: [['D19_2', 'IO19 (I2C SDA)'], ['D11', 'IO11 (SD MOSI)'], ['D12', 'IO12 (SD SCK)'], ['D13', 'IO13 (SD MISO)']] },
+    { name: 'P3', x: 240, pins: [['D17', 'IO17'], ['D18', 'IO18 (also the touch INT)'], ['D19', 'IO19 (I2C SDA, shared with the touch)'], ['D20', 'IO20 (I2C SCL, shared with the touch)']] },
+    { name: 'P4', x: 340, pins: [['3V3', '3.3 V out'], ['D17_2', 'IO17'], ['D18_2', 'IO18'], ['GND2', 'GND']] },
+  ];
+  const PINS7 = [];
+  for (const c of CONN7) c.pins.forEach(([id, label], i) => PINS7.push({ id, label, x: c.x + i * 10, y: 434, short: id.replace(/^D(\d+).*/, 'IO$1').replace(/^GND\d/, 'GND').replace('VIN', '5V'), side: 'bot',
+    kind: /^GND/.test(id) ? 'gnd' : id === 'VIN' || id === '3V3' ? 'pwr' : undefined }));
+  [['D0', 'BOOT button (GPIO0)'], ['D2', 'screen backlight (GPIO2)']].forEach(([id, label], i) => PINS7.push({ id, label, x: 623 + i, y: 7, hidden: true }));
+
+  WB.defPart('board-cyd7', {
+    label: spec7.label, category: 'Boards', prefix: 'U', dynamic: true, layer: 1, board: spec7, interact: 'touch',
+    pins: () => PINS7,
+    groundPins: ['GND', 'GND2'],
+    groups: () => [['D19', 'D19_2'], ['D17', 'D17_2'], ['D18', 'D18_2']],
+    bbox: () => [-2, 0, BW7 + 4, BH7 + 2],
+    summary: () => '3.3 V logic · 800×480 touch screen',
+    hit(lx, ly) {
+      if (lx >= SX7 && ly >= SY7 && lx <= SX7 + W7 * K7 && ly <= SY7 + H7 * K7) return { k: 'screen', x: WB.clamp(Math.floor((lx - SX7) / K7), 0, W7 - 1), y: WB.clamp(Math.floor((ly - SY7) / K7), 0, H7 - 1) };
+      if (Math.hypot(lx - 568, ly - 420) < 10) return { k: 'boot' };
+      return null;
+    },
+    elements(c) {
+      const els = [];
+      els.push({ t: 'V', a: c.n('VIN'), b: 0, v: 5, r: 0.05, tag: '5V' });
+      els.push({ t: 'V', a: c.n('3V3'), b: 0, v: 3.3, r: 0.1, tag: '3V3' });
+      for (const name in c.sim.pins) {
+        const st = c.sim.pins[name];
+        const node = c.n(name);
+        if (node < 0) continue;
+        if (st.mode === 'OUTPUT') {
+          if (st.duty != null) els.push({ t: 'V', a: node, b: 0, v: 3.3, r: 30, duty: st.duty, freq: st.tone || 1000, tag: 'pin:' + name });
+          else els.push({ t: 'V', a: node, b: 0, v: st.value ? 3.3 : 0, r: 30, tag: 'pin:' + name });
+        } else if (st.mode === 'INPUT_PULLUP') els.push({ t: 'V', a: node, b: 0, v: 3.3, r: 45000, tag: 'pull:' + name });
+        else if (st.mode === 'INPUT_PULLDOWN') els.push({ t: 'V', a: node, b: 0, v: 0, r: 45000, tag: 'pull:' + name });
+      }
+      // I2C pull-ups (4.7 kΩ on the board, for the touch controller), BOOT button with its pull-up
+      els.push({ t: 'R', a: c.n('3V3'), b: c.n('D19'), r: 4700 }, { t: 'R', a: c.n('3V3'), b: c.n('D20'), r: 4700 });
+      els.push({ t: 'R', a: c.n('3V3'), b: c.n('D0'), r: 10000 });
+      if (c.ui.pressed) els.push({ t: 'R', a: c.n('D0'), b: 0, r: 50 });
+      return els;
+    },
+    visualize(c) {
+      const vis = { on: true };
+      for (const e of c.els) {
+        if (e.tag && e.tag.startsWith('pin:') && Math.abs(e.ipk) > 0.03)
+          c.warn(`${c.name} pin ${e.tag.slice(4)} is carrying ${Math.round(Math.abs(e.ipk) * 1000)} mA — above the safe I/O current. Add a series resistor.`);
+        else if ((e.tag === '5V' || e.tag === '3V3') && Math.abs(e.i) > 0.8) c.warn(`Short circuit on the ${e.tag} supply of ${c.name}!`);
+      }
+      const bl = c.sim.pins.D2;
+      vis.bl = bl && bl.mode === 'OUTPUT' ? (bl.duty != null ? +bl.duty.toFixed(2) : bl.value) : 0;
+      if (c.sim.cyd) { vis.ver = c.sim.cyd.ver; vis.inv = c.sim.cyd.invert; if (WB.app && c.sim === WB.app.sim) LIVE.d = c.sim.cyd; }
+      return vis;
+    },
+    render(part, vis) {
+      vis = vis || {};
+      const S = spec7.silk, sw = W7 * K7, sh = H7 * K7, lit = vis.bl || 0;
+      const d = vis.ver !== undefined ? LIVE.d : null;
+      let screen = `<rect x="${SX7}" y="${SY7}" width="${sw}" height="${sh}" fill="#07080a"/>`;
+      if (d && lit > 0) {
+        screen += `<image x="${SX7}" y="${SY7}" width="${sw}" height="${sh}" href="${screenURL(d)}" preserveAspectRatio="none"${vis.inv ? ' style="filter:invert(1)"' : ''}/>`;
+        if (lit < 1) screen += `<rect x="${SX7}" y="${SY7}" width="${sw}" height="${sh}" fill="#000" opacity="${(1 - lit).toFixed(2)}"/>`;
+      } else if (!d) screen += `<path d="M${SX7 + 20},${SY7 + sh - 20} L${SX7 + sw * 0.45},${SY7 + 20}" stroke="#ffffff0d" stroke-width="80"/>${T(SX7 + sw / 2, SY7 + sh / 2 + 4, 14, '7" 800 × 480 touch screen', '#3b4048')}`;
+      return `<rect x="0" y="0" width="${BW7}" height="${BH7}" rx="6" fill="${spec7.pcb}" stroke="#000"/>
+        <rect x="${SX7 - 8}" y="${SY7 - 8}" width="${sw + 16}" height="${sh + 16}" rx="3" fill="#0b0c0e"/>
+        ${screen}
+        <rect x="${BW7 - 3}" y="150" width="10" height="26" rx="2" fill="#c9cdd2" stroke="#7d8287"/>
+        <rect x="560" y="412" width="16" height="16" rx="2" fill="#d9d9d9" stroke="#777"/><circle cx="568" cy="420" r="5" fill="${vis.pressed ? '#555' : '#2b2b2b'}"/>${T(568, 438, 5, 'BOOT', S)}
+        <rect x="590" y="412" width="16" height="16" rx="2" fill="#d9d9d9" stroke="#777"/><circle cx="598" cy="420" r="5" fill="#2b2b2b"/>${T(598, 438, 5, 'RST', S)}
+        ${connSVG(CONN7, PINS7, 434, S)}
+        ${T(490, 410, 8, 'ESP32-8048S070C', S, ' font-weight="700"')}${T(490, 424, 6, 'CYD 7" · ESP32-S3 · BL = IO2', S)}`;
+    },
+  });
+
+  WB.CYD = { extendApi, spec, spec7 };
 })(window.WB);
