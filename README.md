@@ -1,4 +1,4 @@
-# Wirebench 0.8
+# Wirebench 0.9
 
 A free, offline breadboard designer and electronics simulator. Inspired by the breadboard view in tools like Fritzing, with built-in simulation for the **Arduino UNO Q** and similar boards, and bench instruments (multimeter, oscilloscope, Bode plotter, logic analyzer, function generator, power supply) for analog circuits with or without a microcontroller.
 
@@ -44,6 +44,7 @@ New to Wirebench? Open **Help → Getting started** (or press **F1**) in the app
 - Rotate (**R**), delete (**Del**), duplicate (**Ctrl+D**), undo/redo (**Ctrl+Z/Y**), and box-select (**Shift+drag**).
 - Double-click a wire to add a bend. Drag the handles to move bends or re-attach wire ends.
 - Export the breadboard as PNG or SVG, the sketch as `.ino`, a **schematic diagram** (A4/A3 sheet with standard symbols and routed wires — or net labels — plus parts list and title block, as SVG or PNG), a **SPICE netlist for LTspice** (`.cir`, same component models as the simulator plus BJT / MOSFET / op-amp models), or a **netlist and parts list**.
+- **Print** (File → Print…, Ctrl+P) the breadboard view, schematic, instrument screens, sketch and parts list — or save them as a PDF for a lab report.
 - Three themes from **File → Theme**: Default (slate panels, light canvas), Light and Dark.
 - Hide the code panel with the **&lt;/&gt; Code** button (**Ctrl+B**) and the parts panel with **◧ Parts** (**Ctrl+Shift+B**), or collapse single sections (Parts, Inspector, Sketch, Serial Monitor) with the ▾ in their headers. Click a category name in the parts list (e.g. Passive) to hide or show its parts; ⇕ collapses or expands them all.
 

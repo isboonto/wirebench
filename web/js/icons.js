@@ -41,6 +41,7 @@
     toBottom: `<path d="M3 13.5h10M8 2v8.5M4.5 7L8 10.5 11.5 7" ${S}/>`,
     undo: `<path d="M5.5 3L2.5 6l3 3" ${S}/><path d="M2.8 6h6.7a4 4 0 0 1 0 8H6" ${S}/>`,
     redo: `<path d="M10.5 3l3 3-3 3" ${S}/><path d="M13.2 6H6.5a4 4 0 0 0 0 8H10" ${S}/>`,
+    print: `<path d="M4.5 6V2h7v4" ${S}/><rect x="1.8" y="6" width="12.4" height="5.5" rx="1.2" ${S}/><path d="M4.5 9.5h7V14h-7z" ${S}/><path d="M11.8 8h.01" ${S} stroke-width="1.8"/>`,
     note: `<path d="M2.5 2.5h11v7.5l-3.5 3.5h-7.5z" ${S}/><path d="M13.5 10H10v3.5M5 5.5h6M5 8h4" ${S}/>`,
     reset: `<path d="M2.8 8A5.2 5.2 0 1 0 4.4 4.3" ${S}/><path d="M2.4 1.8v3.4h3.4" ${S}/><circle cx="8" cy="8" r="1" fill="currentColor"/>`,
   };

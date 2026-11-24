@@ -1150,7 +1150,7 @@
   WB.defPart('scope', {
     label: 'Oscilloscope', category: 'Instruments', prefix: 'OSC', dynamic: true, interact: 'panel',
     groundPins: ['GND'], // the probe ground is earthed, as on a real scope
-    defaults: { tdiv: 20, vdiv: 1, vdiv2: 1, cpl1: 'DC', cpl2: 'DC', pos1: -2, pos2: -2 },
+    defaults: { tdiv: 20, vdiv: 1, vdiv2: 1, cpl1: 'DC', cpl2: 'DC', pos1: 0, pos2: 0 },
     pins: () => [
       { id: 'CH1', label: 'CH1 input (yellow trace)', x: 0, y: 0 },
       { id: 'CH2', label: 'CH2 input (cyan trace)', x: 20, y: 0 },

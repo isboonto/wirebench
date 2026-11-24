@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '0.8.0';
+  WB.VERSION = '0.9.0';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -153,6 +153,7 @@
           ['Ctrl+Shift+B', 'Show / hide the parts panel (◧ Parts: the parts list and the inspector on the left)'],
           ['Drag a category heading', 'Reorder the parts list (right-click a heading: move up / down / to top, or reset the order)'],
           ['Ctrl+S / Ctrl+O', 'Save / open project (● in the title and on Save = unsaved changes; Wirebench asks before replacing or closing them)'],
+          ['Ctrl+P', 'Print: choose the breadboard view, schematic, instrument screens, sketch and parts list, then print or save as PDF (File → Print…)'],
           ['Tab', 'Indent in the code editor'],
           ['F1', 'Open this help'],
         ]],
@@ -242,6 +243,11 @@
     about: () => `
       ${aboutHeader()}
       <h3 class="about-h">What's new</h3>
+      <h3>What's new in 0.9</h3>
+      <ul>
+        <li>0.9.0: <b>File → Print…</b> (Ctrl+P). Choose the breadboard view, schematic, instrument screens (each instrument enlarged, exactly as it shows now — for lab reports), sketch with line numbers, and parts list &amp; netlist; add a title and your name; pick A4 or Letter, landscape or portrait. Each section starts a new page. Choose “Save as PDF” as the printer to get a PDF.</li>
+        <li>New oscilloscopes start with 0 V in the middle of the screen for both channels.</li>
+      </ul>
       <h3>What's new in 0.8</h3>
       <ul>
         <li>0.8.0: two new instruments. The <b>Bode plotter</b> sweeps a small sine from START to STOP and plots gain (dB) and phase against frequency, with the −3 dB points marked — it simulates every frequency through the full solver, so op-amps and transistors work too (SPICE export: an <code>.ac</code> analysis). The 8-channel <b>logic analyzer</b> draws timing diagrams with an edge trigger and records every edge of fast sequences such as <code>shiftOut()</code>. New examples: <i>Bode plot: RC low-pass and Sallen-Key filters</i> and <i>Logic analyzer: watch shiftOut() and a 74HC595</i>.</li>

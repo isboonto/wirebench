@@ -234,7 +234,7 @@ void loop() {
 }
 `;
       add(p, 'dmm', 'multimeter', [380, 450], 0, { mode: 'V' }, 'DMM1');
-      add(p, 'osc', 'scope', [600, 540], 0, { tdiv: 5, vdiv: 1 }, 'OSC1');
+      add(p, 'osc', 'scope', [600, 540], 0, { tdiv: 5, vdiv: 1, pos1: -2, pos2: -2 }, 'OSC1');
       const rw = (a, b, color) => p.wires.push({ id: 'w' + p.wires.length, a: { part: a[0], pin: a[1] }, b: { part: b[0], pin: b[1] }, color, pts: [], route: true, auto: true });
       rw(['dmm', 'V'], ['bb', 'd12'], '#d62828');          // LED anode
       rw(['dmm', 'COM'], ['bb', rail('TN', 3)], '#1f1f1f'); // ground rail
@@ -651,7 +651,7 @@ void loop() {
       add(p, 'c1', 'capacitor', hole('c14'), 0, { farads: 1e-6 }, 'C1');
       wire(p, ['bb', 'a15'], ['bb', rail('TN', 15)], '#1f1f1f');
       add(p, 'fg', 'fgen', [120, 210], 0, { shape: 'sine', freq: 160, vpp: 4, offset: 0 }, 'FG1');
-      add(p, 'osc', 'scope', [570, 550], 0, { tdiv: 2, vdiv: 1 }, 'OSC1');
+      add(p, 'osc', 'scope', [570, 550], 0, { tdiv: 2, vdiv: 1, pos1: -2, pos2: -2 }, 'OSC1');
       add(p, 'dmm', 'multimeter', [300, 470], 0, { mode: 'V~' }, 'DMM1');
       rw(p, ['fg', '+'], ['bb', 'a10'], '#d62828');
       rw(p, ['fg', 'COM'], ['bb', rail('TN', 2)], '#1f1f1f');
@@ -682,7 +682,7 @@ void loop() {
       wire(p, ['bb', 'a15'], ['bb', rail('TN', 15)], '#1f1f1f');
       wire(p, ['bb', 'a18'], ['bb', rail('TN', 19)], '#1f1f1f');
       add(p, 'fg', 'fgen', [120, 210], 0, { shape: 'sine', freq: 50, vpp: 12, offset: 0 }, 'FG1');
-      add(p, 'osc', 'scope', [570, 550], 0, { tdiv: 10, vdiv: 2, vdiv2: 2 }, 'OSC1');
+      add(p, 'osc', 'scope', [570, 550], 0, { tdiv: 10, vdiv: 2, vdiv2: 2, pos1: -2, pos2: -2 }, 'OSC1');
       add(p, 'dmm', 'multimeter', [300, 470], 0, { mode: 'V' }, 'DMM1');
       rw(p, ['fg', '+'], ['bb', 'a10'], '#d62828');
       rw(p, ['fg', 'COM'], ['bb', rail('TN', 2)], '#1f1f1f');
@@ -714,7 +714,7 @@ void loop() {
       wire(p, ['bb', 'a12'], ['bb', rail('TN', 11)], '#1f1f1f', [[hole('a12')[0], 90], [railPos('TN', 11)[0], 90]]);
       wire(p, ['bb', 'a15'], ['bb', rail('TN', 16)], '#1f1f1f');
       add(p, 'ps', 'psu', [130, 220], 0, { volts: 5, ilimit: 0.5 }, 'PS1');
-      add(p, 'osc', 'scope', [570, 550], 0, { tdiv: 500, vdiv: 1 }, 'OSC1');
+      add(p, 'osc', 'scope', [570, 550], 0, { tdiv: 500, vdiv: 1, pos1: -2, pos2: -2 }, 'OSC1');
       add(p, 'dmm', 'multimeter', [300, 470], 0, { mode: 'V' }, 'DMM1');
       rw(p, ['ps', '+'], ['bb', 'a6'], '#d62828');
       rw(p, ['ps', '-'], ['bb', rail('TN', 1)], '#1f1f1f');
@@ -758,7 +758,7 @@ void loop() {
       add(p, 'r1', 'resistor', hole('b8'), 0, { ohms: 1000 }, 'R1');
       add(p, 'c1', 'ecap', hole('c12'), 0, { farads: 10e-6 }, 'C1');
       wire(p, ['bb', 'a13'], ['bb', rail('TN', 14)], '#1f1f1f');
-      add(p, 'osc', 'scope', [570, 550], 0, { tdiv: 2, vdiv: 1 }, 'OSC1');
+      add(p, 'osc', 'scope', [570, 550], 0, { tdiv: 2, vdiv: 1, pos1: -2, pos2: -2 }, 'OSC1');
       add(p, 'dmm', 'multimeter', [300, 470], 0, { mode: 'V' }, 'DMM1');
       rw(p, ['osc', 'CH1'], ['bb', 'd8'], '#f2c200');
       rw(p, ['osc', 'CH2'], ['bb', 'd12'], '#00b3b3');

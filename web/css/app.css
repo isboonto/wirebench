@@ -571,3 +571,51 @@ svg.ico { vertical-align: -2px; flex-shrink: 0; }
 .menu-head { font-size: 11px; color: var(--muted); padding: 4px 10px 2px; text-transform: uppercase; letter-spacing: .04em; }
 #file-menu { min-width: 290px; }
 #mi-save.modified span::after { position: static; display: inline-block; margin-left: 7px; vertical-align: 1px; }
+
+/* ---------------- print */
+dialog#print-dlg { width: auto; max-width: 480px; padding: 16px 20px 14px; }
+#print-dlg h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; margin: 0 0 12px; }
+#print-dlg .pr-fields { display: flex; gap: 10px; margin: 0 0 10px; }
+#print-dlg .pr-fields label { flex: 1; display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+#print-dlg .pr-fields input, #print-dlg .pr-fields select { width: 100%; box-sizing: border-box; }
+#print-dlg .pr-opts { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 12px; padding: 6px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+#print-dlg .pr-opt { display: flex; gap: 9px; align-items: flex-start; padding: 5px 2px; cursor: pointer; }
+#print-dlg .pr-opt input { margin-top: 2px; }
+#print-dlg .pr-opt small { display: block; color: var(--muted); font-size: 11.5px; }
+#print-dlg .pr-opt.off { opacity: .5; cursor: default; }
+#print-dlg p { margin: 4px 0; }
+#print-dlg .sa-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+#print-dlg .sa-actions .primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+#print-area { display: none; }
+@media print {
+  html, body { height: auto !important; overflow: visible !important; background: #fff !important; color: #000 !important; display: block !important; }
+  body > *:not(#print-area) { display: none !important; }
+  #print-area { display: block; font: 10.5pt/1.4 "Segoe UI", system-ui, sans-serif; color: #000;
+    --t-com: #6a737d; --t-str: #0a7d32; --t-pre: #8a4baf; --t-num: #b35c00; --t-kw: #0b57d0; --t-fn: #a8326e; --t-const: #00796b; }
+  #print-area .pr-sec + .pr-sec { break-before: page; }
+  #print-area .pr-head { border-bottom: 1.5pt solid #000; padding-bottom: 4pt; margin-bottom: 8pt; display: flex; justify-content: space-between; align-items: baseline; gap: 12pt; }
+  #print-area h1 { font-size: 16pt; margin: 0; }
+  #print-area .pr-head div { font-size: 9.5pt; color: #333; text-align: right; }
+  #print-area h2 { font-size: 12pt; margin: 0 0 6pt; }
+  #print-area .pr-note { font-weight: normal; color: #555; font-size: 10pt; }
+  #print-area .pr-fig { display: block; margin: 0 auto; max-width: 100%; object-fit: contain; }
+  #print-area.landscape .pr-fig { max-height: 150mm; }
+  #print-area.portrait .pr-fig { max-height: 235mm; }
+  #print-area .pr-insts { display: flex; flex-wrap: wrap; gap: 8mm; justify-content: center; }
+  #print-area figure { margin: 0; break-inside: avoid; text-align: center; }
+  #print-area .pr-inst { display: block; margin: 0 auto 3pt; max-width: 100%; }
+  #print-area.landscape .pr-inst { max-height: 85mm; }
+  #print-area.portrait .pr-inst { max-height: 95mm; }
+  #print-area.landscape .n1 .pr-inst { max-height: 150mm; }
+  #print-area.landscape .n2 .pr-inst { max-height: 110mm; max-width: 125mm; }
+  #print-area.portrait .n1 .pr-inst { max-height: 200mm; }
+  #print-area.portrait .n2 .pr-inst { max-height: 110mm; }
+  #print-area figcaption { font-size: 9pt; color: #333; }
+  #print-area .pr-code { font: 8.5pt/1.35 Consolas, "Cascadia Mono", monospace; white-space: pre-wrap; margin: 0; }
+  #print-area .pr-code .ln { color: #999; display: inline-block; margin-right: 1.2em; }
+  #print-area table { width: 100%; border-collapse: collapse; margin-bottom: 10pt; font-size: 9.5pt; }
+  #print-area th, #print-area td { text-align: left; padding: 2pt 6pt; border-bottom: .5pt solid #bbb; vertical-align: top; }
+  #print-area tr { break-inside: avoid; }
+  #print-area td:first-child, #print-area th:first-child { width: 1%; white-space: nowrap; padding-right: 14pt; }
+  #print-area h3 { font-size: 11pt; margin: 6pt 0 4pt; }
+}

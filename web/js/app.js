@@ -921,6 +921,7 @@
       const k = /^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : /^Key[A-Z]$/.test(e.code || '') ? e.code.slice(3).toLowerCase() : (e.key || '').toLowerCase();
       if (e.key === 'F1') { e.preventDefault(); this.showHelp('guide'); return; }
       if (mod && k === 's') { e.preventDefault(); this.cmd('save'); return; }
+      if (mod && k === 'p') { e.preventDefault(); this.cmd('print'); return; }
       if (mod && e.key === 'Enter') { e.preventDefault(); this.cmd('run'); return; }
       if (mod && k === 'b') { e.preventDefault(); this.cmd(e.shiftKey ? 'toggleLeft' : 'togglePanel'); return; }
       // Undo / redo also from a settings box (number, slider, drop-down): the change is committed,
@@ -1015,6 +1016,7 @@
         case 'exportPNG': this.exportPNG(); break;
         case 'exportSketch': this.saveAs('sketch.ino', new Blob([this.code.value], { type: 'text/plain' }), 'Arduino sketch', ['ino']); break;
         case 'netlist': this.showNetlist(); break;
+        case 'print': this.showPrint(); break;
         case 'schematic': this.showSchematic(); break;
         case 'spice': this.showSpice(); break;
         case 'undo': this.undo(); break;
@@ -1387,11 +1389,11 @@
       };
       img.src = url;
     }
-    showNetlist() {
+    // Parts list and netlist as HTML tables (Export → Netlist & parts list, and printing).
+    netlistHTML() {
       const topo = this.getTopo();
       const byPart = {};
       for (const p of this.project.parts) byPart[p.id] = p;
-      // Parts list
       const groups = {};
       for (const p of this.project.parts) {
         const def = PARTS[p.type];
@@ -1410,10 +1412,136 @@
         if (!conns.length) return;
         html += `<tr><td>${idx === 0 ? 'GND' : 'N' + ++n}</td><td>${WB.esc(conns.join(', '))}</td></tr>`;
       });
-      html += '</table>';
-      $('#modal-body').innerHTML = html;
+      return html + '</table>';
+    }
+    showNetlist() {
+      $('#modal-body').innerHTML = this.netlistHTML();
       $('#modal').classList.remove('help', 'wide'); // each dialog sets its own layout
       $('#modal').showModal();
+    }
+
+    // ---------------- print
+    // File → Print: pick what goes on paper, then print it through the system print dialog
+    // (which can also save a PDF). Each section starts a new page; drawings are scaled to fit.
+    printContent() {
+      const parts = this.project.parts.filter((p) => PARTS[p.type] && !PARTS[p.type].annotation);
+      const circuit = parts.filter((p) => !PARTS[p.type].holes);
+      return {
+        breadboard: parts.length > 0,
+        schematic: circuit.length > 0,
+        instruments: circuit.filter((p) => PARTS[p.type].category === 'Instruments').length,
+        sketch: circuit.some((p) => PARTS[p.type].board),
+        parts: circuit.length > 0,
+      };
+    }
+    showPrint() {
+      document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
+      const have = this.printContent();
+      if (!have.breadboard) { this.toast('Nothing to print yet — add some parts first.'); return; }
+      let st = {};
+      try { st = JSON.parse(localStorage.getItem('wirebench.print') || '{}') || {}; } catch (e) { /* storage unavailable */ }
+      const on = (k) => (st[k] !== undefined ? st[k] : k !== 'parts'); // parts list off unless chosen before
+      let dlg = $('#print-dlg');
+      if (!dlg) {
+        dlg = document.createElement('dialog');
+        dlg.id = 'print-dlg';
+        document.body.appendChild(dlg);
+      }
+      const opt = (k, label, note) => `<label class="pr-opt${have[k] ? '' : ' off'}"><input type="checkbox" data-pk="${k}" ${have[k] && on(k) ? 'checked' : ''} ${have[k] ? '' : 'disabled'}><span>${label}<small>${note}</small></span></label>`;
+      const n = have.instruments;
+      dlg.innerHTML = `<h3>${WB.icon('print')} Print</h3>
+        <div class="pr-fields">
+          <label>Title <input data-pf="title" value="${WB.esc(st.title && st.forDoc === this.docName ? st.title : (this.docName || 'Untitled'))}"></label>
+          <label>Name <input data-pf="name" placeholder="Your name (optional)" value="${WB.esc(st.name || '')}"></label>
+        </div>
+        <div class="pr-opts">
+          ${opt('breadboard', 'Breadboard view', 'the circuit as drawn on the workspace')}
+          ${opt('schematic', 'Schematic diagram', 'drawn from the circuit')}
+          ${opt('instruments', 'Instrument screens', n ? `${n} instrument${n > 1 ? 's' : ''}, enlarged — shows what they display now` : 'no instruments in this circuit')}
+          ${opt('sketch', 'Sketch', have.sketch ? 'the Arduino code, with line numbers' : 'no board in this circuit')}
+          ${opt('parts', 'Parts list &amp; netlist', 'tables of parts and connections')}
+        </div>
+        <div class="pr-fields">
+          <label>Paper <select data-pf="paper"><option value="A4">A4</option><option value="letter">Letter</option></select></label>
+          <label>Drawings <select data-pf="orient"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></label>
+        </div>
+        ${n && !this.sim ? '<p class="muted small">Tip: start the simulation first so the instrument screens show readings.</p>' : ''}
+        <p class="muted small">To make a PDF, choose “Save as PDF” (or “Microsoft Print to PDF”) as the printer.</p>
+        <div class="sa-actions"><button data-pa="print" class="primary">Print…</button><button data-pa="cancel">Cancel</button></div>`;
+      dlg.querySelector('[data-pf="paper"]').value = st.paper || 'A4';
+      dlg.querySelector('[data-pf="orient"]').value = st.orient || 'landscape';
+      dlg.onclick = (e) => {
+        const b = e.target.closest('[data-pa]');
+        if (!b) return;
+        if (b.dataset.pa === 'cancel') { dlg.close(); return; }
+        const o = { forDoc: this.docName };
+        dlg.querySelectorAll('[data-pf]').forEach((i) => { o[i.dataset.pf] = i.value.trim(); });
+        dlg.querySelectorAll('[data-pk]').forEach((i) => { if (!i.disabled) o[i.dataset.pk] = i.checked; });
+        try { localStorage.setItem('wirebench.print', JSON.stringify(Object.assign({}, st, o))); } catch (err) { /* storage unavailable */ }
+        if (!['breadboard', 'schematic', 'instruments', 'sketch', 'parts'].some((k) => have[k] && o[k])) { this.toast('Tick at least one thing to print.'); return; }
+        dlg.close();
+        this.printNow(o);
+      };
+      dlg.showModal();
+      dlg.querySelector('[data-pa="print"]').focus();
+    }
+    // An SVG drawing as an <img>: isolated from the page's styles, and it stays vector on paper.
+    printImg(svg, cls) {
+      return `<img class="${cls || 'pr-fig'}" alt="" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}">`;
+    }
+    // One instrument's front panel as it looks right now, cropped to the part.
+    instrumentSVG(p) {
+      const g = this.editor.partEls.get(p.id);
+      if (!g) return '';
+      const [bx, by, bw, bh] = PARTS[p.type].bbox(p.props || {});
+      const pad = 4;
+      const defs = document.getElementById('wbDefs').outerHTML;
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bx - pad} ${by - pad} ${bw + pad * 2} ${bh + pad * 2}" width="${bw + pad * 2}" height="${bh + pad * 2}">${defs}${g.querySelector('.body').innerHTML}</svg>`;
+    }
+    async printNow(o) {
+      const have = this.printContent();
+      const want = (k) => have[k] && o[k];
+      const date = new Date().toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' });
+      const meta = [o.name ? `<b>${WB.esc(o.name)}</b>` : '', WB.esc(date), `Wirebench ${WB.esc(WB.VERSION)}`].filter(Boolean).join(' · ');
+      const secs = [];
+      if (want('breadboard')) secs.push(['Breadboard view', this.printImg(this.editor.exportSVGString())]);
+      if (want('schematic')) {
+        let mode = 'wires';
+        try { mode = localStorage.getItem('wirebench.schMode') || 'wires'; } catch (e) { /* storage unavailable */ }
+        secs.push(['Schematic', this.printImg(WB.Schematic.build(this, { mode }).svg)]);
+      }
+      if (want('instruments')) {
+        const tm = this.sim && ($('#sim-time').textContent.match(/\d+:\d+\.\d/) || [])[0];
+        const t = this.sim ? ` <span class="pr-note">— captured ${tm ? tm + ' after the simulation started' : 'while the simulation was running'}</span>` : '';
+        const figs = this.project.parts.filter((p) => PARTS[p.type] && PARTS[p.type].category === 'Instruments').map((p) => {
+          const def = PARTS[p.type];
+          return `<figure>${this.printImg(this.instrumentSVG(p), 'pr-inst')}<figcaption><b>${WB.esc(p.name)}</b> — ${WB.esc(def.label)}${def.summary ? ': ' + WB.esc(def.summary(p)) : ''}</figcaption></figure>`;
+        }).join('');
+        secs.push(['Instrument screens' + t, `<div class="pr-insts n${Math.min(3, have.instruments)}">${figs}</div>`]);
+      }
+      if (want('sketch')) {
+        const lines = highlight(this.code.value).split('\n');
+        const w = String(lines.length).length;
+        secs.push(['Sketch', `<pre class="pr-code">${lines.map((l, i) => `<span class="ln">${String(i + 1).padStart(w)}</span>${l}`).join('\n')}</pre>`]);
+      }
+      if (want('parts')) secs.push(['Parts list &amp; netlist', `<div class="pr-tables">${this.netlistHTML()}</div>`]);
+
+      let area = $('#print-area');
+      if (!area) { area = document.createElement('div'); area.id = 'print-area'; document.body.appendChild(area); }
+      area.className = o.orient === 'portrait' ? 'portrait' : 'landscape';
+      area.innerHTML = secs.map(([h, body], i) => `<section class="pr-sec">
+        ${i === 0 ? `<header class="pr-head"><h1>${WB.esc(o.title || this.docName || 'Untitled')}</h1><div>${meta}</div></header>` : ''}
+        <h2>${h}</h2>${body}</section>`).join('');
+      let page = $('#print-page');
+      if (!page) { page = document.createElement('style'); page.id = 'print-page'; document.head.appendChild(page); }
+      page.textContent = `@page { size: ${o.paper === 'letter' ? 'letter' : 'A4'} ${o.orient === 'portrait' ? 'portrait' : 'landscape'}; margin: 12mm; }`;
+      // wait until the drawings are decoded so none print blank
+      await Promise.all([...area.querySelectorAll('img')].map((im) => (im.decode ? im.decode().catch(() => {}) : null)));
+      const prevTitle = document.title;
+      document.title = o.title || this.docName || 'Wirebench'; // the suggested PDF file name
+      const cleanup = () => { document.title = prevTitle; area.innerHTML = ''; window.removeEventListener('afterprint', cleanup); };
+      window.addEventListener('afterprint', cleanup);
+      window.print();
     }
 
     // ---------------- console / serial / toast
