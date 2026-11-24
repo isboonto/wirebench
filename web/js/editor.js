@@ -47,7 +47,7 @@
       this.menuWire = wireCtx || null;
       menu.classList.toggle('wire', !!wireCtx);
       menu.querySelector('[data-ctx="tidyAll"]').disabled = locked || !this.app.project.wires.length;
-      menu.querySelector('#ctx-autoroute').textContent = (this.app.autoRoute ? '☑' : '☐') + ' Auto-route new wires';
+      menu.querySelector('#ctx-autoroute').innerHTML = WB.icon(this.app.autoRoute ? 'checkOn' : 'checkOff') + '<span>Auto-route new wires</span>';
       if (wireCtx) {
         const wire = this.app.wire(wireCtx.id);
         menu.querySelector('[data-ctx="autoRoute"]').disabled = locked;

@@ -146,6 +146,7 @@
       });
       this.hiddenCats = new Set();
       try { this.hiddenCats = new Set(JSON.parse(localStorage.getItem('wirebench.hiddenCats') || '[]')); } catch (e) { /* storage unavailable */ }
+      WB.applyIcons();
       this.buildPalette();
       this.bindUI();
       let panelPref = null;
@@ -392,7 +393,7 @@
           <div class="muted small">${WB.esc(pa ? pa.name : '?')}.${WB.esc(w.a.pin)} → ${WB.esc(pb ? pb.name : '?')}.${WB.esc(w.b.pin)}</div>
           <label class="field-label">Color</label>
           <div class="swatches">${WB.WIRE_COLORS.map((c) => `<button class="sw${c === w.color ? ' on' : ''}" data-color="${c}" style="background:${c}"></button>`).join('')}</div>
-          <div class="insp-actions"><button data-act="autoroute"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2.5 12.5H7.5V3.5H13.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="2.5" cy="12.5" r="1.9" fill="currentColor"/><circle cx="13.5" cy="3.5" r="1.9" fill="currentColor"/></svg> Auto-route</button><button data-act="straight">Remove joints</button><button data-act="del" class="danger">Delete</button></div>`;
+          <div class="insp-actions"><button data-act="autoroute">${WB.icon('route')} Auto-route</button><button data-act="straight">Remove joints</button><button data-act="del" class="danger">Delete</button></div>`;
         el.querySelectorAll('.sw').forEach((b) => b.addEventListener('click', () => this.mutate(() => { w.color = b.dataset.color; })));
         this.bindInspectorActions(el, w);
         if (this.locked()) this.lockForm(el);
@@ -624,11 +625,11 @@
       const isDefault = order.every((c, k) => c === WB.CATEGORIES[k]);
       m.dataset.cat = cat;
       m.innerHTML = `<div class="cm-title">${WB.esc(cat)}</div>
-        <button data-move="top"${i === 0 ? ' disabled' : ''}>Move to top</button>
-        <button data-move="up"${i === 0 ? ' disabled' : ''}>Move up</button>
-        <button data-move="down"${i === last ? ' disabled' : ''}>Move down</button>
-        <button data-move="bottom"${i === last ? ' disabled' : ''}>Move to bottom</button>
-        <hr><button data-move="reset"${isDefault ? ' disabled' : ''}>Reset category order</button>
+        <button data-move="top"${i === 0 ? ' disabled' : ''}>${WB.icon('toTop')}<span>Move to top</span></button>
+        <button data-move="up"${i === 0 ? ' disabled' : ''}>${WB.icon('up')}<span>Move up</span></button>
+        <button data-move="down"${i === last ? ' disabled' : ''}>${WB.icon('down')}<span>Move down</span></button>
+        <button data-move="bottom"${i === last ? ' disabled' : ''}>${WB.icon('toBottom')}<span>Move to bottom</span></button>
+        <hr><button data-move="reset"${isDefault ? ' disabled' : ''}>${WB.icon('reset')}<span>Reset category order</span></button>
         <div class="cm-hint">Tip: you can also drag a heading up or down.</div>`;
       m.classList.add('open');
       m.style.left = Math.min(x, window.innerWidth - 230) + 'px';
@@ -1009,9 +1010,7 @@
         case 'note': this.addNote(); break;
         case 'save': this.saveProject(); break;
         case 'fileMenu': this.toggleMenu('#file-menu'); break;
-        case 'exportMenu': this.toggleMenu('#export-menu'); break;
         case 'helpMenu': this.toggleMenu('#help-menu'); break;
-        case 'themeMenu': this.toggleMenu('#theme-menu'); break;
         case 'exportSVG': this.saveAs('wirebench-breadboard.svg', new Blob([this.editor.exportSVGString()], { type: 'image/svg+xml' }), 'SVG image', ['svg']); break;
         case 'exportPNG': this.exportPNG(); break;
         case 'exportSketch': this.saveAs('sketch.ino', new Blob([this.code.value], { type: 'text/plain' }), 'Arduino sketch', ['ino']); break;
@@ -1222,8 +1221,9 @@
       const m = this.projectSig() !== this.savedSig;
       if (m === this.modified) return;
       this.modified = m;
-      for (const b of [$('#btn-save'), $('#btn-file')]) if (b) b.classList.toggle('modified', m);
-      $('#btn-save').title = m ? 'Save project (Ctrl+S) — there are unsaved changes' : 'Save project (Ctrl+S)';
+      $('#btn-file').classList.toggle('modified', m);
+      $('#mi-save').classList.toggle('modified', m);
+      $('#btn-file').title = m ? 'New, open, save, export and theme — the project has unsaved changes' : 'New, open, save, export and theme';
       this.updateTitle();
     }
     // Save the project to a .wbproj file; resolves true when it was saved.

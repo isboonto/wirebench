@@ -1,0 +1,49 @@
+'use strict';
+// Small line icons (16×16, drawn in the current text colour) for menus and buttons.
+// In HTML write <i data-ico="save"></i>; WB.applyIcons() swaps it for the SVG.
+(function (WB) {
+  const S = 'fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"';
+  const P = {
+    new: `<path d="M9 1.8H4.2a1 1 0 0 0-1 1v10.4a1 1 0 0 0 1 1h7.6a1 1 0 0 0 1-1V5.6z" ${S}/><path d="M9 1.8v3.8h3.8M8 8v4M6 10h4" ${S}/>`,
+    open: `<path d="M1.8 4.2a1 1 0 0 1 1-1h3.4l1.5 1.6h5.5a1 1 0 0 1 1 1v6.9a1 1 0 0 1-1 1H2.8a1 1 0 0 1-1-1z" ${S}/>`,
+    save: `<path d="M2.5 3.2a1 1 0 0 1 1-1h7.6l2.4 2.4v8.2a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1z" ${S}/><path d="M5 2.2v3.3h5V2.2M5 13.8V9.5h6v4.3" ${S}/>`,
+    image: `<rect x="1.8" y="2.8" width="12.4" height="10.4" rx="1.2" ${S}/><circle cx="5.5" cy="6.2" r="1.2" ${S}/><path d="M2.2 12l3.6-3.4 2.6 2.4 2.2-2 3.4 3" ${S}/>`,
+    vector: `<path d="M3 13C3 7 8 3 13 3" ${S}/><rect x="1.5" y="11.5" width="3" height="3" rx=".5" ${S}/><rect x="11.5" y="1.5" width="3" height="3" rx=".5" ${S}/><path d="M3 3h5M3 3v5" ${S} stroke-dasharray="1.2 1.6"/>`,
+    code: `<path d="M5.5 4.5L2 8l3.5 3.5M10.5 4.5L14 8l-3.5 3.5M9 3L7 13" ${S}/>`,
+    schematic: `<path d="M1.5 8h2.5l1-2.5 2 5 2-5 2 5 1-2.5h2.5" ${S}/>`,
+    wave: `<path d="M1.5 8c1.6-5 3.4-5 5 0s3.4 5 5 0 1.6-2.5 3-2.5" ${S}/><path d="M1.5 14h13" ${S} stroke-width="1"/>`,
+    list: `<path d="M5.5 4h8.5M5.5 8h8.5M5.5 12h8.5" ${S}/><circle cx="2.6" cy="4" r=".9" fill="currentColor"/><circle cx="2.6" cy="8" r=".9" fill="currentColor"/><circle cx="2.6" cy="12" r=".9" fill="currentColor"/>`,
+    themeDefault: `<circle cx="8" cy="8" r="6" ${S}/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/>`,
+    sun: `<circle cx="8" cy="8" r="2.8" ${S}/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" ${S}/>`,
+    moon: `<path d="M13.5 9.8A5.8 5.8 0 0 1 6.2 2.5a5.8 5.8 0 1 0 7.3 7.3z" ${S}/>`,
+    book: `<path d="M2 3.2c2-1 4.2-1 6 .4 1.8-1.4 4-1.4 6-.4v9.6c-2-1-4.2-1-6 .4-1.8-1.4-4-1.4-6-.4z" ${S}/><path d="M8 3.6v9.6" ${S}/>`,
+    keyboard: `<rect x="1.5" y="4" width="13" height="8" rx="1.2" ${S}/><path d="M4 6.5h.01M6.5 6.5h.01M9 6.5h.01M11.5 6.5h.01M5 9.5h6" ${S} stroke-width="1.6"/>`,
+    chip: `<rect x="4" y="4" width="8" height="8" rx="1" ${S}/><path d="M6 1.8V4M10 1.8V4M6 12v2.2M10 12v2.2M1.8 6H4M1.8 10H4M12 6h2.2M12 10h2.2" ${S}/>`,
+    reference: `<path d="M3.5 2h7.5a1 1 0 0 1 1 1v11H4.5a1 1 0 0 1-1-1z" ${S}/><path d="M3.5 12.2a1 1 0 0 1 1-1H12M6 5h3.5M6 7.5h3.5" ${S}/>`,
+    wrench: `<path d="M10.2 2a3.6 3.6 0 0 0-3.4 4.8L2.3 11.3a1.4 1.4 0 0 0 2 2l4.5-4.5A3.6 3.6 0 0 0 13.6 5l-2 2-2.3-.6-.6-2.3 2-2a3.6 3.6 0 0 0-.5-.1z" ${S}/>`,
+    info: `<circle cx="8" cy="8" r="6.3" ${S}/><path d="M8 7.2v4M8 4.8h.01" ${S} stroke-width="1.8"/>`,
+    copy: `<rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.2" ${S}/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v6.5a1 1 0 0 0 1 1h.5" ${S}/>`,
+    cut: `<circle cx="4.2" cy="11.8" r="2" ${S}/><circle cx="11.8" cy="11.8" r="2" ${S}/><path d="M5.6 10.4L12.5 2M10.4 10.4L3.5 2" ${S}/>`,
+    paste: `<rect x="3" y="3" width="10" height="11.5" rx="1.2" ${S}/><path d="M6 3V2h4v1.8H6z" ${S}/><path d="M5.5 7.5h5M5.5 10h3.5" ${S}/>`,
+    duplicate: `<rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.2" ${S}/><path d="M9.75 8v4M7.75 10h4M10.5 3.5v-.5a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v6.5a1 1 0 0 0 1 1h.5" ${S}/>`,
+    rotate: `<path d="M13.2 8A5.2 5.2 0 1 1 11.6 4.3" ${S}/><path d="M13.6 1.8v3.4h-3.4" ${S}/>`,
+    rotateBack: `<path d="M2.8 8A5.2 5.2 0 1 0 4.4 4.3" ${S}/><path d="M2.4 1.8v3.4h3.4" ${S}/>`,
+    route: `<path d="M2.5 12.5H7.5V3.5H13.5" ${S} stroke-width="1.8"/><circle cx="2.5" cy="12.5" r="1.9" fill="currentColor"/><circle cx="13.5" cy="3.5" r="1.9" fill="currentColor"/>`,
+    plus: `<circle cx="8" cy="8" r="6.3" ${S}/><path d="M8 5v6M5 8h6" ${S}/>`,
+    minus: `<circle cx="8" cy="8" r="6.3" ${S}/><path d="M5 8h6" ${S}/>`,
+    straight: `<path d="M2 8h12" ${S}/><circle cx="2.5" cy="8" r="1.6" fill="currentColor"/><circle cx="13.5" cy="8" r="1.6" fill="currentColor"/>`,
+    checkOn: `<rect x="2" y="2" width="12" height="12" rx="2.2" ${S}/><path d="M4.8 8.2l2.2 2.2 4.4-4.6" ${S} stroke-width="1.8"/>`,
+    checkOff: `<rect x="2" y="2" width="12" height="12" rx="2.2" ${S}/>`,
+    trash: `<path d="M2.5 4h11M6 4V2.5h4V4M3.8 4l.8 9.6a1 1 0 0 0 1 .9h4.8a1 1 0 0 0 1-.9l.8-9.6M6.6 6.8v4.6M9.4 6.8v4.6" ${S}/>`,
+    toTop: `<path d="M3 2.5h10M8 14V5.5M4.5 9L8 5.5 11.5 9" ${S}/>`,
+    up: `<path d="M8 13.5V3M4 7l4-4 4 4" ${S}/>`,
+    down: `<path d="M8 2.5V13M4 9l4 4 4-4" ${S}/>`,
+    toBottom: `<path d="M3 13.5h10M8 2v8.5M4.5 7L8 10.5 11.5 7" ${S}/>`,
+    undo: `<path d="M5.5 3L2.5 6l3 3" ${S}/><path d="M2.8 6h6.7a4 4 0 0 1 0 8H6" ${S}/>`,
+    redo: `<path d="M10.5 3l3 3-3 3" ${S}/><path d="M13.2 6H6.5a4 4 0 0 0 0 8H10" ${S}/>`,
+    note: `<path d="M2.5 2.5h11v7.5l-3.5 3.5h-7.5z" ${S}/><path d="M13.5 10H10v3.5M5 5.5h6M5 8h4" ${S}/>`,
+    reset: `<path d="M2.8 8A5.2 5.2 0 1 0 4.4 4.3" ${S}/><path d="M2.4 1.8v3.4h3.4" ${S}/><circle cx="8" cy="8" r="1" fill="currentColor"/>`,
+  };
+  WB.icon = (name) => (P[name] ? `<svg class="ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">${P[name]}</svg>` : '');
+  WB.applyIcons = (root) => (root || document).querySelectorAll('i[data-ico]').forEach((i) => { i.outerHTML = WB.icon(i.dataset.ico); });
+})(window.WB);

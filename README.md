@@ -44,7 +44,7 @@ New to Wirebench? Open **Help → Getting started** (or press **F1**) in the app
 - Rotate (**R**), delete (**Del**), duplicate (**Ctrl+D**), undo/redo (**Ctrl+Z/Y**), and box-select (**Shift+drag**).
 - Double-click a wire to add a bend. Drag the handles to move bends or re-attach wire ends.
 - Export the breadboard as PNG or SVG, the sketch as `.ino`, a **schematic diagram** (A4/A3 sheet with standard symbols and routed wires — or net labels — plus parts list and title block, as SVG or PNG), a **SPICE netlist for LTspice** (`.cir`, same component models as the simulator plus BJT / MOSFET / op-amp models), or a **netlist and parts list**.
-- Three themes from **◑ Theme** in the toolbar: Default (slate panels, light canvas), Light and Dark.
+- Three themes from **File → Theme**: Default (slate panels, light canvas), Light and Dark.
 - Hide the code panel with the **&lt;/&gt; Code** button (**Ctrl+B**) and the parts panel with **◧ Parts** (**Ctrl+Shift+B**), or collapse single sections (Parts, Inspector, Sketch, Serial Monitor) with the ▾ in their headers. Click a category name in the parts list (e.g. Passive) to hide or show its parts; ⇕ collapses or expands them all.
 
 **Boards**
@@ -102,7 +102,7 @@ Your sketch is **translated from Arduino C++ into JavaScript** and runs in the b
 - Integer division truncates like C (`7 / 2` is 3, `millis() / 1000` gives whole seconds; `7.0 / 2` or a `float` operand gives 3.5), and integer variables truncate when assigned, but integer overflow and unsigned wrap-around are not emulated.
 - Timing runs in real time with millisecond accuracy, not cycle accuracy.
 - On the UNO Q only the microcontroller (STM32) side runs. The Linux/Python side of App Lab isn't simulated, so `Bridge` calls are logged instead.
-- The editor is a breadboard view; the schematic is generated from it as an export (Export → Schematic diagram), not edited directly. No PCB view.
+- The editor is a breadboard view; the schematic is generated from it as an export (File → Export → Schematic diagram), not edited directly. No PCB view.
 
 Always check a real circuit before powering it. The simulator is a learning and prototyping aid.
 

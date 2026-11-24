@@ -240,7 +240,7 @@
     out.push(`* Wirebench ${WB.VERSION || ''} — SPICE netlist for LTspice`);
     out.push(`* Generated ${date} from the circuit on the workspace (${parts.length} parts).`);
     out.push('* Open this file in LTspice (File → Open, .cir) and press Run.');
-    out.push('* Node names match Export → Schematic: 0 = GND, P5V = +5V, D9 = Arduino pin 9, N1 … = other nets.');
+    out.push('* Node names match File → Export → Schematic: 0 = GND, P5V = +5V, D9 = Arduino pin 9, N1 … = other nets.');
     out.push('*');
     out.push(...lines);
     if (comments.length) { out.push('*'); out.push('* ---- parts that are not part of the netlist ----'); out.push(...comments); }

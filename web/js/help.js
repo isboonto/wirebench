@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '0.7.2';
+  WB.VERSION = '0.7.3';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -108,7 +108,7 @@
       </ul>
       <h3>Saving your work</h3>
       <p>Your work is saved automatically. Use <b>Save</b> / <b>Open</b> to keep projects as <b>Wirebench project files (.wbproj)</b> — in the desktop app you can also double-click a .wbproj file to open it — and older .json projects still open; and <b>Export</b> for a picture of the breadboard (PNG/SVG), the sketch (.ino), a <b>schematic diagram</b> (an A4 sheet drawn from your circuit with standard symbols, a parts list and a title block — save it as SVG or PNG), or a netlist and parts list. The schematic draws the <b>wires</b>: parts are placed next to what they connect to and joined by right-angle wires; a dot marks joined wires, wires that cross without a dot are not connected, ⏚ is ground and × a pin that is not connected. Switch to <b>Net labels</b> in the preview for the label style (pins with the same label are connected).</p>
-      <p><b>Export → SPICE netlist for LTspice</b> writes your circuit as a <b>.cir</b> file for LTspice (File → Open, then Run), using the same component models Wirebench simulates plus BJT, MOSFET and op-amp models; the oscilloscope sets the <code>.tran</code> time. Digital parts (555, 74HC logic, displays) are listed as comments with the net of each pin. Export while the simulation runs to include the Arduino pins' present state (HIGH, LOW or PWM).</p>
+      <p><b>File → Export → SPICE netlist for LTspice</b> writes your circuit as a <b>.cir</b> file for LTspice (File → Open, then Run), using the same component models Wirebench simulates plus BJT, MOSFET and op-amp models; the oscilloscope sets the <code>.tran</code> time. Digital parts (555, 74HC logic, displays) are listed as comments with the net of each pin. Export while the simulation runs to include the Arduino pins' present state (HIGH, LOW or PWM).</p>
       <h3>Learn from examples</h3>
       <p>The <b>Examples</b> menu has ready-made projects: blink, buttons, fading, potentiometer, traffic light, servo, LED matrix, melody, temperature, ultrasonic distance, PIR motion, Modulino, and analog electronics with the function generator, power supply and scope.</p>`,
 
@@ -242,6 +242,7 @@
       <h3 class="about-h">What's new</h3>
       <h3>What's new in 0.7</h3>
       <ul>
+        <li>0.7.3: one <b>File</b> menu for New, Open, Save, Export and Theme, and small line icons in front of every menu item (File, Help, right-click and category menus) and on the toolbar's edit buttons.</li>
         <li>0.7.2: fixed the <b>◧ Parts</b> button — hiding the left panel showed a black area instead of a wider canvas. <b>Tidy wires</b> and auto-route now have a wire-route icon instead of ✨.</li>
         <li>0.7.1: <b>unsaved changes</b> are tracked — a ● in the title and on Save, and Wirebench asks <i>Save / Don't save / Cancel</i> before New, Open, an example, a double-clicked project or closing the window (the desktop window title now shows the project name). New <b>compact Voltmeter and Ammeter</b> (Parts → Instruments): small panel meters that plug into the breadboard, with DC / AC (true RMS) readings. The toolbar now fits any window width without buttons overlapping; on narrower windows New / Open / Save move into a <b>File</b> menu.</li>
         <li>0.7.0: <b>rearrange the part categories</b> — drag a category heading up or down the parts list, or right-click it for Move to top / up / down / bottom and Reset category order; your order is remembered. Opening or closing the <b>code panel</b> or the parts panel now <b>refits the circuit</b> to the space left.</li>
@@ -273,7 +274,7 @@
         <li>0.5.1: integer division works like C (<code>millis() / 1000</code> prints whole seconds, <code>7 / 2</code> is 3, <code>7.0 / 2</code> or a <code>float</code> variable gives 3.5); new <b>dual power supply</b> with tracking (± supply); <b>large breadboard</b> (2 × 63 columns, 8 power rails, 1660 holes); the oscilloscope's input jacks are spaced out like the function generator's.</li>
         <li>About 30 new parts: DC motor, hobby gearmotor, vibration motor, light bulb, relay; 7-segment display, LED bar graph, LCD 16×2 (parallel or I2C), NeoPixel (strip, rings, jewel); 4×4 keypad, DIP switch, IR remote and receiver; 3-pin ultrasonic sensor, photodiode, ambient light sensor (phototransistor), flex sensor, force sensor, gas sensor; NPN/PNP transistors, TIP120, N/P-channel MOSFETs, voltage regulators, optocoupler; 555 timer, op-amps, 74HC logic gates, 74HC595, CD4511, L293D; coin cell, and 1.5 V / 6 V battery options. New part categories: <b>Displays</b>, <b>Semiconductors</b> and <b>ICs</b>.</li>
         <li>New libraries: LiquidCrystal, LiquidCrystal_I2C, Adafruit_NeoPixel, Keypad, IRremote; <code>shiftOut</code> / <code>shiftIn</code> now really clock the pins.</li>
-        <li>Themes: <b>◑ Theme</b> in the toolbar switches between <b>Default</b> (slate panels, light canvas), <b>Light</b> and <b>Dark</b>. ◐ on the zoom bar still flips just the canvas.</li>
+        <li>Themes: <b>File → Theme</b> switches between <b>Default</b> (slate panels, light canvas), <b>Light</b> and <b>Dark</b>. ◐ on the zoom bar still flips just the canvas.</li>
         <li>New examples: LCD, 74HC595, NeoPixel ring, keypad, IR remote, transistor motor driver, 555 blinker.</li>
       </ul>
       <h3>What's new in 0.4</h3>
