@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '0.7.0';
+  WB.VERSION = '0.7.1';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -94,6 +94,7 @@
       <ul>
         <li><b>Multimeter</b> (Parts → Instruments): connect the <b>COM</b> jack to ground or the low side and <b>VΩ</b> to the point you measure. Click a mode on the dial (or the knob, to step to the next one) to choose <b>V</b> (DC voltage), <b>V~</b> (AC voltage, rms), <b>A</b> (DC current), <b>A~</b> (AC current, rms) and <b>Ω</b> (resistance).
           For current, put the meter <b>in series</b> using the <b>A</b> and <b>COM</b> jacks. Measure resistance with the circuit unpowered. Readings appear while the simulation runs; in DC modes PWM and AC signals read as their average, like a real meter. AC modes show the rms of the changing part only.</li>
+        <li><b>Voltmeter</b> and <b>Ammeter (compact)</b> (Parts → Instruments): small panel meters with two pins 0.1" apart, so they plug straight into the breadboard and stay on the circuit — handy when you want to watch several values at once. Connect the voltmeter <b>across</b> the part (+ to the point you measure, − to the low side; 10 MΩ input). Put the ammeter <b>in series</b> — current flows in at + and out at − (50 mΩ shunt). Click the <b>DC / AC</b> badge to switch between DC and true-RMS AC readings.</li>
         <li><b>Oscilloscope</b>: connect <b>CH1</b>/<b>CH2</b> to the signals (and <b>GND</b> to circuit ground). Its front panel has clickable buttons, also while simulating:
           <ul>
             <li><b>TIME / DIV − +</b>: time base, 10 µs to 1 s per division.</li>
@@ -147,9 +148,9 @@
         ['Sketch & simulation', [
           ['Ctrl+Enter', 'Start / stop simulation'],
           ['Ctrl+B', 'Show / hide the code panel (the circuit is refitted to the new space)'],
-          ['Ctrl+Shift+B', 'Show / hide the parts panel'],
+          ['Ctrl+Shift+B', 'Show / hide the parts panel (◧ Parts: the parts list and the inspector on the left)'],
           ['Drag a category heading', 'Reorder the parts list (right-click a heading: move up / down / to top, or reset the order)'],
-          ['Ctrl+S / Ctrl+O', 'Save / open project'],
+          ['Ctrl+S / Ctrl+O', 'Save / open project (● in the title and on Save = unsaved changes; Wirebench asks before replacing or closing them)'],
           ['Tab', 'Indent in the code editor'],
           ['F1', 'Open this help'],
         ]],
@@ -241,6 +242,7 @@
       <h3 class="about-h">What's new</h3>
       <h3>What's new in 0.7</h3>
       <ul>
+        <li>0.7.1: <b>unsaved changes</b> are tracked — a ● in the title and on Save, and Wirebench asks <i>Save / Don't save / Cancel</i> before New, Open, an example, a double-clicked project or closing the window (the desktop window title now shows the project name). New <b>compact Voltmeter and Ammeter</b> (Parts → Instruments): small panel meters that plug into the breadboard, with DC / AC (true RMS) readings. The toolbar now fits any window width without buttons overlapping; on narrower windows New / Open / Save move into a <b>File</b> menu.</li>
         <li>0.7.0: <b>rearrange the part categories</b> — drag a category heading up or down the parts list, or right-click it for Move to top / up / down / bottom and Reset category order; your order is remembered. Opening or closing the <b>code panel</b> or the parts panel now <b>refits the circuit</b> to the space left.</li>
       </ul>
       <h3>What's new in 0.6</h3>

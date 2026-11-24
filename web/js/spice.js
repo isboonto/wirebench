@@ -232,6 +232,7 @@
       return `* ${s.name}: CH1 = ${ch('CH1')}, CH2 = ${ch('CH2')}  (${s.props.tdiv >= 1 ? s.props.tdiv + ' ms' : s.props.tdiv * 1000 + ' µs'}/div)`;
     });
     const meters = parts.filter((p) => p.type === 'multimeter').map((p) => `* ${p.name}: ${p.props.mode || 'V'} between ${byPart(p, String(p.props.mode || 'V').startsWith('A') ? 'A' : 'V') || '—'} and ${byPart(p, 'COM') || '—'}`);
+    meters.push(...parts.filter((p) => p.type === 'voltmeter' || p.type === 'ammeter').map((p) => `* ${p.name}: ${p.type === 'voltmeter' ? 'V' : 'A'}${p.props.mode === 'AC' ? ' (AC rms)' : ''} between ${byPart(p, '+') || '—'} (+) and ${byPart(p, '-') || '—'} (−)`));
 
     // ---------------------------------------------------------------- text
     const date = new Date().toISOString().slice(0, 10);

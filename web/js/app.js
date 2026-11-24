@@ -140,6 +140,7 @@
       this.code = new CodeEditor(() => {
         this.project.code = this.code.value;
         this.saveLocalSoon();
+        this.updateModified();
         const st = $('#code-status'); st.className = 'busy'; st.textContent = 'Checking…';
         this.scheduleLiveCheck();
       });
@@ -157,8 +158,15 @@
       let docName = null;
       try { docName = localStorage.getItem('wirebench.docName'); } catch (e) { /* storage unavailable */ }
       this.setDocName(saved && docName ? docName : 'Untitled');
+      // unsaved-changes tracking: fingerprint of the project as last saved / opened
+      try { this.savedSig = saved ? localStorage.getItem('wirebench.savedSig') : null; } catch (e) { this.savedSig = null; }
+      if (!this.savedSig) this.markSaved(); else this.updateModified();
+      if (WB.isDesktop) this.bindDesktopWindow();
       // desktop app started by double-clicking a .wbproj file: open that file
-      if (WB.isDesktop) WB.invoke('startup_file').then((f) => { if (f) this.openProjectText(f.contents, f.name); }).catch(() => {});
+      // (after asking, if the work restored from the last session was never saved)
+      if (WB.isDesktop) WB.invoke('startup_file').then((f) => {
+        if (f) this.askSaveChanges(`opening ${f.name.split(/[\\/]/).pop()}`).then((go) => { if (go) this.openProjectText(f.contents, f.name); });
+      }).catch(() => {});
       requestAnimationFrame(() => this.editor.fit());
       WB.nativeReady.then(() => { this.refreshInspector(); this.markDirty(); });
       this.frame = this.frame.bind(this);
@@ -194,6 +202,7 @@
       this.editor.render();
       this.markDirty();
       this.saveLocal();
+      this.updateModified();
       this.refreshInspector();
       this.refreshPropDialog();
       this.updateBoardLabel();
@@ -756,9 +765,11 @@
           name = WB.EXAMPLES[v].name;
           get = () => WB.EXAMPLES[v].build();
         }
-        if (!confirm(`Load example "${name}"? Your current project will be replaced (save it first if you need it).`)) return;
-        try { this.loadProject(get()); this.setDocName((v.startsWith('u:') ? name : WB.EXAMPLES[v].label || name).replace(/[\\/:*?"<>|]+/g, '-')); this.editor.fit(); }
-        catch (err) { alert(`Could not open example "${name}": ${err.message}`); }
+        this.askSaveChanges(`opening the example "${name}"`).then((go) => {
+          if (!go) return;
+          try { this.loadProject(get()); this.setDocName((v.startsWith('u:') ? name : WB.EXAMPLES[v].label || name).replace(/[\\/:*?"<>|]+/g, '-')); this.markSaved(); this.editor.fit(); }
+          catch (err) { alert(`Could not open example "${name}": ${err.message}`); }
+        });
       });
       this.userExamples = [];
       if (WB.isDesktop) {
@@ -798,6 +809,12 @@
       }, true);
       window.addEventListener('keydown', (e) => this.onKey(e));
       window.addEventListener('beforeunload', () => this.saveLocal());
+      // keep the toolbar fitting the window (and refit once web fonts have loaded)
+      this.fitToolbar();
+      const refit = () => this.fitToolbar();
+      window.addEventListener('resize', refit);
+      if (window.ResizeObserver) new ResizeObserver(refit).observe(document.body);
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => this.fitToolbar());
       // where the mouse is on the workspace (type-to-add puts the new part there)
       this.mouse = { x: 0, y: 0, over: false };
       $('#canvas').addEventListener('pointermove', (e) => { this.mouse = { x: e.clientX, y: e.clientY, over: true }; });
@@ -973,23 +990,28 @@
     cmd(c) {
       if (c.startsWith('help:')) { this.showHelp(c.slice(5)); return; }
       if (c.startsWith('theme:')) { document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open')); this.setTheme(c.slice(6)); return; }
+      if (!c.endsWith('Menu')) document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
       switch (c) {
         case 'new':
-          if (!confirm('Start a new empty project? Unsaved changes will be lost.')) return;
-          this.loadProject({ parts: [], wires: [], code: WB.DEFAULT_CODE });
-          this.setDocName('Untitled');
+          this.askSaveChanges('starting a new project').then((go) => {
+            if (!go) return;
+            this.loadProject({ parts: [], wires: [], code: WB.DEFAULT_CODE });
+            this.setDocName('Untitled');
+            this.markSaved();
+          });
           break;
-        case 'open': if (WB.isDesktop) this.openDesktop(); else $('#file-input').click(); break;
+        case 'open':
+          this.askSaveChanges('opening another project').then((go) => {
+            if (!go) return;
+            if (WB.isDesktop) this.openDesktop(); else $('#file-input').click();
+          });
+          break;
         case 'note': this.addNote(); break;
-        case 'save': {
-          const name = (this.docName || 'Untitled') + '.wbproj';
-          this.saveAs(name, new Blob([this.projectFileText()], { type: 'application/json' }), 'Wirebench project', ['wbproj'])
-            .then((path) => { if (path) this.setDocName(path); });
-          break;
-        }
-        case 'exportMenu': $('#help-menu').classList.remove('open'); $('#theme-menu').classList.remove('open'); $('#export-menu').classList.toggle('open'); break;
-        case 'helpMenu': $('#export-menu').classList.remove('open'); $('#theme-menu').classList.remove('open'); $('#help-menu').classList.toggle('open'); break;
-        case 'themeMenu': $('#export-menu').classList.remove('open'); $('#help-menu').classList.remove('open'); $('#theme-menu').classList.toggle('open'); break;
+        case 'save': this.saveProject(); break;
+        case 'fileMenu': this.toggleMenu('#file-menu'); break;
+        case 'exportMenu': this.toggleMenu('#export-menu'); break;
+        case 'helpMenu': this.toggleMenu('#help-menu'); break;
+        case 'themeMenu': this.toggleMenu('#theme-menu'); break;
         case 'exportSVG': this.saveAs('wirebench-breadboard.svg', new Blob([this.editor.exportSVGString()], { type: 'image/svg+xml' }), 'SVG image', ['svg']); break;
         case 'exportPNG': this.exportPNG(); break;
         case 'exportSketch': this.saveAs('sketch.ino', new Blob([this.code.value], { type: 'text/plain' }), 'Arduino sketch', ['ino']); break;
@@ -1057,6 +1079,21 @@
     }
 
     // ---------------- files (browser download, or native dialogs in the desktop app)
+    // Toolbar: compact it step by step (classes c1…c9, see app.css) until everything fits.
+    fitToolbar() {
+      const tb = $('#toolbar');
+      const N = 9;
+      const fits = () => {
+        const right = tb.getBoundingClientRect().right - (parseFloat(getComputedStyle(tb).paddingRight) || 0);
+        return $('#btn-run').getBoundingClientRect().right <= right + 0.5;
+      };
+      for (let i = 1; i <= N; i++) tb.classList.remove('c' + i);
+      for (let i = 1; i <= N && !fits(); i++) tb.classList.add('c' + i);
+    }
+    toggleMenu(sel) {
+      document.querySelectorAll('.menu.open').forEach((m) => { if (m !== $(sel)) m.classList.remove('open'); });
+      $(sel).classList.toggle('open');
+    }
     async saveAs(name, blob, filterName, exts) {
       if (!WB.isDesktop) { WB.download(name, blob); this.toast('Saved ' + name); return name; }
       try {
@@ -1146,6 +1183,7 @@
       if ((o.formatVersion || 1) > PROJECT_FORMAT) this.toast(`This project was saved by a newer Wirebench (${o.generator || 'unknown version'}); some parts may be missing.`);
       this.loadProject(o);
       this.setDocName(fileName || o.title || 'Untitled');
+      this.markSaved();
       this.editor.fit();
       this.toast('Opened ' + this.docName);
       return true;
@@ -1155,7 +1193,91 @@
       const base = String(nameOrPath || 'Untitled').split(/[\\/]/).pop().replace(/\.(wbproj|json)$/i, '').trim();
       this.docName = base || 'Untitled';
       try { localStorage.setItem('wirebench.docName', this.docName); } catch (e) { /* storage unavailable */ }
-      document.title = `${this.docName} — Wirebench`;
+      this.updateTitle();
+    }
+    updateTitle() {
+      const t = `${this.modified ? '● ' : ''}${this.docName || 'Untitled'} — Wirebench`;
+      if (t === this._title) return;
+      this._title = t;
+      document.title = t;
+      if (this.appWindow) this.appWindow.setTitle(t).catch(() => {});
+    }
+
+    // ---------------- unsaved changes
+    // The project counts as modified when it differs from the last saved / opened state, so
+    // undoing back to that state makes it unmodified again. Shown as a dot in the title and on Save.
+    projectSig() {
+      const str = JSON.stringify([this.project.parts, this.project.wires, this.code.value]);
+      let h = 0x811c9dc5;
+      for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+      return (h >>> 0).toString(36) + ':' + str.length;
+    }
+    markSaved() {
+      this.savedSig = this.projectSig();
+      try { localStorage.setItem('wirebench.savedSig', this.savedSig); } catch (e) { /* storage unavailable */ }
+      this.updateModified();
+    }
+    updateModified() {
+      if (!this.savedSig || !this.code) return;
+      const m = this.projectSig() !== this.savedSig;
+      if (m === this.modified) return;
+      this.modified = m;
+      for (const b of [$('#btn-save'), $('#btn-file')]) if (b) b.classList.toggle('modified', m);
+      $('#btn-save').title = m ? 'Save project (Ctrl+S) — there are unsaved changes' : 'Save project (Ctrl+S)';
+      this.updateTitle();
+    }
+    // Save the project to a .wbproj file; resolves true when it was saved.
+    async saveProject() {
+      const name = (this.docName || 'Untitled') + '.wbproj';
+      const path = await this.saveAs(name, new Blob([this.projectFileText()], { type: 'application/json' }), 'Wirebench project', ['wbproj']);
+      if (!path) return false;
+      this.setDocName(path);
+      this.markSaved();
+      return true;
+    }
+    // Before replacing or closing the project: if it has unsaved changes, ask Save / Don't save /
+    // Cancel. Resolves true when it is fine to go on.
+    askSaveChanges(what) {
+      if (!this.modified) return Promise.resolve(true);
+      if (this._asking) return this._asking;
+      let dlg = $('#save-ask');
+      if (!dlg) {
+        dlg = document.createElement('dialog');
+        dlg.id = 'save-ask';
+        dlg.innerHTML = `<div class="sa-body"><div class="sa-icon">●</div><div><h3></h3><p></p></div></div>
+          <div class="sa-actions"><button data-sa="save" class="primary">Save</button><button data-sa="discard">Don't save</button><button data-sa="cancel">Cancel</button></div>`;
+        document.body.appendChild(dlg);
+      }
+      dlg.querySelector('h3').textContent = `Save changes to "${this.docName || 'Untitled'}"?`;
+      dlg.querySelector('p').textContent = `This project has changes that are not saved to a file. Save them before ${what}?`;
+      this._asking = new Promise((resolve) => {
+        const done = (v) => { dlg.removeEventListener('click', onClick); dlg.removeEventListener('cancel', onCancel); if (dlg.open) dlg.close(); this._asking = null; resolve(v); };
+        const onCancel = (e) => { e.preventDefault(); done(false); };
+        const onClick = (e) => {
+          const b = e.target.closest('[data-sa]');
+          if (!b) return;
+          if (b.dataset.sa === 'cancel') done(false);
+          else if (b.dataset.sa === 'discard') done(true);
+          else { dlg.close(); this.saveProject().then((ok) => done(ok)); }
+        };
+        dlg.addEventListener('click', onClick);
+        dlg.addEventListener('cancel', onCancel);
+        dlg.showModal();
+        dlg.querySelector('[data-sa="save"]').focus();
+      });
+      return this._asking;
+    }
+    // Desktop: the window title follows the document, and closing the window asks about unsaved changes.
+    bindDesktopWindow() {
+      const w = window.__TAURI__ && window.__TAURI__.window;
+      if (!w || !w.getCurrentWindow) return;
+      this.appWindow = w.getCurrentWindow();
+      this._title = null;
+      this.updateTitle();
+      this.appWindow.onCloseRequested(async (e) => {
+        this.saveLocal();
+        if (!(await this.askSaveChanges('closing Wirebench'))) e.preventDefault();
+      }).catch((err) => console.warn('Wirebench: no close handler', err));
     }
 
     // ---------------- export / netlist

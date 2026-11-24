@@ -102,7 +102,13 @@ textarea { font: inherit; color: inherit; width: 100%; resize: vertical; min-hei
 /* Toolbar must never push the Simulation button out of the window */
 #toolbar { min-width: 0; overflow-x: clip; overflow-y: visible; position: relative; z-index: 40; }
 #toolbar > * { flex-shrink: 0; }
-#toolbar .tb-group { flex-shrink: 1; min-width: 0; }
+/* groups keep their natural width (squeezing them made New…Help spill over Undo/Copy);
+   the breakpoints below make the toolbar fit instead */
+#toolbar .tb-group { flex-shrink: 0; }
+.tb-file { display: contents; }
+.tb-filemenu { display: none; }
+#btn-save.modified, #btn-file.modified { position: relative; }
+#btn-save.modified::after, #btn-file.modified::after { content: ''; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 #toolbar button, #toolbar select { white-space: nowrap; }
 #examples { width: 150px; text-overflow: ellipsis; }
 #btn-mute, #sim-status, #btn-panel { flex-shrink: 0; }
@@ -379,32 +385,32 @@ dialog form { text-align: right; margin-top: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* Progressive compaction of the toolbar as the window gets narrower */
-@media (max-width: 1500px) {
-  .tb-edit .lbl { display: none; }           /* Copy/Paste/Rotate/Delete become icons (tooltips remain) */
-  #sim-status { min-width: 0; }
-}
-@media (max-width: 1320px) {
-  .tb-zoom { display: none; }                /* the on-canvas zoom bar does the same */
-  #examples { width: 120px; }
-}
-@media (max-width: 1180px) {
-  #btn-run .lbl-long { display: none; }
-  #btn-run .lbl-short { display: inline; }
-  #sim-time { display: none; }
-  .brand span { display: none; }
-}
+/* Progressive compaction of the toolbar: app.js (fitToolbar) adds c1, c2, … to #toolbar, one
+   step at a time, until every button fits, so nothing is ever squeezed on top of anything else. */
+#toolbar.c1 .tb-edit .lbl { display: none; }                  /* Copy / Paste / Rotate / Delete / Tidy become icons */
+#toolbar.c2 .tb-zoom { display: none; }                       /* the on-canvas zoom bar does the same */
+#toolbar.c3 #sim-status { min-width: 0; }
+#toolbar.c3 #sim-time { display: none; }
+#toolbar.c3 #btn-run .lbl-long { display: none; }
+#toolbar.c3 #btn-run .lbl-short { display: inline; }
+#toolbar.c4 .tb-file { display: none; }                       /* New / Open / Save move into a File menu */
+#toolbar.c4 .tb-filemenu { display: block; }
+#toolbar.c4 [data-cmd="note"] .lbl { display: none; }
+#toolbar.c4 #examples { width: 120px; }
+#toolbar.c5 .brand span { display: none; }
+#toolbar.c5 #btn-theme .lbl { display: none; }
+#toolbar.c6 { gap: 6px; padding: 0 8px; }
+#toolbar.c6 .tb-group { padding-left: 6px; }
+#toolbar.c6 #examples { width: 96px; }
+#toolbar.c7 #btn-panel .lbl, #toolbar.c7 #btn-left .lbl { display: none; }
+#toolbar.c8 .tb-edit [data-cmd="rotate"], #toolbar.c8 .tb-edit [data-cmd="tidy"] { display: none; }   /* also R and the right-click menu */
+#toolbar.c8 #sim-status { display: none; }
+#toolbar.c9 .tb-edit { display: none; }                       /* keyboard shortcuts and the right-click menu still work */
 @media (max-width: 1100px) {
   main { grid-template-columns: 220px 1fr 360px; }
   body.code-hidden main { grid-template-columns: 220px 1fr 0; }
   body.left-hidden main { grid-template-columns: 0 1fr 360px; }
   body.left-hidden.code-hidden main { grid-template-columns: 0 1fr 0; }
-  #btn-panel .lbl, #btn-left .lbl, #btn-theme .lbl { display: none; }
-}
-@media (max-width: 1020px) {
-  #toolbar { gap: 6px; padding: 0 8px; }
-  .tb-group { padding-left: 6px; }
-  #examples { width: 96px; }
 }
 
 /* ------------------------------------------------ themes
@@ -547,3 +553,12 @@ dialog.wide #modal-body { max-height: calc(92vh - 40px); }
 #cat-menu button[disabled] { opacity: .4; pointer-events: none; }
 #cat-menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
 #cat-menu .cm-hint { padding: 4px 10px 3px; font-size: 11px; color: var(--muted); }
+
+/* ------------------------------------------------ "Save changes?" prompt */
+dialog#save-ask { width: auto; max-width: 440px; padding: 18px 20px 14px; }
+#save-ask .sa-body { display: flex; gap: 12px; align-items: flex-start; }
+#save-ask .sa-icon { color: var(--accent); font-size: 20px; line-height: 1.2; }
+#save-ask h3 { margin: 0 0 6px; font-size: 15px; }
+#save-ask p { margin: 0; color: var(--muted); }
+#save-ask .sa-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+#save-ask .sa-actions .primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }

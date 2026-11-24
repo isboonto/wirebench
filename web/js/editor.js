@@ -513,6 +513,7 @@
         app.refreshInspector();
         app.refreshPropDialog();
         app.saveLocalSoon();
+        app.updateModified();
         return true;
       }
       if (def.interact === 'buttons') {
@@ -538,6 +539,7 @@
         app.refreshInspector();
         app.refreshPropDialog();
         app.saveLocal();
+        app.updateModified();
         return;
       }
       if (def.interact === 'press') {

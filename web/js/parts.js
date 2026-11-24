@@ -867,6 +867,61 @@
     },
   });
 
+  // ---------------------------------------------------------------- Compact panel meters
+  // Small 2-pin digital panel meters that plug into the breadboard (pins 0.1" apart):
+  // Voltmeter = 10 MΩ across its + / − pins (connect in parallel),
+  // Ammeter = 50 mΩ shunt between + and − (connect in series; current flows in at +).
+  // Click the DC / AC badge (or use the Inspector) to switch; AC = true-RMS of the AC part.
+  const PANEL_MODES = [['DC', 'DC'], ['AC', 'AC (true RMS)']];
+  function panelMeter(kind) {
+    const volt = kind === 'V';
+    const unitMode = (p) => (volt ? 'V' : 'A') + (p.props.mode === 'AC' ? '~' : '');
+    return {
+      label: volt ? 'Voltmeter (compact)' : 'Ammeter (compact)',
+      category: 'Instruments', prefix: volt ? 'VM' : 'AM', dynamic: true, interact: 'panel',
+      hit: (lx, ly) => (lx >= 7 && lx <= 23 && ly >= -15 && ly <= -6 ? 'mode' : null),
+      panelAction(p) { p.props.mode = p.props.mode === 'AC' ? 'DC' : 'AC'; },
+      defaults: { mode: 'DC' },
+      pins: () => [
+        { id: '+', label: volt ? '+ (red): the point to measure' : '+ (red): current flows in here', x: 0, y: 0, kind: 'pwr' },
+        { id: '-', label: volt ? '− (black): the reference, usually GND' : '− (black): current flows out here', x: 10, y: 0, kind: 'gnd' },
+      ],
+      bbox: () => [-15, -36, 40, 40],
+      summary: (p) => `${volt ? 'Voltmeter' : 'Ammeter'}, ${p.props.mode === 'AC' ? 'AC rms' : 'DC'}`,
+      inspector: [{ key: 'mode', label: 'Measure', type: 'select', options: PANEL_MODES, live: true }],
+      elements(c) {
+        return [{ t: 'R', a: c.n('+'), b: c.n('-'), r: volt ? 1e7 : 0.05, tag: 'meter' }];
+      },
+      visualize(c) {
+        const e = c.els[0];
+        if (!e) return { reading: null };
+        const ac = c.props.mode === 'AC', s = c.state;
+        if (s.mode !== c.props.mode) { s.mode = c.props.mode; s.ai = e.i; s.ai2 = e.i2 || 0; }
+        else { s.ai += 0.15 * (e.i - s.ai); s.ai2 += 0.15 * ((e.i2 || 0) - s.ai2); }
+        if (ac) {
+          const rms = Math.sqrt(Math.max(0, s.ai2 - s.ai * s.ai));
+          return { reading: volt ? +(rms * 1e7).toFixed(4) : +rms.toPrecision(4) };
+        }
+        return { reading: volt ? +(c.V('+') - c.V('-')).toFixed(4) : +e.i.toPrecision(4) };
+      },
+      render(p, v) {
+        const ac = p.props.mode === 'AC';
+        const reading = v && v.reading !== null && v.reading !== undefined ? fmtMeter(unitMode(p), v.reading) : '- - -';
+        const digit = volt ? '#ff4b3e' : '#4fc3ff';
+        return `<rect x="-14" y="-35" width="38" height="31" rx="3" fill="#1d2027" stroke="#05070a"/>
+          <rect x="-11" y="-32" width="32" height="14" rx="1.5" fill="#0a0c10" stroke="#3a3f48" stroke-width=".6"/>
+          <text x="19" y="-22" font-size="${reading.length > 8 ? 6 : 7}" text-anchor="end" fill="${digit}" font-family="monospace" font-weight="700">${WB.esc(reading)}</text>
+          <text x="-10" y="-8" font-size="7.5" fill="#e8e8e8" font-family="sans-serif" font-weight="700">${volt ? 'V' : 'A'}</text>
+          <g style="cursor:pointer"><rect x="7" y="-15" width="16" height="9" rx="2" fill="${ac ? '#3b2f0a' : '#23262c'}" stroke="${ac ? '#ffd23f' : '#5a606b'}" stroke-width=".7"/>
+          <text x="15" y="-8.6" font-size="5.8" text-anchor="middle" fill="${ac ? '#ffd23f' : '#c8ccd2'}" font-family="sans-serif" font-weight="700">${ac ? 'AC' : 'DC'}</text></g>
+          <text x="-1" y="-8" font-size="6" fill="#ff6b5e" font-family="sans-serif" font-weight="700">+</text>
+          <path d="M0,-4 V0" stroke="#d62828" stroke-width="1.6"/><path d="M10,-4 V0" stroke="#222" stroke-width="1.6"/>`;
+      },
+    };
+  }
+  WB.defPart('voltmeter', panelMeter('V'));
+  WB.defPart('ammeter', panelMeter('A'));
+
   // ---------------------------------------------------------------- Oscilloscope (2 channels)
   // Inputs CH1, CH2 (1 MΩ to GND). The app samples the channel voltages while simulating;
   // PWM is drawn as a square wave from the solver's phase voltages. Front panel (clickable):

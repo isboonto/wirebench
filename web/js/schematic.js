@@ -129,6 +129,8 @@
         pins: [{ id: 'V', x: 30, y: 0, dir: 'u' }, { id: 'COM', x: 30, y: 60, dir: 'd' }, { id: 'A', x: 0, y: 30, dir: 'l' }],
       };
     },
+    voltmeter: (p) => vertical('+', '-', `<path d="M15,0 V10 M15,40 V50" ${LINE}/><circle cx="15" cy="25" r="15" ${LINE}/>${T(15, 30, p.props.mode === 'AC' ? 'V~' : 'V', { fs: 12, anchor: 'middle', bold: true })}${T(20, 8, '+', { fs: 8 })}`),
+    ammeter: (p) => vertical('+', '-', `<path d="M15,0 V10 M15,40 V50" ${LINE}/><circle cx="15" cy="25" r="15" ${LINE}/>${T(15, 30, p.props.mode === 'AC' ? 'A~' : 'A', { fs: 12, anchor: 'middle', bold: true })}${T(20, 8, '+', { fs: 8 })}`),
     npn: (p) => bjt(p, false), pnp: (p) => bjt(p, true), darlington: (p) => bjt(p, false, true),
     nmos: (p) => mosfet(p, false), pmos: (p) => mosfet(p, true),
     regulator: (p) => ({
