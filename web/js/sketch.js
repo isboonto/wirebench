@@ -7,7 +7,7 @@
   const BASE_TYPES = ['bool', 'boolean', 'char', 'short', 'int', 'long', 'float', 'double', 'byte', 'word', 'String', 'size_t',
     'uint8_t', 'int8_t', 'uint16_t', 'int16_t', 'uint32_t', 'int32_t', 'uint64_t', 'int64_t', 'unsigned', 'signed', 'auto'];
   const CLASSES = ['Servo', 'Arduino_LED_Matrix', 'ArduinoLEDMatrix', 'ModulinoButtons', 'ModulinoBuzzer', 'ModulinoPixels', 'ModulinoKnob',
-    'ModulinoDistance', 'ModulinoMovement', 'ModulinoThermo', 'ModulinoColor', 'LiquidCrystal', 'LiquidCrystal_I2C', 'Adafruit_NeoPixel', 'Keypad', 'IRrecv', 'decode_results', 'SoftwareSerial'];
+    'ModulinoDistance', 'ModulinoMovement', 'ModulinoThermo', 'ModulinoColor', 'LiquidCrystal', 'LiquidCrystal_I2C', 'Adafruit_NeoPixel', 'Keypad', 'IRrecv', 'decode_results', 'SoftwareSerial', 'TFT_eSPI', 'XPT2046_Touchscreen', 'TS_Point', 'SPIClass'];
   const QUAL = '(?:(?:const|static|volatile|unsigned|signed|inline|constexpr)\\s+)*';
   const TYPE_ALT = '(?:' + ['void'].concat(BASE_TYPES, CLASSES).join('|') + ')\\b';
   const VTYPE = '(' + BASE_TYPES.concat(CLASSES).join('|') + ')\\b';
@@ -142,10 +142,13 @@
     'IRremote.h': { provides: ['IrReceiver', 'IRrecv', 'decode_results'], alias: 'IRremote.hpp' },
     'IRremote.hpp': { provides: ['IrReceiver', 'IRrecv', 'decode_results'], alias: 'IRremote.h' },
     'SoftwareSerial.h': { provides: ['SoftwareSerial'] },
+    'SPI.h': { provides: ['SPIClass', 'SPISettings'] },
+    'TFT_eSPI.h': { provides: ['TFT_eSPI'], needs: 'cyd', boards: 'CYD (ESP32 Cheap Yellow Display) — the simulator draws on its built-in screen' },
+    'XPT2046_Touchscreen.h': { provides: ['XPT2046_Touchscreen', 'TS_Point'], needs: 'cyd', boards: 'CYD (ESP32 Cheap Yellow Display) — its built-in touch screen' },
   };
   // Standard headers that need nothing extra in the simulator
   const STD_HEADERS = ['math.h', 'stdlib.h', 'string.h', 'stdint.h', 'stdbool.h', 'stdio.h', 'ctype.h', 'limits.h', 'avr/pgmspace.h', 'avr/io.h', 'avr/interrupt.h', 'cmath', 'cstdint'];
-  const LIB_LIST = 'Servo.h, LiquidCrystal.h, LiquidCrystal_I2C.h, Wire.h, Adafruit_NeoPixel.h, Keypad.h, IRremote.h, SoftwareSerial.h, Arduino_LED_Matrix.h, Modulino.h, Arduino_RouterBridge.h (UNO Q)';
+  const LIB_LIST = 'Servo.h, LiquidCrystal.h, LiquidCrystal_I2C.h, Wire.h, Adafruit_NeoPixel.h, Keypad.h, IRremote.h, SoftwareSerial.h, SPI.h, TFT_eSPI.h + XPT2046_Touchscreen.h (CYD), Arduino_LED_Matrix.h, Modulino.h, Arduino_RouterBridge.h (UNO Q)';
 
   function checkIncludes(code, lits, board) {
     const lines = code.split('\n');
@@ -162,6 +165,7 @@
         const lib = LIBRARIES[name];
         if (board && lib.needs === 'matrix' && !board.matrix) return new CompileError(i + 1, `${name} can't be used with the ${board.label}`, `This library is only for the ${lib.boards}. Change the board or remove the include.`);
         if (board && lib.needs === 'bridge' && board.short !== 'UNO Q') return new CompileError(i + 1, `${name} can't be used with the ${board.label}`, `The Bridge library is only for the ${lib.boards}.`);
+        if (board && lib.needs === 'cyd' && !board.cyd) return new CompileError(i + 1, `${name} can't be used with the ${board.label} in the simulator`, `It works with the ${lib.boards}. Change the board, or remove the include.`);
         included.add(name);
         continue;
       }
@@ -193,7 +197,7 @@
     return null;
   }
 
-  const SUPPORTED_LIBS = ['Servo', 'Arduino_LED_Matrix', 'Modulino', 'Arduino_RouterBridge', 'Arduino', 'LiquidCrystal', 'LiquidCrystal_I2C', 'Wire', 'Adafruit_NeoPixel', 'Keypad', 'IRremote', 'SoftwareSerial'];
+  const SUPPORTED_LIBS = ['Servo', 'Arduino_LED_Matrix', 'Modulino', 'Arduino_RouterBridge', 'Arduino', 'LiquidCrystal', 'LiquidCrystal_I2C', 'Wire', 'Adafruit_NeoPixel', 'Keypad', 'IRremote', 'SoftwareSerial', 'SPI', 'TFT_eSPI', 'XPT2046_Touchscreen'];
   // The sketch runs as JavaScript in the page, so a sketch from a shared project must not reach
   // anything outside the simulator. Names starting with "__" are the simulator's own (and reserved
   // in C++ too), and the JavaScript object internals below lead out of the sandbox — none of them

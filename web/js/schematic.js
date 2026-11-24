@@ -147,7 +147,7 @@
   // order (the Mega's 22–53 along the bottom). Pin names carry their functions: ~ = PWM, RX/TX,
   // SDA/SCL, LED (D13). Every pin is drawn, used or not.
   function boardSymbol(p, def) {
-    const spec = def.board, ids = new Set(def.pins(p.props || {}).map((q) => q.id));
+    const spec = def.board, ids = new Set(def.pins(p.props || {}).filter((q) => !q.hidden).map((q) => q.id));
     const has = (id) => ids.has(id);
     const mega = spec.layout === 'mega', nano = spec.layout === 'nano';
     const i2cOnA = !!spec.i2cA4 || nano;            // SDA/SCL are the same pins as A4/A5
@@ -166,7 +166,8 @@
     if (!i2cOnA && !mega && has('SDA')) left.push(null, { id: 'SDA', name: 'SDA' }, { id: 'SCL', name: 'SCL' });
     const right = [];
     const dTop = mega ? 21 : 13;
-    for (const n of range(0, dTop)) { if (n === 8 || (mega && n === 14)) right.push(null); right.push(digital(n)); }
+    if (spec.cyd) { Object.assign(fn, { D1: 'TX', D3: 'RX', D21: 'BL', D35: 'in' }); for (const n of range(0, 39)) if (has('D' + n)) right.push({ id: 'D' + n, name: 'IO' + n, fn: fn['D' + n] }); }
+    else for (const n of range(0, dTop)) { if (n === 8 || (mega && n === 14)) right.push(null); right.push(digital(n)); }
     if (mega) { bottom.push(null); for (const n of range(22, 53)) bottom.push(digital(n)); }
 
     // geometry: 20 px pin pitch; names inside the box (top / bottom ones rotated)

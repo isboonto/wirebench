@@ -137,6 +137,7 @@
       const pinsG = WB.svgEl('g', { class: 'pins' });
       let html = '';
       for (const pin of def.pins(p.props || {})) {
+        if (pin.hidden) continue; // on-board connections (e.g. the CYD's LED and light sensor) have no pad
         html += def.holes
           ? `<rect class="pin hole" data-pin="${pin.id}" x="${pin.x - 3}" y="${pin.y - 3}" width="6" height="6" rx="1" fill="#4a4b4f" stroke="transparent" stroke-width="2.6"/>`
           : `<circle class="pin" data-pin="${pin.id}" cx="${pin.x}" cy="${pin.y}" r="${def.board ? 4.2 : 3.6}" fill="transparent"/>`;
@@ -331,6 +332,7 @@
         const b = WB.worldBBox(part);
         if (w.x < b.x - max || w.y < b.y - max || w.x > b.x + b.w + max || w.y > b.y + b.h + max) continue;
         for (const p of WB.worldPins(part)) {
+          if (p.hidden) continue;
           const d = Math.hypot(p.x - w.x, p.y - w.y);
           if (d < bd) { bd = d; best = { part: part.id, pin: p.id }; }
         }
@@ -516,6 +518,23 @@
         app.updateModified();
         return true;
       }
+      if (def.interact === 'touch') {
+        // touch screen board (CYD): press and drag on the screen; its BOOT button; its light sensor (drag)
+        const w = this.toWorld(e);
+        const [lx, ly] = WB.rotPt(w.x - part.x, w.y - part.y, -(part.rot || 0));
+        const h = def.hit(lx, ly);
+        if (!h) return false;
+        if (h.k === 'screen') { app.transient[part.id] = { touch: [h.x, h.y] }; this.mode = { kind: 'touch', part, def }; }
+        else if (h.k === 'boot') { app.transient[part.id] = { pressed: true }; this.mode = { kind: 'press', part }; }
+        else {
+          const k = def.knob;
+          this.mode = { kind: 'knob', part, def, startY: e.clientY, startV: Number(part.props[k.key]) };
+          this.showTip(e, `${part.name}: ${k.fmt(part.props[k.key])} — drag up/down`);
+        }
+        this.rerenderBody(part);
+        app.markDirty();
+        return;
+      }
       if (def.interact === 'buttons') {
         // which of the module's buttons is under the pointer (in the part's own coordinates)
         const w = this.toWorld(e);
@@ -603,6 +622,11 @@
         const x = Math.min(w.x, m.start.x), y = Math.min(w.y, m.start.y);
         m.rect = { x, y, w: Math.abs(w.x - m.start.x), h: Math.abs(w.y - m.start.y) };
         this.layerOver.innerHTML = `<rect class="boxsel" x="${x}" y="${y}" width="${m.rect.w}" height="${m.rect.h}"/>`;
+      } else if (m.kind === 'touch') {
+        const w = this.toWorld(e);
+        const [lx, ly] = WB.rotPt(w.x - m.part.x, w.y - m.part.y, -(m.part.rot || 0));
+        const h = m.def.hit(lx, ly);
+        if (h && h.k === 'screen') { this.app.transient[m.part.id] = { touch: [h.x, h.y] }; this.app.markDirty(); }
       } else if (m.kind === 'knob') {
         const k = m.def.knob;
         const span = k.max - k.min;
@@ -669,7 +693,7 @@
         }
         for (const w of app.project.wires) { const pts = this.wirePoints(w); if (pts && pts.every(([x, y]) => inside(x, y))) app.selection.add(w.id); }
         app.selectionChanged();
-      } else if (m.kind === 'press') {
+      } else if (m.kind === 'press' || m.kind === 'touch') {
         delete app.transient[m.part.id];
         this.rerenderBody(m.part);
         app.markDirty();

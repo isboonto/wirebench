@@ -74,6 +74,8 @@
     });
   }
 
+  WB.rtFmt = { fmtNum, cprintf };
+
   class Runtime {
     constructor(app, boardPart, spec) {
       this.app = app;
@@ -85,7 +87,7 @@
       this.pendingIsr = [];
       this.interrupts = [];
       this.inbuf = [];
-      this.adcBits = 10;
+      this.adcBits = spec.adcBits || 10;
       this.pwmBits = 8;
       this.timers = new Set();
       this.rng = Math.random;
@@ -110,7 +112,10 @@
     need(p) {
       if (!this.running) throw STOP;
       const n = this.pinName(p);
-      if (!n || !WB.worldPin(this.board, n)) throw new Error(`Pin ${p} does not exist on ${this.spec.label}`);
+      if (!n || !WB.worldPin(this.board, n)) {
+        const used = this.spec.reserved && this.spec.reserved[Math.trunc(Number(p))];
+        throw new Error(used ? `GPIO${p} is used by ${used} on the ${this.spec.short} — use a free pin` : `Pin ${p} does not exist on ${this.spec.label}`);
+      }
       return n;
     }
     pinState(name) { return this.sim.pins[name] || (this.sim.pins[name] = { mode: 'INPUT', value: 0, duty: null, tone: null }); }
@@ -216,10 +221,18 @@
       };
       for (let i = 0; i < Math.max(8, spec.analogCount); i++) C['A' + i] = spec.analogBase + i; // A0 = 14 (UNO) or 54 (Mega)
       if (spec.layout === 'mega') Object.assign(C, { SDA: 20, SCL: 21, SS: 53, MOSI: 51, MISO: 50, SCK: 52 });
+      // ESP32: analog pins are GPIO numbers (A0 = 36 …), serial config for Serial2.begin(baud, SERIAL_8N1, rx, tx)
+      if (spec.esp32) Object.assign(C, { A0: 36, A3: 39, A4: 32, A5: 33, A6: 34, A7: 35, A10: 4, A11: 0, A12: 2, A13: 15, A14: 13, A15: 12, A16: 14, A17: 27, A18: 25, A19: 26,
+        LED_BUILTIN: 2, SDA: 21, SCL: 22, SERIAL_8N1: 0x800001c, SERIAL_8E1: 0x800001e, SERIAL_8O1: 0x800001f });
       Object.assign(api, C);
 
       api.pinMode = (p, m) => {
         const n = rt.need(p), st = rt.pinState(n);
+        const gp = /^D(\d+)$/.exec(n);
+        if (spec.inputOnly && gp && spec.inputOnly.includes(+gp[1])) {
+          if (m === 1) throw new Error(`GPIO${gp[1]} is input only on the ESP32 — it can't be an OUTPUT. Use another pin.`);
+          if (m === 2 || m === 3) { rt.warnOnce('nopull:' + n, `GPIO${gp[1]} has no internal pull-up/pull-down resistor on the ESP32 — add an external one.`); m = 0; }
+        }
         st.mode = m === 1 ? 'OUTPUT' : m === 2 ? 'INPUT_PULLUP' : m === 3 ? 'INPUT_PULLDOWN' : 'INPUT';
         st.explicit = true;
         if (st.mode !== 'OUTPUT') { st.duty = null; st.tone = null; }
@@ -241,7 +254,7 @@
       api.analogRead = (p) => {
         if (typeof p === 'number' && p >= 0 && p < spec.analogCount) p = spec.analogBase + p; // analogRead(0) = analogRead(A0)
         const n = rt.need(p);
-        if (n[0] !== 'A') throw new Error(`analogRead(${p}): pin ${n} is not an analog input`);
+        if (n[0] !== 'A' && !(spec.adcPins && spec.adcPins.includes(+n.slice(1)))) throw new Error(`analogRead(${p}): pin ${n} is not an analog input${spec.adcPins ? ` (analog pins on the ${spec.short}: ${spec.adcPins.filter((g) => WB.worldPin(rt.board, 'D' + g) && !(spec.reserved || {})[g]).join(', ')})` : ''}`);
         rt.app.ensureSolved();
         const max = Math.pow(2, rt.adcBits) - 1;
         const r = rt.reading(n);
@@ -461,7 +474,11 @@
       function hwSerial(rxPin, txPin, label) {
         return Object.assign(Object.create(streamMethods), {
           buf: rt.inbuf, baud: 9600, dev: undefined,
-          begin(b) { if (b) this.baud = Math.trunc(b); this.link(); },
+          begin(b, cfg, rx, tx) {
+            if (b) this.baud = Math.trunc(b);
+            if (spec.esp32 && rx !== undefined && tx !== undefined && Number(rx) >= 0 && Number(tx) >= 0) { rxPin = rt.need(rx); txPin = rt.need(tx); this.dev = undefined; }
+            this.link();
+          },
           end() {},
           link() {
             if (this.dev !== undefined) return this.dev;
@@ -481,10 +498,10 @@
       // Which pins each hardware port uses: Serial on D0/D1 for the AVR boards (UNO R3, Nano, Mega);
       // on the UNO R4 and UNO Q, Serial is the USB port and Serial1 is on D0/D1.
       const avr = !!spec.avr, mega = spec.layout === 'mega';
-      const serial = hwSerial(avr ? 'D0' : null, 'D1', 'Serial');
+      const serial = spec.serialPins ? hwSerial(spec.serialPins[0], spec.serialPins[1], 'Serial') : hwSerial(avr ? 'D0' : null, 'D1', 'Serial');
       api.Serial = serial;
-      api.Serial1 = mega ? hwSerial('D19', 'D18', 'Serial1') : avr ? serial : hwSerial('D0', 'D1', 'Serial1');
-      api.Serial2 = mega ? hwSerial('D17', 'D16', 'Serial2') : serial;
+      api.Serial1 = mega ? hwSerial('D19', 'D18', 'Serial1') : spec.esp32 ? hwSerial(null, null, 'Serial1') : avr ? serial : hwSerial('D0', 'D1', 'Serial1');
+      api.Serial2 = mega ? hwSerial('D17', 'D16', 'Serial2') : spec.esp32 ? hwSerial(null, null, 'Serial2') : serial;
       api.Serial3 = mega ? hwSerial('D15', 'D14', 'Serial3') : serial;
       api.SerialUSB = serial;
 
@@ -902,6 +919,7 @@
       api.IRrecv = function (p) { if (p !== undefined) ir.pin = rt.need(p); return ir; };
       api.decode_results = function () { return { value: 0, decode_type: 0, bits: 0 }; };
       Object.assign(api, { ENABLE_LED_FEEDBACK: true, DISABLE_LED_FEEDBACK: false, NEC: 3 });
+      if (spec.esp32 && WB.CYD) WB.CYD.extendApi(api, rt);
       return api;
     }
   }

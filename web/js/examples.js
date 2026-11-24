@@ -1075,6 +1075,158 @@ void loop() {
   });
 
   EX.push({
+    name: 'CYD · touch screen: draw, RGB LED buttons, light sensor', build: () => {
+      const p = P('board-cyd', `#include <SPI.h>
+#include <TFT_eSPI.h>
+#include <XPT2046_Touchscreen.h>
+
+// The CYD (ESP32 "Cheap Yellow Display") has the screen, the touch panel, an RGB LED
+// and a light sensor on the board — no wiring needed.
+// Run the simulation, then draw in the box and touch RED / GREEN / BLUE.
+// Drag the light sensor (LDR, top right) up or down to change the light.
+
+// Touch controller pins on the CYD
+#define XPT2046_IRQ  36
+#define XPT2046_MOSI 32
+#define XPT2046_MISO 39
+#define XPT2046_CLK  25
+#define XPT2046_CS   33
+
+SPIClass touchSpi = SPIClass(VSPI);
+XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
+TFT_eSPI tft = TFT_eSPI();
+
+const int LED_R = 4, LED_G = 16, LED_B = 17;   // RGB LED: LOW = on
+const int LDR = 34;                             // light sensor: more light = lower reading
+
+void drawButtons() {
+  tft.fillRoundRect(10, 190, 92, 40, 8, TFT_RED);
+  tft.fillRoundRect(114, 190, 92, 40, 8, TFT_DARKGREEN);
+  tft.fillRoundRect(218, 190, 92, 40, 8, TFT_BLUE);
+  tft.setTextColor(TFT_WHITE);
+  tft.setTextDatum(MC_DATUM);
+  tft.drawString("RED", 56, 210, 2);
+  tft.drawString("GREEN", 160, 210, 2);
+  tft.drawString("BLUE", 264, 210, 2);
+}
+
+void setLed(int r, int g, int b) {
+  digitalWrite(LED_R, r ? LOW : HIGH);
+  digitalWrite(LED_G, g ? LOW : HIGH);
+  digitalWrite(LED_B, b ? LOW : HIGH);
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(LED_R, OUTPUT);
+  pinMode(LED_G, OUTPUT);
+  pinMode(LED_B, OUTPUT);
+  setLed(0, 0, 0);
+
+  touchSpi.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
+  ts.begin(touchSpi);
+  ts.setRotation(1);
+
+  tft.init();            // also switches the backlight (GPIO21) on
+  tft.setRotation(1);    // landscape, 320 x 240
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+  tft.setTextDatum(TL_DATUM);
+  tft.drawString("Hello, CYD!", 10, 8, 4);
+  tft.drawRect(10, 40, 300, 140, TFT_DARKGREY);
+  tft.setTextColor(TFT_DARKGREY);
+  tft.drawString("draw here", 16, 46, 2);
+  drawButtons();
+}
+
+unsigned long lastLight = 0;
+
+void loop() {
+  if (ts.touched()) {
+    TS_Point p = ts.getPoint();
+    // raw touch readings -> screen pixels (the usual CYD calibration)
+    int x = map(p.x, 200, 3700, 0, 320);
+    int y = map(p.y, 240, 3800, 0, 240);
+    if (x > 13 && x < 307 && y > 43 && y < 177) tft.fillCircle(x, y, 3, TFT_CYAN);
+    if (y >= 190) {
+      if (x < 107) setLed(1, 0, 0);
+      else if (x < 213) setLed(0, 1, 0);
+      else setLed(0, 0, 1);
+      Serial.printf("button at %d, %d\\n", x, y);
+    }
+  }
+  if (millis() - lastLight > 500) {
+    lastLight = millis();
+    int light = analogRead(LDR);      // 12-bit: 0..4095
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextDatum(TR_DATUM);
+    tft.setTextPadding(120);
+    tft.drawString("LDR " + String(light), 310, 12, 2);
+    tft.setTextPadding(0);
+  }
+  delay(10);
+}
+`);
+      return p;
+    },
+  });
+
+  EX.push({
+    name: 'CYD · potentiometer gauge on IO35 + LED dimmer on IO27', build: () => {
+      const p = P('board-cyd', `#include <TFT_eSPI.h>
+
+// A potentiometer on the P3 connector (IO35, analog input) is shown as an arc gauge,
+// and sets the brightness of an LED on the CN1 connector (IO27) with ESP32 PWM.
+// Turn the knob while the simulation runs.
+TFT_eSPI tft = TFT_eSPI();
+
+const int POT = 35;   // input only, 12-bit analog: 0..4095
+const int LED = 27;
+
+void setup() {
+  tft.init();
+  tft.setRotation(1);
+  tft.fillScreen(TFT_NAVY);
+  tft.setTextColor(TFT_WHITE, TFT_NAVY);
+  tft.drawCentreString("Potentiometer on IO35", 160, 8, 4);
+  ledcAttach(LED, 5000, 8);   // ESP32 core 3: PWM on the LED pin, 5 kHz, 8-bit
+}
+
+int last = -1;
+
+void loop() {
+  int v = analogRead(POT);
+  int pct = map(v, 0, 4095, 0, 100);
+  ledcWrite(LED, map(v, 0, 4095, 0, 255));
+  if (pct != last) {
+    last = pct;
+    // arc angles: 0 = straight down, clockwise
+    tft.drawArc(160, 140, 85, 65, 30, 330, TFT_DARKGREY, TFT_NAVY);
+    if (pct > 0) tft.drawArc(160, 140, 85, 65, 30, 30 + pct * 3, TFT_GREEN, TFT_NAVY);
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextPadding(120);
+    tft.drawNumber(pct, 160, 132, 6);
+    tft.setTextPadding(0);
+    tft.drawString("%", 160, 176, 4);
+  }
+  delay(50);
+}
+`);
+      add(p, 'pot', 'pot', [120, 320], 0, { ohms: 10000, pos: 0.5 }, 'POT1');
+      add(p, 'r1', 'resistor', [250, 320], 0, { ohms: 220 }, 'R1');
+      add(p, 'led', 'led', [330, 320], 0, { color: 'green' }, 'LED1');
+      const G = '#1f1f1f', R = '#d62828';
+      rw(p, ['pot', '1'], ['board', 'GND2'], G);
+      rw(p, ['pot', '2'], ['board', '3V3'], R);
+      rw(p, ['pot', 'W'], ['board', 'D35'], '#1f9e3a');
+      rw(p, ['board', 'D27'], ['r1', '1'], '#f08c00');
+      rw(p, ['r1', '2'], ['led', 'A'], '#f08c00');
+      rw(p, ['led', 'K'], ['board', 'GND3'], G);
+      return p;
+    },
+  });
+
+  EX.push({
     name: 'Mega 2560 · LED chaser on pins 22–29 + speed knob on A8', build: () => {
       const p = { parts: [], wires: [], code: `// The Arduino Mega 2560 has 54 digital pins and 16 analog inputs.
 // Eight LEDs on pins 22..29 (the double header at the right end of the board)
