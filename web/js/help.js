@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '0.9.0';
+  WB.VERSION = '0.9.1';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -245,6 +245,7 @@
       <h3 class="about-h">What's new</h3>
       <h3>What's new in 0.9</h3>
       <ul>
+        <li>0.9.1: <b>security</b> — project files are checked when they are opened, so a shared or downloaded project can no longer slip script into Wirebench through a part setting or wire colour; sketches can't reach outside the simulator (names starting with <code>__</code>, <code>this</code>, <code>.constructor</code> and similar JavaScript internals are refused — none of them are Arduino C++); and a content security policy blocks injected scripts in both the desktop app and the web version. Print: a new <b>Schematic: Wires / Net labels</b> choice (default Wires) — the printout no longer follows the last choice in the schematic export.</li>
         <li>0.9.0: <b>File → Print…</b> (Ctrl+P). Choose the breadboard view, schematic, instrument screens (each instrument enlarged, exactly as it shows now — for lab reports), sketch with line numbers, and parts list &amp; netlist; add a title and your name; pick A4 or Letter, landscape or portrait. Each section starts a new page. Choose “Save as PDF” as the printer to get a PDF.</li>
         <li>New oscilloscopes start with 0 V in the middle of the screen for both channels.</li>
       </ul>

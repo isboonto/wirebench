@@ -58,6 +58,76 @@
     return out + WB.esc(src.slice(last));
   }
 
+  // ------------------------------------------------------------ project files
+  // A project file can come from anyone (a shared lab file, a download), so everything in it is
+  // checked before it reaches the screen: only known part types, well-formed ids, pins, numbers
+  // and colours, and setting values from each part's own list. Anything else falls back to the
+  // part's default, so no text in a file can inject markup or script into the page.
+  const UNSAFE = /[<>"'`\\]/;
+  const SAFE_ID = /^[\w.-]{1,64}$/;
+  const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+  const ownKeys = (o) => (o && typeof o === 'object' ? Object.keys(o).filter((k) => k !== '__proto__' && k !== 'constructor' && k !== 'prototype') : []);
+  // plain data with no unsafe text anywhere inside (for settings that have no inspector field)
+  function safeData(v, depth) {
+    if (v === null || typeof v === 'boolean') return true;
+    if (typeof v === 'number') return Number.isFinite(v);
+    if (typeof v === 'string') return v.length <= 4000 && !UNSAFE.test(v);
+    if (depth > 4 || typeof v !== 'object') return false;
+    if (Array.isArray(v)) return v.length <= 100000 && v.every((x) => safeData(x, depth + 1));
+    return ownKeys(v).every((k) => SAFE_ID.test(k) && safeData(v[k], depth + 1));
+  }
+  function cleanProps(def, raw) {
+    const props = WB.clone(def.defaults || {});
+    const fields = {};
+    for (const f of def.inspector || []) fields[f.key] = f;
+    for (const k of ownKeys(raw)) {
+      if (!SAFE_ID.test(k)) continue;
+      const v = raw[k], f = fields[k];
+      if (f && f.type === 'select') {
+        if ((f.options || []).some((o) => (Array.isArray(o) ? o[0] : o) === v)) props[k] = v;
+      } else if (f && (f.type === 'number' || f.type === 'range')) {
+        if (typeof v === 'number' && Number.isFinite(v)) props[k] = v;
+      } else if (f && f.type === 'text') {
+        if (typeof v === 'string') props[k] = v.slice(0, 20000); // note text: always shown escaped
+      } else if (safeData(v, 0)) props[k] = WB.clone(v);
+    }
+    return props;
+  }
+  function cleanProject(o) {
+    o = o && typeof o === 'object' ? o : {};
+    const ids = new Map(); // id in the file -> id used here
+    const parts = [];
+    for (const p of Array.isArray(o.parts) ? o.parts : []) {
+      if (!p || typeof p !== 'object' || typeof p.type !== 'string' || !Object.prototype.hasOwnProperty.call(PARTS, p.type)) continue;
+      const def = PARTS[p.type];
+      const id = typeof p.id === 'string' && SAFE_ID.test(p.id) && !ids.has(p.id) ? p.id : WB.uid((def.prefix || 'p').toLowerCase());
+      if (typeof p.id === 'string' || typeof p.id === 'number') ids.set(String(p.id), id);
+      parts.push({
+        id, type: p.type,
+        x: num(p.x, 0), y: num(p.y, 0), rot: [0, 90, 180, 270].includes(p.rot) ? p.rot : 0,
+        name: typeof p.name === 'string' ? p.name.replace(/[<>"'`\\]/g, '').slice(0, 40) : '',
+        props: cleanProps(def, p.props),
+      });
+    }
+    const end = (e) => (e && typeof e === 'object' && ids.has(String(e.part)) && typeof e.pin === 'string' && e.pin.length <= 32 && !UNSAFE.test(e.pin)
+      ? { part: ids.get(String(e.part)), pin: e.pin } : null);
+    const wires = [];
+    for (const w of Array.isArray(o.wires) ? o.wires : []) {
+      const a = end(w && w.a), b = end(w && w.b);
+      if (!a || !b) continue;
+      const wire = {
+        id: typeof w.id === 'string' && SAFE_ID.test(w.id) ? w.id : WB.uid('w'), a, b,
+        pts: (Array.isArray(w.pts) ? w.pts : []).filter((q) => Array.isArray(q) && Number.isFinite(q[0]) && Number.isFinite(q[1])).map((q) => [q[0], q[1]]),
+        color: typeof w.color === 'string' && /^(#[0-9a-f]{3,8}|[a-z]{3,20})$/i.test(w.color) ? w.color : '#2f7de1',
+      };
+      if (w.route === true) wire.route = true;
+      if (typeof w.auto === 'boolean') wire.auto = w.auto;
+      wires.push(wire);
+    }
+    return { parts, wires, code: typeof o.code === 'string' ? o.code : WB.DEFAULT_CODE };
+  }
+  WB.cleanProject = cleanProject;
+
   class CodeEditor {
     constructor(onChange) {
       this.ta = $('#code'); this.hl = $('#hl'); this.gutter = $('#gutter'); this.errEl = $('#err-line');
@@ -736,6 +806,7 @@
     bindUI() {
       document.querySelectorAll('[data-cmd]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); this.cmd(b.dataset.cmd); }));
       document.addEventListener('click', () => document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open')));
+      $('#modal .modal-x').addEventListener('click', (e) => e.currentTarget.closest('dialog').close()); // no inline handlers: the CSP blocks them
       // navigation buttons inside the help dialog
       $('#modal-body').addEventListener('click', (e) => {
         const b = e.target.closest('[data-help]');
@@ -1052,11 +1123,7 @@
     loadProject(o, quiet) {
       if (this.sim) this.stopSim();
       this.closePropDialog();
-      this.project = {
-        parts: (o.parts || []).filter((p) => PARTS[p.type]).map((p) => Object.assign({ rot: 0, props: {} }, p, { props: Object.assign(WB.clone(PARTS[p.type].defaults), p.props || {}) })),
-        wires: (o.wires || []).map((w) => Object.assign({ pts: [], color: '#2f7de1' }, w)),
-        code: o.code !== undefined ? o.code : WB.DEFAULT_CODE,
-      };
+      this.project = cleanProject(o);
       for (const p of this.project.parts) if (!p.name) p.name = this.nextName(PARTS[p.type].prefix);
       // wires marked "route" (e.g. in examples) are laid out by the auto-router
       const toRoute = this.project.wires.filter((w) => w.route);
@@ -1464,12 +1531,14 @@
         <div class="pr-fields">
           <label>Paper <select data-pf="paper"><option value="A4">A4</option><option value="letter">Letter</option></select></label>
           <label>Drawings <select data-pf="orient"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></label>
+          <label>Schematic <select data-pf="schMode"><option value="wires">Wires</option><option value="labels">Net labels</option></select></label>
         </div>
         ${n && !this.sim ? '<p class="muted small">Tip: start the simulation first so the instrument screens show readings.</p>' : ''}
         <p class="muted small">To make a PDF, choose “Save as PDF” (or “Microsoft Print to PDF”) as the printer.</p>
         <div class="sa-actions"><button data-pa="print" class="primary">Print…</button><button data-pa="cancel">Cancel</button></div>`;
       dlg.querySelector('[data-pf="paper"]').value = st.paper || 'A4';
       dlg.querySelector('[data-pf="orient"]').value = st.orient || 'landscape';
+      dlg.querySelector('[data-pf="schMode"]').value = st.schMode === 'labels' ? 'labels' : 'wires';
       dlg.onclick = (e) => {
         const b = e.target.closest('[data-pa]');
         if (!b) return;
@@ -1505,11 +1574,7 @@
       const meta = [o.name ? `<b>${WB.esc(o.name)}</b>` : '', WB.esc(date), `Wirebench ${WB.esc(WB.VERSION)}`].filter(Boolean).join(' · ');
       const secs = [];
       if (want('breadboard')) secs.push(['Breadboard view', this.printImg(this.editor.exportSVGString())]);
-      if (want('schematic')) {
-        let mode = 'wires';
-        try { mode = localStorage.getItem('wirebench.schMode') || 'wires'; } catch (e) { /* storage unavailable */ }
-        secs.push(['Schematic', this.printImg(WB.Schematic.build(this, { mode }).svg)]);
-      }
+      if (want('schematic')) secs.push(['Schematic', this.printImg(WB.Schematic.build(this, { mode: o.schMode === 'labels' ? 'labels' : 'wires' }).svg)]);
       if (want('instruments')) {
         const tm = this.sim && ($('#sim-time').textContent.match(/\d+:\d+\.\d/) || [])[0];
         const t = this.sim ? ` <span class="pr-note">— captured ${tm ? tm + ' after the simulation started' : 'while the simulation was running'}</span>` : '';

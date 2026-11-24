@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Content security policy: only Wirebench's own files run (plus the compiled sketch, loaded as a blob:);
+       no inline scripts or event handlers, no eval. Keep in step with "csp" in src-tauri/tauri.conf.json. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; frame-src 'none'">
   <title>Wirebench — breadboard designer &amp; Arduino simulator</title>
   <link rel="stylesheet" href="css/app.css">
 </head>
@@ -173,7 +176,7 @@
     </aside>
   </main>
 
-  <dialog id="modal"><button type="button" class="modal-x" title="Close (Esc)" aria-label="Close" onclick="this.closest('dialog').close()">✕</button><div id="modal-body"></div><form method="dialog"><button>Close</button></form></dialog>
+  <dialog id="modal"><button type="button" class="modal-x" title="Close (Esc)" aria-label="Close">✕</button><div id="modal-body"></div><form method="dialog"><button>Close</button></form></dialog>
   <input type="file" id="file-input" accept=".wbproj,.json,application/json" hidden>
 
   <script src="js/util.js"></script>

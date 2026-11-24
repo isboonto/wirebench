@@ -193,6 +193,21 @@
   }
 
   const SUPPORTED_LIBS = ['Servo', 'Arduino_LED_Matrix', 'Modulino', 'Arduino_RouterBridge', 'Arduino', 'LiquidCrystal', 'LiquidCrystal_I2C', 'Wire', 'Adafruit_NeoPixel', 'Keypad', 'IRremote'];
+  // The sketch runs as JavaScript in the page, so a sketch from a shared project must not reach
+  // anything outside the simulator. Names starting with "__" are the simulator's own (and reserved
+  // in C++ too), and the JavaScript object internals below lead out of the sandbox — none of them
+  // exist in Arduino C++. Checked on the user's own code: comments and strings already removed.
+  const FORBIDDEN_MEMBERS = /\.\s*(constructor|prototype|__proto__|__defineGetter__|__defineSetter__|__lookupGetter__|__lookupSetter__|caller|callee)\b/;
+  function checkSafety(code) {
+    const lineOf = (i) => WB.countNL(code.slice(0, i)) + 1;
+    let m = /(?<![\w$])(__\w*|this|globalThis|window|self|document|eval|Function|Object|Reflect|Proxy|import)\b/.exec(code);
+    if (m && !/^(this)$/.test(m[1])) return new CompileError(lineOf(m.index), `'${m[1]}' is not allowed in a sketch`, m[1].startsWith('__') ? 'Names starting with two underscores are reserved — rename it.' : 'This name is reserved by the simulator — rename it.');
+    if (m) return new CompileError(lineOf(m.index), "'this' is not supported in the simulator", 'Use the variable or object name directly.');
+    m = FORBIDDEN_MEMBERS.exec(code);
+    if (m) return new CompileError(lineOf(m.index), `'.${m[1]}' is not allowed in a sketch`, 'This is not part of Arduino C++.');
+    return null;
+  }
+
   function checkIdentifiers(code, known, libs) {
     const unsupported = (libs || []).map((l) => (l.match(/[<\u0003"]\s*([\w./-]+?)(?:\.h)?\s*[>"\u0003]?$/) || [])[1]).filter((n) => n && !SUPPORTED_LIBS.includes(n));
     const re = /(?<![\w.$\u0003])[A-Za-z_]\w*/g;
@@ -495,6 +510,8 @@
     if (incErr) return { error: incErr };
     const structErr = checkStructure(code);
     if (structErr) return { error: structErr };
+    const safeErr = checkSafety(code);
+    if (safeErr) return { error: safeErr };
 
     // Preprocessor
     code = code.split('\n').map((line) => {
