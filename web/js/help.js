@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '0.12.1';
+  WB.VERSION = '1.0.0-beta.1';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -249,6 +249,10 @@
     about: () => `
       ${aboutHeader()}
       <h3 class="about-h">What's new</h3>
+      <h3>What's new in 1.0 (beta)</h3>
+      <ul>
+        <li>1.0.0-beta.1: the first <b>1.0 beta</b> — everything from 0.1 to 0.12 in one release, and the first with ready-made Windows installers on GitHub (Releases, marked “Pre-release”). Please report anything that doesn't work as expected; fixes come as further betas before 1.0.0.</li>
+      </ul>
       <h3>What's new in 0.12</h3>
       <ul>
         <li>0.12.1: the <b>web version loads about four times faster</b>. Since 0.9.1 its security policy had made Chrome and Edge download its 18 program files one after another; they now download all at once, together with the circuit solver. The Examples menu has a new <b>Touch screens: Nextion &amp; CYD</b> heading for the Nextion and CYD examples.</li>
