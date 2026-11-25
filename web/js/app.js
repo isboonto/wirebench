@@ -347,8 +347,8 @@
       this.mutate(() => {
         for (const p of parts) p.rot = (((p.rot || 0) + (dir || 90)) % 360 + 360) % 360;
         const ids = new Set(parts.map((p) => p.id));
-        const affected = this.project.wires.filter((w) => w.auto && (ids.has(w.a.part) || ids.has(w.b.part)));
-        if (affected.length) WB.Router.routeMany(this, affected);
+        const affected = this.project.wires.filter((w) => ids.has(w.a.part) || ids.has(w.b.part));
+        if (affected.length) WB.Router.retidy(this, affected);
       });
     }
 
@@ -1128,6 +1128,10 @@
       // wires marked "route" (e.g. in examples) are laid out by the auto-router
       const toRoute = this.project.wires.filter((w) => w.route);
       if (toRoute.length) { WB.Router.routeMany(this, toRoute); toRoute.forEach((w) => delete w.route); }
+      // auto-routed wires that no longer fit their pins (a part's pins moved in a newer version, e.g. the
+      // larger power supplies in 1.0) are routed again instead of ending in a slanted piece
+      const stale = this.project.wires.filter((w) => w.auto && WB.Router.slanted(this, w));
+      if (stale.length) WB.Router.routeMany(this, stale);
       this.selection = new Set();
       this.undoStack = [];
       this.redoStack = [];

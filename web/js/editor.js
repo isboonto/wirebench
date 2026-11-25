@@ -659,9 +659,9 @@
       this.svg.classList.remove('panning');
       if (m.kind === 'drag' && m.moved) {
         app.pushUndo(m.snapshot);
-        // auto-routed wires with one end on a moved part are re-routed (wires moving with both ends were translated)
-        const affected = app.project.wires.filter((w) => w.auto && (m.ids.has(w.a.part) !== m.ids.has(w.b.part)));
-        if (affected.length) WB.Router.routeMany(app, affected);
+        // wires with one end on a moved part are re-routed or squared up (wires moving with both ends were translated)
+        const affected = app.project.wires.filter((w) => m.ids.has(w.a.part) !== m.ids.has(w.b.part));
+        if (affected.length) WB.Router.retidy(app, affected);
         app.changed();
       }
       else if (m.kind === 'drag' && m.dup) { app.undo(); app.redoStack = []; } // Ctrl+click without moving: drop the copy
@@ -676,7 +676,7 @@
           if (!(ref.part === other.part && ref.pin === other.pin)) {
             m.wire[m.end] = ref;
             app.pushUndo(this.snapshot);
-            if (m.wire.auto) WB.Router.routeWire(app, m.wire);
+            WB.Router.retidy(app, [m.wire]);
             app.changed();
             return;
           }
@@ -779,8 +779,10 @@
       const wire = { id: WB.uid('w'), a: d.from, b: to, pts: d.pts, color };
       // Pin-to-pin wires (no hand-placed joints) are auto-routed into a tidy right-angle path;
       // wires drawn through clicked joints keep them, joined by right-angle corners.
-      if (app.autoRoute && !d.pts.length) WB.Router.routeWire(app, wire);
-      else if (app.autoRoute) wire.pts = orthoPath([pa.x, pa.y], d.pts, [pb.x, pb.y]);
+      if (app.autoRoute && !d.pts.length && !WB.Router.routeWire(app, wire)) {
+        wire.pts = orthoPath([pa.x, pa.y], [], [pb.x, pb.y]);
+        app.toast('No tidy route found around the parts — the wire got simple right-angle corners.');
+      } else if (app.autoRoute && d.pts.length) wire.pts = orthoPath([pa.x, pa.y], d.pts, [pb.x, pb.y]);
       app.mutate(() => { app.project.wires.push(wire); app.selection = new Set([wire.id]); });
     }
 

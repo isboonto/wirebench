@@ -158,5 +158,28 @@
   }
   const dist = (a, b) => (a && b ? Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) : 0);
 
-  WB.Router = { routeWire, routeMany };
+  // Does the wire have a slanted (non right-angle) piece? E.g. after one of its pins moved.
+  function slanted(app, w) {
+    const pts = app.editor.wirePoints(w);
+    if (!pts) return false;
+    for (let i = 0; i < pts.length - 1; i++) if (Math.abs(pts[i][0] - pts[i + 1][0]) > 0.5 && Math.abs(pts[i][1] - pts[i + 1][1]) > 0.5) return true;
+    return false;
+  }
+
+  // After parts or wire ends moved: auto-routed wires, and straight pin-to-pin wires that became
+  // slanted, get a new route; wires shaped by hand keep their joints and only get right-angle
+  // corners where they became slanted. With "Auto-route new wires" off, only auto-routed wires move.
+  function retidy(app, wires) {
+    const on = app.autoRoute;
+    const route = wires.filter((w) => w.auto || (on && !(w.pts && w.pts.length) && slanted(app, w)));
+    if (route.length) routeMany(app, route);
+    if (!on) return;
+    for (const w of wires) {
+      if (route.includes(w) || !slanted(app, w)) continue;
+      const A = app.editor.pinPos(w.a), B = app.editor.pinPos(w.b);
+      if (A && B) w.pts = WB.orthoPath(A, w.pts || [], B);
+    }
+  }
+
+  WB.Router = { routeWire, routeMany, slanted, retidy };
 })(window.WB);
