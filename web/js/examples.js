@@ -1787,6 +1787,35 @@ void loop() {
     },
   });
 
+  EX.push({
+    name: 'Electronics · LED I–V curve: DC sweep on the dual power supply (scope X-Y)', build: () => {
+      const p = { parts: [], wires: [], code: NOCODE(`// Measure an LED's current–voltage curve with a swept DC supply.
+// CH1 of the dual power supply is set to SWEEP: every 40 ms it ramps from 0 V up to
+// 5 V and back down (the SWP button cycles off → ramp → up and down; the start voltage
+// and sweep time are in its settings). The LED and a 100 Ω current-sense resistor are
+// in series across CH1. The scope ground sits between them:
+//  - scope CH1 = voltage across the LED                     -> X axis
+//  - scope CH2 = voltage across the resistor = I × 100 Ω    -> Y axis (INV, as it is
+//    measured backwards across the resistor)
+// In X-Y mode the trace is the LED's I–V curve: nothing flows below about 1.8 V,
+// then the current rises steeply. 1 V on the Y axis = 10 mA.
+// Try it: change the LED's colour (blue and white start near 2.7 V), raise the sweep's
+// set voltage, or press X-Y on the scope to see the sweep against time.`) };
+      add(p, 'ps', 'psu2', [120, 300], 0, { mode: 'indep', v1: 5, i1: 0.1, v2: 0, i2: 0.1, sw1: 'tri', lo1: 0, per1: 0.04, sw2: 'off', lo2: 0, per2: 1 }, 'PS1');
+      add(p, 'led', 'led', [380, 120], 0, { color: 'red' }, 'LED1');
+      add(p, 'r', 'resistor', [380, 300], 0, { ohms: 100 }, 'R1');
+      add(p, 'osc', 'scope', [700, 600], 0, { tdiv: 5, vdiv: 0.5, vdiv2: 0.5, pos1: -3, pos2: -3, inv2: true, xy: true }, 'OSC1');
+      const G = '#1f1f1f';
+      rw(p, ['ps', '1+'], ['led', 'A'], '#d62828');
+      rw(p, ['led', 'K'], ['r', '2'], '#7f8c8d');
+      rw(p, ['r', '1'], ['ps', '1-'], G);
+      rw(p, ['osc', 'GND'], ['led', 'K'], G);
+      rw(p, ['osc', 'CH1'], ['led', 'A'], '#f2c200');
+      rw(p, ['osc', 'CH2'], ['ps', '1-'], '#00b3b3');
+      return p;
+    },
+  });
+
   // ---------------------------------------------------------------- menu categories
   // The Examples menu groups examples under these headings, in this order. Each example
   // name must appear exactly once; anything missing lands in "Other".
@@ -1794,7 +1823,7 @@ void loop() {
     ['DC circuits', ['No code · Battery, switch and LED', 'Electronics · Zener voltage regulator']],
     ['Transients (RC, RL, RLC)', ['Electronics · Capacitor charging (power supply + switch)', 'Electronics · RL circuit: inductor with a square wave', 'Electronics · RLC circuit: underdamped ringing']],
     ['AC circuits & filters', ['Electronics · RC low-pass filter (function generator + scope)', 'Electronics · Bode plot: RC low-pass and Sallen-Key filters', 'Electronics · Half-wave rectifier with smoothing capacitor']],
-    ['Semiconductors & ICs', ['Electronics · Diode V-I curve (scope in X-Y mode)', 'Electronics · 555 timer LED blinker', 'Electronics · LM358 op-amp: amplifier + comparator']],
+    ['Semiconductors & ICs', ['Electronics · Diode V-I curve (scope in X-Y mode)', 'Electronics · LED I–V curve: DC sweep on the dual power supply (scope X-Y)', 'Electronics · 555 timer LED blinker', 'Electronics · LM358 op-amp: amplifier + comparator']],
     ['Controlled sources', ['Controlled sources · Sallen-Key low-pass filter (VCVS)', 'Controlled sources · Sallen-Key high-pass filter (VCVS)', 'Controlled sources · Transistor small-signal model (CCCS)']],
     ['Arduino basics', ['Mega 2560 · LED chaser on pins 22–29 + speed knob on A8', 'UNO Q · Blink (built-in LED)', 'UNO Q · Blink an external LED', 'UNO Q · Button controls LED', 'UNO Q · Fade an LED (PWM)', 'UNO Q · Potentiometer dimmer + Serial', 'UNO R3 · Traffic light', 'Nano · on a breadboard']],
     ['Arduino + measuring & analog', ['UNO Q · Measuring: multimeter & oscilloscope (v0.2)', 'UNO Q · PWM + RC filter = analog voltage', 'UNO R3 · Transistor motor driver (PWM speed)']],

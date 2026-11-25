@@ -2,6 +2,8 @@
 
 A free, offline breadboard designer and electronics simulator. Inspired by the breadboard view in tools like Fritzing, with built-in simulation for the **Arduino UNO Q** and similar boards, and bench instruments (multimeter, oscilloscope, Bode plotter, logic analyzer, function generator, power supply) for analog circuits with or without a microcontroller.
 
+![Wirebench in the dark theme: an Arduino UNO Q fading an LED on a breadboard, with a multimeter and an oscilloscope showing the PWM signal while the simulation runs](docs/screenshot-dark.png)
+
 ## Run it
 
 **In a browser, nothing to install:** open **https://isboonto.github.io/wirebench/**. The site is rebuilt from the `web` folder by `.github/workflows/pages.yml` on every push to `main` that changes it.
@@ -67,7 +69,7 @@ New to Wirebench? Open **Help → Getting started** (or press **F1**) in the app
 - **Bode plotter:** OUT drives the circuit with a small sine, IN measures the output; SWEEP measures gain (dB) and phase from 1 Hz to 1 MHz (stepped-sine through the full simulator, so op-amps and transistors work too) and marks the −3 dB points. SPICE export turns it into a `.ac` analysis.
 - **8-channel logic analyzer:** timing diagrams of digital signals with an edge trigger; records every edge of fast sequences such as `shiftOut()` (about 4 µs per Arduino call, as on a real UNO), shows PWM, and reads out frequencies.
 - **Function generator** (new in 0.3): sine, square, triangle or sawtooth, 0.1 Hz–1 MHz, amplitude and DC offset, 50 Ω output; clickable front panel (waveform keys, frequency ÷10/−/+/×10, amplitude, offset, OUTPUT ON/OFF).
-- **Dual power supply** (new in 0.5.1): two independent 0–30 V channels with current limits, or tracking mode for a ± supply.
+- **Dual power supply** (new in 0.5.1): two independent 0–30 V channels with current limits, or tracking mode for a ± supply. **DC sweep** (new in 1.0.0-beta.1): the **SWP** button makes a channel ramp from a start voltage to its set voltage (or up and down) over a sweep time — with the scope in X-Y mode this draws I–V curves.
 - **DC power supply** (new in 0.3): 0–30 V with an adjustable current limit (CV/CC), set with front-panel buttons.
 
 The function generator's COM and the scope's GND are earthed like real bench instruments, so they are always connected together (and to the board's GND).
