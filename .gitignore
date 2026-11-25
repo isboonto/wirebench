@@ -6,6 +6,12 @@
 # web/wasm/wb_core.wasm is built too, but stays in the repository on purpose:
 # the web version (serve.js, GitHub Pages) needs it and it is small.
 
+# Pyodide (Python for the UNO Q's Linux side, 2.x) — about 13.5 MB, not kept in Git for now.
+# Get it from npm: pyodide 314.0.8 (registry.npmjs.org/pyodide/-/pyodide-314.0.8.tgz, check the
+# sha512 "integrity" npm lists) and copy pyodide.js, pyodide.mjs, pyodide.asm.mjs, pyodide.asm.wasm,
+# python_stdlib.zip, pyodide-lock.json, package.json and README.md into web/vendor/pyodide/.
+/web/vendor/pyodide/
+
 # installers belong on GitHub Releases, not in the code
 *.msi
 *-setup.exe
