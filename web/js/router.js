@@ -168,7 +168,7 @@
 
   // After parts or wire ends moved: auto-routed wires, and straight pin-to-pin wires that became
   // slanted, get a new route; wires shaped by hand keep their joints and only get right-angle
-  // corners where they became slanted. With "Auto-route new wires" off, only auto-routed wires move.
+  // corners where they became slanted. (app.autoRoute is always on since 1.0.0-beta.1.)
   function retidy(app, wires) {
     const on = app.autoRoute;
     const route = wires.filter((w) => w.auto || (on && !(w.pts && w.pts.length) && slanted(app, w)));

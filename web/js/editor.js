@@ -47,14 +47,12 @@
       this.menuWire = wireCtx || null;
       menu.classList.toggle('wire', !!wireCtx);
       menu.querySelector('[data-ctx="tidyAll"]').disabled = locked || !this.app.project.wires.length;
-      menu.querySelector('#ctx-autoroute').innerHTML = WB.icon(this.app.autoRoute ? 'checkOn' : 'checkOff') + '<span>Auto-route new wires</span>';
       if (wireCtx) {
         const wire = this.app.wire(wireCtx.id);
         menu.querySelector('[data-ctx="autoRoute"]').disabled = locked;
         menu.querySelector('[data-ctx="addJoint"]').disabled = locked;
         menu.querySelector('[data-ctx="removeJoint"]').disabled = locked || wireCtx.bend < 0;
         menu.querySelector('[data-ctx="removeJoint"]').style.display = wireCtx.bend < 0 ? 'none' : '';
-        menu.querySelector('[data-ctx="straighten"]').disabled = locked || !(wire.pts && wire.pts.length);
         menu.querySelector('.ctx-colors').innerHTML = WB.WIRE_COLORS.map((c) => `<button class="sw${c === wire.color ? ' on' : ''}" data-ctx="color" data-color="${c}" style="background:${c}" title="${c}"${locked ? ' disabled' : ''}></button>`).join('');
       }
       menu.querySelector('[data-ctx="copy"]').disabled = !parts.length;
@@ -281,11 +279,16 @@
         const a = b.getAttribute('data-ctx');
         const mw = this.menuWire, wire = mw && this.app.wire(mw.id);
         if (wire && a === 'addJoint') { this.insertBend(wire, mw.world); return; }
-        if (wire && a === 'removeJoint') { this.app.mutate(() => { wire.pts.splice(mw.bend, 1); wire.auto = false; }); return; }
-        if (wire && a === 'straighten') { this.app.mutate(() => { wire.pts = []; wire.auto = false; }); return; }
+        if (wire && a === 'removeJoint') {
+          this.app.mutate(() => {
+            wire.pts.splice(mw.bend, 1); wire.auto = false;
+            const A = this.pinPos(wire.a), B = this.pinPos(wire.b);
+            if (A && B) wire.pts = orthoPath(A, wire.pts, B); // what is left stays at right angles
+          });
+          return;
+        }
         if (wire && a === 'autoRoute') { this.app.mutate(() => { if (!WB.Router.routeWire(this.app, wire)) this.app.toast('No route found.'); }); return; }
         if (a === 'tidyAll') { this.app.tidyAllWires(); return; }
-        if (a === 'autoRouteToggle') { this.app.setAutoRoute(!this.app.autoRoute); return; }
         if (wire && a === 'color') { const c = b.getAttribute('data-color'); this.app.mutate(() => { wire.color = c; }); return; }
         if (a === 'copy') this.app.copySelection(false);
         else if (a === 'cut') this.app.copySelection(true);

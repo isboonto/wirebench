@@ -204,8 +204,10 @@
       this.serialBuf = '';
       this.warnShown = '';
       this.applyTheme(); // Default / Light / Dark, plus the canvas override (◐)
+      // Wires are always auto-routed (right angles, around parts). Until 1.0.0-beta.1 this could be
+      // switched off from the canvas menu; a stored "off" is cleared so everyone gets the same behaviour.
       this.autoRoute = true;
-      try { this.autoRoute = localStorage.getItem('wirebench.autoroute') !== 'off'; } catch (e) { /* storage unavailable */ }
+      try { localStorage.removeItem('wirebench.autoroute'); } catch (e) { /* storage unavailable */ }
       this.editor = new WB.Editor(this);
       this.code = new CodeEditor(() => {
         this.project.code = this.code.value;
@@ -353,11 +355,6 @@
     }
 
     // ---------------- wire auto-routing
-    setAutoRoute(on) {
-      this.autoRoute = on;
-      try { localStorage.setItem('wirebench.autoroute', on ? 'on' : 'off'); } catch (e) { /* storage unavailable */ }
-      this.toast(on ? 'New wires will be auto-routed' : 'Auto-routing of new wires is off');
-    }
     // Tidy the selected wires, or every wire when none is selected.
     tidyAllWires() {
       const sel = this.project.wires.filter((w) => this.selection.has(w.id));
@@ -463,7 +460,7 @@
           <div class="muted small">${WB.esc(pa ? pa.name : '?')}.${WB.esc(w.a.pin)} → ${WB.esc(pb ? pb.name : '?')}.${WB.esc(w.b.pin)}</div>
           <label class="field-label">Color</label>
           <div class="swatches">${WB.WIRE_COLORS.map((c) => `<button class="sw${c === w.color ? ' on' : ''}" data-color="${c}" style="background:${c}"></button>`).join('')}</div>
-          <div class="insp-actions"><button data-act="autoroute">${WB.icon('route')} Auto-route</button><button data-act="straight">Remove joints</button><button data-act="del" class="danger">Delete</button></div>`;
+          <div class="insp-actions"><button data-act="autoroute">${WB.icon('route')} Auto-route</button><button data-act="del" class="danger">Delete</button></div>`;
         el.querySelectorAll('.sw').forEach((b) => b.addEventListener('click', () => this.mutate(() => { w.color = b.dataset.color; })));
         this.bindInspectorActions(el, w);
         if (this.locked()) this.lockForm(el);
@@ -643,7 +640,6 @@
         if (a === 'del') this.deleteSelection();
         else if (a === 'rotate') this.rotateSelection(90);
         else if (a === 'dup') this.duplicateSelection();
-        else if (a === 'straight' && wire) this.mutate(() => { wire.pts = []; wire.auto = false; });
         else if (a === 'autoroute' && wire) this.mutate(() => { WB.Router.routeWire(this, wire); });
       }));
     }
