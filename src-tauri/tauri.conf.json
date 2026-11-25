@@ -45,7 +45,7 @@
         "template": "nsis/installer.nsi"
       },
       "wix": {
-        "version": "1.0.0.2"
+        "version": "1.0.0.3"
       }
     },
     "category": "Education"

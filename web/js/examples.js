@@ -1802,9 +1802,9 @@ void loop() {
 // Try it: change the LED's colour (blue and white start near 2.7 V), raise the sweep's
 // set voltage, or press X-Y on the scope to see the sweep against time.`) };
       add(p, 'ps', 'psu2', [120, 300], 0, { mode: 'indep', v1: 5, i1: 0.1, v2: 0, i2: 0.1, sw1: 'tri', lo1: 0, per1: 0.04, sw2: 'off', lo2: 0, per2: 1 }, 'PS1');
-      add(p, 'led', 'led', [380, 120], 0, { color: 'red' }, 'LED1');
-      add(p, 'r', 'resistor', [380, 300], 0, { ohms: 100 }, 'R1');
-      add(p, 'osc', 'scope', [700, 600], 0, { tdiv: 5, vdiv: 0.5, vdiv2: 0.5, pos1: -3, pos2: -3, inv2: true, xy: true }, 'OSC1');
+      add(p, 'led', 'led', [470, 120], 0, { color: 'red' }, 'LED1');
+      add(p, 'r', 'resistor', [470, 300], 0, { ohms: 100 }, 'R1');
+      add(p, 'osc', 'scope', [760, 640], 0, { tdiv: 5, vdiv: 0.5, vdiv2: 0.5, pos1: -3, pos2: -3, inv2: true, xy: true }, 'OSC1');
       const G = '#1f1f1f';
       rw(p, ['ps', '1+'], ['led', 'A'], '#d62828');
       rw(p, ['led', 'K'], ['r', '2'], '#7f8c8d');

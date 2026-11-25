@@ -1279,6 +1279,19 @@
     },
   });
 
+  // Both bench supplies are drawn at twice their design size, so their buttons and displays are
+  // easy to use (pins stay on the 0.1" grid: every coordinate doubles, the panels' hit tests halve).
+  function enlarge(type, k) {
+    const d = WB.PARTS[type];
+    const pins = d.pins, bbox = d.bbox, hit = d.hit, render = d.render;
+    d.pins = (pr) => pins(pr).map((p) => Object.assign({}, p, { x: p.x * k, y: p.y * k }));
+    d.bbox = (pr) => bbox(pr).map((v) => v * k);
+    if (hit) d.hit = (lx, ly, part) => hit(lx / k, ly / k, part);
+    d.render = (p, v) => `<g transform="scale(${k})">${render(p, v)}</g>`;
+  }
+  enlarge('psu', 2);
+  enlarge('psu2', 2);
+
   // ---------------------------------------------------------------- Coin cell
   WB.defPart('coincell', {
     label: 'Coin cell (CR2032)', category: 'Power', prefix: 'BAT', refPin: '-',
