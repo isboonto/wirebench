@@ -8,6 +8,28 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; frame-src 'none'">
   <title>Wirebench — breadboard designer &amp; Arduino simulator</title>
   <link rel="stylesheet" href="css/app.css">
+  <!-- Preload every script and the solver: with the CSP <meta> above, Chrome/Edge don't look ahead
+       for the <script> tags at the end of <body>, so without these they download one at a time
+       (8 s on GitHub Pages instead of 2). Keep the list in step with the <script> tags — build.ps1 checks. -->
+  <link rel="preload" href="js/util.js" as="script">
+  <link rel="preload" href="js/icons.js" as="script">
+  <link rel="preload" href="js/parts.js" as="script">
+  <link rel="preload" href="js/parts-more.js" as="script">
+  <link rel="preload" href="js/nextion.js" as="script">
+  <link rel="preload" href="js/boards.js" as="script">
+  <link rel="preload" href="js/cyd.js" as="script">
+  <link rel="preload" href="js/circuit.js" as="script">
+  <link rel="preload" href="js/native.js" as="script">
+  <link rel="preload" href="js/sketch.js" as="script">
+  <link rel="preload" href="js/runtime.js" as="script">
+  <link rel="preload" href="js/editor.js" as="script">
+  <link rel="preload" href="js/router.js" as="script">
+  <link rel="preload" href="js/schematic.js" as="script">
+  <link rel="preload" href="js/spice.js" as="script">
+  <link rel="preload" href="js/examples.js" as="script">
+  <link rel="preload" href="js/help.js" as="script">
+  <link rel="preload" href="js/app.js" as="script">
+  <link rel="preload" href="wasm/wb_core.wasm" as="fetch" type="application/wasm" crossorigin>
 </head>
 <body>
   <header id="toolbar">

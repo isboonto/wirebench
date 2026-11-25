@@ -21,6 +21,14 @@ if ($cargoVer -ne $ver -or $helpVer -ne $ver -or $readmeVer -ne $short) {
   throw "Version mismatch: tauri.conf.json $ver, Cargo.toml $cargoVer, help.js $helpVer, README heading $readmeVer (should be $short)"
 }
 
+# index.html preloads every script it loads (see the comment there); stop if the two lists differ.
+$html = Get-Content web\index.html -Raw
+$scripts = [regex]::Matches($html, '<script src="([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
+$preloads = [regex]::Matches($html, '<link rel="preload" href="([^"]+)" as="script"') | ForEach-Object { $_.Groups[1].Value }
+if (($scripts -join ',') -ne ($preloads -join ',')) {
+  throw "index.html: the <link rel=""preload""> list must match the <script> tags, in the same order.`n  scripts:  $($scripts -join ', ')`n  preloads: $($preloads -join ', ')"
+}
+
 Write-Host '==> Building the Rust circuit solver for the UI (WebAssembly)'
 cargo build -p wb-core --target wasm32-unknown-unknown --release
 New-Item -ItemType Directory -Force web\wasm | Out-Null

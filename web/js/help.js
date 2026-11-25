@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '0.12.0';
+  WB.VERSION = '0.12.1';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -251,6 +251,7 @@
       <h3 class="about-h">What's new</h3>
       <h3>What's new in 0.12</h3>
       <ul>
+        <li>0.12.1: the <b>web version loads about four times faster</b>. Since 0.9.1 its security policy had made Chrome and Edge download its 18 program files one after another; they now download all at once, together with the circuit solver. The Examples menu has a new <b>Touch screens: Nextion &amp; CYD</b> heading for the Nextion and CYD examples.</li>
         <li>0.12.0: new board <b>CYD 7"</b> (ESP32-8048S070C, ESP32-S3). Its 800×480 screen works with the <b>Arduino_GFX</b> library (the usual <code>Arduino_ESP32RGBPanel</code> / <code>Arduino_RGB_Display</code> setup compiles as it is; <code>gfx-&gt;fillScreen</code>, shapes, arcs, text, rotation) and its capacitive touch with <b>TAMC_GT911</b> (<code>read()</code>, <code>isTouched</code>, <code>points[0]</code>). The backlight is GPIO2: the screen stays dark until the sketch switches it on (a hint says how), and <code>ledcWrite</code> dims it. Connectors P1–P4 (IO17–20, IO11–13, TX/RX); BOOT button. New example: <i>CYD 7" · touch screen</i>.</li>
       </ul>
       <h3>What's new in 0.11</h3>

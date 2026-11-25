@@ -1799,6 +1799,7 @@ void loop() {
     ['Arduino basics', ['Mega 2560 · LED chaser on pins 22–29 + speed knob on A8', 'UNO Q · Blink (built-in LED)', 'UNO Q · Blink an external LED', 'UNO Q · Button controls LED', 'UNO Q · Fade an LED (PWM)', 'UNO Q · Potentiometer dimmer + Serial', 'UNO R3 · Traffic light', 'Nano · on a breadboard']],
     ['Arduino + measuring & analog', ['UNO Q · Measuring: multimeter & oscilloscope (v0.2)', 'UNO Q · PWM + RC filter = analog voltage', 'UNO R3 · Transistor motor driver (PWM speed)']],
     ['Arduino output: displays, sound & motion', ['UNO Q · LED matrix bouncing dot', 'UNO R4 WiFi · LED matrix heartbeat', 'UNO R3 · LCD 16×2: hello + seconds counter', 'UNO R3 · 74HC595 shift register: 8 LEDs', 'UNO R3 · Logic analyzer: watch shiftOut() and a 74HC595', 'UNO R3 · NeoPixel ring rainbow', 'UNO R3 · Melody on a piezo buzzer', 'UNO R4 WiFi · Servo sweep']],
+    ['Touch screens: Nextion & CYD', ['UNO R3 · Nextion 7" touch display: knob, bar, gauge and LED buttons', 'CYD · touch screen: draw, RGB LED buttons, light sensor', 'CYD · potentiometer gauge on IO35 + LED dimmer on IO27', 'CYD 7" · touch screen: draw, LED buttons, backlight brightness']],
     ['Arduino input & sensors', ['UNO Q · TMP36 thermometer', 'UNO R3 · Ultrasonic distance (HC-SR04)', 'UNO Q · PIR motion detector', 'UNO R3 · Keypad 4×4 to the Serial Monitor', 'UNO R3 · IR remote control', 'UNO Q · Modulino Buttons, Pixels & Buzzer', 'UNO Q · Modulino sensors (Knob, Distance, Thermo, Movement)']],
   ];
   const catOf = new Map();
