@@ -461,7 +461,16 @@
         return;
       }
       if (ti.wire) {
-        app.select(ti.wire.getAttribute('data-id'), e.shiftKey);
+        const wire = app.wire(ti.wire.getAttribute('data-id'));
+        app.select(wire.id, e.shiftKey);
+        // dragging anywhere along a wire moves that piece of it (see 'seg' in onMove)
+        const full = this.wirePoints(wire);
+        if (full && !e.shiftKey) {
+          let idx = 0, bd = Infinity;
+          for (let i = 0; i < full.length - 1; i++) { const d = segDist(w, full[i], full[i + 1]); if (d < bd) { bd = d; idx = i; } }
+          this.snapshot = app.snapshot();
+          this.mode = { kind: 'seg', wire, idx, start: w, sx: e.clientX, sy: e.clientY, full: full.map((p) => p.slice()), moved: false };
+        }
         e.preventDefault();
         return;
       }
@@ -612,6 +621,23 @@
         }
         for (const it of m.wires) it.w.pts = it.pts.map(([x, y]) => [x + dx, y + dy]);
         this.renderWires();
+      } else if (m.kind === 'seg') {
+        // Drag one piece of a wire: a horizontal piece moves up / down, a vertical one left / right,
+        // and the pieces next to it stretch so the wire stays at right angles. A piece that starts
+        // or ends on a pin gets a new corner there, so the wire stays on its pin.
+        if (!m.moved && Math.hypot(e.clientX - m.sx, e.clientY - m.sy) < 5) return;
+        const w = this.toWorld(e);
+        const F = m.full.map((p) => p.slice());
+        let i = m.idx;
+        const horiz = Math.abs(F[i][1] - F[i + 1][1]) < 0.5, vert = Math.abs(F[i][0] - F[i + 1][0]) < 0.5;
+        if (i === 0) { F.splice(1, 0, F[0].slice()); i = 1; }
+        if (i + 1 === F.length - 1) F.splice(F.length - 1, 0, F[F.length - 1].slice());
+        const dx = WB.snap(w.x - m.start.x), dy = WB.snap(w.y - m.start.y);
+        if (!horiz) { F[i][0] += dx; F[i + 1][0] += dx; }
+        if (!vert) { F[i][1] += dy; F[i + 1][1] += dy; }
+        m.wire.pts = orthoPath(F[0], F.slice(1, -1), F[F.length - 1]);
+        m.moved = true;
+        this.renderWires();
       } else if (m.kind === 'bend') {
         const w = this.toWorld(e);
         const pts = m.base.map((p) => p.slice());
@@ -675,7 +701,7 @@
         app.changed();
       }
       else if (m.kind === 'drag' && m.dup) { app.undo(); app.redoStack = []; } // Ctrl+click without moving: drop the copy
-      else if (m.kind === 'bend' && m.moved) { m.wire.auto = false; app.pushUndo(this.snapshot); app.changed(); }
+      else if ((m.kind === 'bend' || m.kind === 'seg') && m.moved) { m.wire.auto = false; app.pushUndo(this.snapshot); app.changed(); }
       else if (m.kind === 'end') {
         this.layerOver.innerHTML = '';
         if (!m.moved) return;

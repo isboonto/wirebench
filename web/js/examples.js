@@ -1656,7 +1656,7 @@ void loop() {
       add(p, 'q', 'darlington', hole('f10'), 0, {}, 'Q1');
       add(p, 'rb', 'resistor', hole('i5'), 0, { ohms: 1000 }, 'R1');
       add(p, 'd', 'diode', hole('j11'), 0, { model: '1N4001' }, 'D1');
-      add(p, 'm', 'motor', [560, 330], 0, { model: 'dc' }, 'M1');
+      add(p, 'm', 'motor', [560, 340], 0, { model: 'dc' }, 'M1');
       add(p, 'bat', 'battery', [430, 380], 0, { volts: 9 }, 'BAT1');
       const G = '#1f1f1f', R = '#d62828';
       rw(p, ['board', 'D9'], ['bb', 'j5'], '#2f7de1');

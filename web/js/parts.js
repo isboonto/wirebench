@@ -1795,10 +1795,17 @@
   }
   WB.bbLayout = bbLayout;
 
+  const BB_FRAME = 20;
   function bbRender(cols, blocks) {
     blocks = blocks || 1;
     const { w, h } = bbLayout(cols, blocks);
-    let s = `<rect x="0" y="0" width="${w}" height="${h}" rx="5" fill="#f1efe8" stroke="#c9c4b5"/>`;
+    // A 20 px frame (BB_FRAME) round the board: something to grab that is not a hole, so the
+    // board is easy to move with a finger. The holes keep their positions.
+    const F = BB_FRAME;
+    let s = `<rect x="${-F}" y="${-F}" width="${w + 2 * F}" height="${h + 2 * F}" rx="9" fill="#d9d3c4" stroke="#b4ad9c"/>`;
+    for (const [gx, gy, vertical] of [[w / 2, -F / 2, false], [w / 2, h + F / 2, false], [-F / 2, h / 2, true], [w + F / 2, h / 2, true]])
+      for (let k = -2; k <= 2; k++) s += `<circle cx="${vertical ? gx : gx + k * 7}" cy="${vertical ? gy + k * 7 : gy}" r="1.6" fill="#b4ad9c"/>`;
+    s += `<rect x="0" y="0" width="${w}" height="${h}" rx="5" fill="#f1efe8" stroke="#c9c4b5"/>`;
     for (let b = 0; b < blocks; b++) {
       const y = b * 190, rows = BLOCK_ROWS[b];
       if (b) s += `<line x1="4" y1="${y}" x2="${w - 4}" y2="${y}" stroke="#d6d1c3" stroke-width="1"/>`;
@@ -1822,7 +1829,7 @@
       label, category: 'Breadboards', prefix: 'BB', holes: true, layer: 0,
       pins: () => bbLayout(cols, blocks).pins,
       groups: () => bbLayout(cols, blocks).groups,
-      bbox: () => [0, 0, bbLayout(cols, blocks).w, 190 * blocks],
+      bbox: () => [-BB_FRAME, -BB_FRAME, bbLayout(cols, blocks).w + 2 * BB_FRAME, 190 * blocks + 2 * BB_FRAME],
       summary: () => blocks > 1 ? `${blocks} × ${cols} columns, ${blocks * 4} power rails` : cols + ' columns',
       render: () => cached || (cached = bbRender(cols, blocks)),
     });
