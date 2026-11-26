@@ -225,6 +225,8 @@
       try { panelPref = localStorage.getItem('wirebench.codePanel'); } catch (e) { /* storage unavailable */ }
       if (panelPref === 'hidden') this.setCodePanel(false, true); else $('#btn-panel').classList.add('active');
       this.loadLayout();
+      // phones: start with the circuit on the whole screen (the panels open on top of it)
+      if (this.narrow()) { this.setLeftPanel(false, true); this.setCodePanel(false, true); }
       const saved = this.loadLocal();
       if (saved) this.loadProject(saved, true);
       else this.loadProject(WB.EXAMPLES[1].build(), true);
@@ -311,6 +313,7 @@
       }
       const part = { id: WB.uid(def.prefix.toLowerCase()), type, x: WB.snap(at.x - bx - bw / 2), y: WB.snap(at.y - by - bh / 2), rot: 0, props: WB.clone(def.defaults), name: this.nextName(def.prefix) };
       this.mutate(() => { this.project.parts.push(part); this.selection = new Set([part.id]); });
+      if (this.narrow()) this.setLeftPanel(false, true); // phones: show the new part instead of the parts list
     }
     // Toolbar "📝 Note" / key N: drop a note in the middle of the view and open its editor
     // with the placeholder text selected, so typing replaces it.
@@ -1630,6 +1633,8 @@
       document.querySelectorAll(`.sec-toggle[data-sec="${sec}"]`).forEach((b) => { b.textContent = show ? '▾' : '▸'; });
       this.saveLayout();
     }
+    // Phone-sized screen (see the 700 px layout in app.css): side panels cover the circuit.
+    narrow() { return !!(window.matchMedia && window.matchMedia('(max-width: 700px)').matches); }
     // Show / hide the whole left panel (parts list and inspector).
     setLeftPanel(show, quiet) {
       if (show === !document.body.classList.contains('left-hidden')) return;

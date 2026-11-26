@@ -230,7 +230,7 @@ button.danger:hover { background: var(--danger-bg); border-color: var(--danger-b
 .sw.on { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ------------------------------------------------ stage */
-#stage { position: relative; overflow: hidden; background: var(--canvas); }
+#stage { position: relative; overflow: hidden; background: var(--canvas); overscroll-behavior: none; }
 body.canvas-dark { --canvas: #191d23; --grid: #323a46; --canvas-hint: #6f7a8c; --canvas-hint-b: #9aa5b6; --rubber: #6ff0dd; --wire-glow: rgba(111, 240, 221, .45); --wire-glow-sel: rgba(111, 240, 221, .6); }
 #canvas { width: 100%; height: 100%; display: block; cursor: default; touch-action: none; user-select: none; -webkit-user-select: none; }
 html, body { touch-action: pan-x pan-y; }
@@ -407,6 +407,30 @@ dialog form { text-align: right; margin-top: 10px; }
   body.code-hidden main { grid-template-columns: 220px 1fr 0; }
   body.left-hidden main { grid-template-columns: 0 1fr 360px; }
   body.left-hidden.code-hidden main { grid-template-columns: 0 1fr 0; }
+}
+/* Tablets and phones (up to 900 px, e.g. an upright iPad): the toolbar wraps onto more rows
+   instead of hiding buttons, so Run, Rotate, Delete and Tidy stay reachable without a keyboard or
+   right-click. The workspace below takes the rest of the height. */
+@media (max-width: 900px) {
+  body { display: flex; flex-direction: column; }
+  #toolbar { height: auto; flex-wrap: wrap; row-gap: 6px; gap: 6px; padding: 6px 8px; overflow: visible; }
+  #toolbar .tb-spacer, #toolbar .tb-zoom { display: none; }   /* the zoom bar on the canvas does the same */
+  #toolbar .tb-group { padding-left: 6px; }
+  #toolbar .brand span, #sim-time { display: none; }
+  #btn-run .lbl-long { display: none; }
+  #btn-run .lbl-short { display: inline; }
+  main { flex: 1; height: auto; min-height: 0; position: relative; }
+}
+/* Phones (up to 700 px): button labels go, the circuit gets the whole width, and the Parts and
+   Code panels open on top of it (app.js starts with both closed on a narrow screen). */
+@media (max-width: 700px) {
+  #toolbar .lbl { display: none; }
+  #examples { width: 110px; }
+  main, body.code-hidden main, body.left-hidden main, body.left-hidden.code-hidden main { grid-template-columns: 0 1fr 0; }
+  /* grid-column 1 / -1: an absolutely placed grid item is sized against its grid area, which is 0 wide here */
+  body:not(.left-hidden) #left { grid-column: 1 / -1; position: absolute; top: 0; left: 0; bottom: 0; width: min(300px, 88vw); z-index: 45; box-shadow: 0 0 24px #0009; }
+  body:not(.code-hidden) #right { grid-column: 1 / -1; position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 45; }
+  #hint { display: none; }
 }
 
 /* ------------------------------------------------ themes

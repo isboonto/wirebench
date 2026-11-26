@@ -251,6 +251,13 @@
       const endTouch = (e) => { this.touches.delete(e.pointerId); if (this.touches.size < 2) this.pinch = null; };
       window.addEventListener('pointerup', endTouch, true);
       window.addEventListener('pointercancel', endTouch, true);
+      // iPad / iPhone Safari ignores touch-action on SVG elements: without this, a one-finger drag
+      // scrolls the page and cancels the pointer, so parts could only be moved with two fingers.
+      // (Blocking touchmove keeps taps and double-taps working; only the drawing itself is blocked,
+      // so the settings dialog and menus on top of it still scroll.)
+      svg.addEventListener('touchmove', (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+      // a touch the browser cancels anyway ends the drag like lifting the finger
+      window.addEventListener('pointercancel', (e) => { if (e.pointerType === 'touch' && (this.mode || this.drawing)) this.onUp(e); });
       svg.addEventListener('dblclick', (e) => this.onDbl(e));
       svg.addEventListener('contextmenu', (e) => {
         e.preventDefault();
