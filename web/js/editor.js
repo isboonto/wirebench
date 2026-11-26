@@ -51,8 +51,7 @@
         const wire = this.app.wire(wireCtx.id);
         menu.querySelector('[data-ctx="autoRoute"]').disabled = locked;
         menu.querySelector('[data-ctx="addJoint"]').disabled = locked;
-        menu.querySelector('[data-ctx="removeJoint"]').disabled = locked || wireCtx.bend < 0;
-        menu.querySelector('[data-ctx="removeJoint"]').style.display = wireCtx.bend < 0 ? 'none' : '';
+        menu.querySelector('[data-ctx="removeJoint"]').disabled = locked || !(wire.pts && wire.pts.length);
         menu.querySelector('.ctx-colors').innerHTML = WB.WIRE_COLORS.map((c) => `<button class="sw${c === wire.color ? ' on' : ''}" data-ctx="color" data-color="${c}" style="background:${c}" title="${c}"${locked ? ' disabled' : ''}></button>`).join('');
       }
       menu.querySelector('[data-ctx="copy"]').disabled = !parts.length;
@@ -261,6 +260,37 @@
       svg.addEventListener('dblclick', (e) => this.onDbl(e));
       svg.addEventListener('contextmenu', (e) => {
         e.preventDefault();
+        // Android also sends contextmenu after a long press: the long-press menu below is already open
+        if (performance.now() - (this.longPressAt || 0) < 1500) return;
+        this.openContextMenu(e);
+      });
+      // Touch: press and hold (about half a second, without moving) opens the same menu as a
+      // right-click. Safari on iPad never sends contextmenu, so this is its only way to the menu.
+      const LP_MS = 550, LP_MOVE = 10;
+      const lpCancel = () => { clearTimeout(this.lpTimer); this.lp = null; };
+      svg.addEventListener('pointerdown', (e) => {
+        lpCancel();
+        if (e.pointerType !== 'touch' || this.touches.size > 1) return;
+        const lp = (this.lp = { x: e.clientX, y: e.clientY, target: e.target });
+        this.lpTimer = setTimeout(() => {
+          if (this.lp !== lp || this.touches.size > 1) return;
+          this.lp = null;
+          this.longPressAt = performance.now();
+          // the press began a drag or a wire: drop that, nothing has moved yet
+          this.mode = null;
+          if (this.drawing && !this.drawing.pts.length) this.cancelDraw();
+          this.openContextMenu({ clientX: lp.x, clientY: lp.y, target: lp.target, preventDefault() {} });
+        }, LP_MS);
+      });
+      window.addEventListener('pointermove', (e) => { if (this.lp && e.pointerType === 'touch' && Math.hypot(e.clientX - this.lp.x, e.clientY - this.lp.y) > LP_MOVE) lpCancel(); });
+      window.addEventListener('pointerup', lpCancel);
+      window.addEventListener('pointercancel', lpCancel);
+      this.bindMenu();
+    }
+    // Right-click (or a touch long-press) on the canvas: the menu for the wire or part under the
+    // pointer, or for the canvas.
+    openContextMenu(e) {
+      {
         if (this.drawing) { this.cancelDraw(); return; }
         const ti = this.targetInfo(e.target);
         const el = ti.wire || ti.part;
@@ -278,7 +308,10 @@
         this.mouseInside = true;
         this.menuWorld = this.mouseWorld;
         this.showMenu(e, wireCtx);
-      });
+      }
+    }
+    bindMenu() {
+      const svg = this.svg;
       document.getElementById('ctx-menu').addEventListener('click', (e) => {
         const b = e.target.closest('[data-ctx]');
         if (!b) return;
@@ -287,8 +320,12 @@
         const mw = this.menuWire, wire = mw && this.app.wire(mw.id);
         if (wire && a === 'addJoint') { this.insertBend(wire, mw.world); return; }
         if (wire && a === 'removeJoint') {
+          // the joint that was pressed, or else the one nearest to where the menu was opened
+          let k = mw.bend;
+          if (k < 0) { let bd = Infinity; (wire.pts || []).forEach((p, i) => { const d = Math.hypot(p[0] - mw.world.x, p[1] - mw.world.y); if (d < bd) { bd = d; k = i; } }); }
+          if (k < 0) return;
           this.app.mutate(() => {
-            wire.pts.splice(mw.bend, 1); wire.auto = false;
+            wire.pts.splice(k, 1); wire.auto = false;
             const A = this.pinPos(wire.a), B = this.pinPos(wire.b);
             if (A && B) wire.pts = orthoPath(A, wire.pts, B); // what is left stays at right angles
           });
