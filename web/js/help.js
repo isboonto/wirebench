@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '1.0.0-beta.1';
+  WB.VERSION = '1.0.0-beta.2';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -16,10 +16,10 @@
 
   // ---------------------------------------------------------------- About page
   const LINKS = {
-    site: 'https://isboonto.github.io/wirebench/',
-    repo: 'https://github.com/isboonto/wirebench',
-    releases: 'https://github.com/isboonto/wirebench/releases',
-    issues: 'https://github.com/isboonto/wirebench/issues',
+    site: 'https://isboonto.github.io/jumpercraft/',
+    repo: 'https://github.com/isboonto/jumpercraft',
+    releases: 'https://github.com/isboonto/jumpercraft/releases',
+    issues: 'https://github.com/isboonto/jumpercraft/issues',
   };
   const LOGO = '<svg viewBox="0 0 24 24" width="56" height="56" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="10" r="1.3" fill="currentColor"/><circle cx="11" cy="10" r="1.3" fill="currentColor"/><circle cx="15" cy="14" r="1.3" fill="currentColor"/><path d="M7 10 C 9 16, 13 16, 15 14" fill="none" stroke="#ffb020" stroke-width="1.8" stroke-linecap="round"/></svg>';
   const ICON = {
@@ -39,7 +39,7 @@
       <div class="about-hero">
         <div class="about-logo">${LOGO}</div>
         <div class="about-title">
-          <h2>Wirebench</h2>
+          <h2>JumperCraft</h2>
           <p>Breadboard designer and electronics simulator for Arduino and analog circuits</p>
           <div class="about-badges"><span class="badge accent">Version ${esc(WB.VERSION)}</span><span class="badge">${WB.isDesktop ? 'Desktop app' : 'Web version'}</span><span class="badge">MIT License</span></div>
         </div>
@@ -109,8 +109,8 @@
           For fast signals the analog part of the simulation runs in <b>slow motion</b> (shown on the scope and next to the run time) so every point can be calculated.</li>
       </ul>
       <h3>Saving your work</h3>
-      <p>Your work is saved automatically. Use <b>Save</b> / <b>Open</b> to keep projects as <b>Wirebench project files (.wbproj)</b> — in the desktop app you can also double-click a .wbproj file to open it — and older .json projects still open; and <b>Export</b> for a picture of the breadboard (PNG/SVG), the sketch (.ino), a <b>schematic diagram</b> (an A4 sheet drawn from your circuit with standard symbols, a parts list and a title block — save it as SVG or PNG), or a netlist and parts list. The schematic draws the <b>wires</b>: parts are placed next to what they connect to and joined by right-angle wires; a dot marks joined wires, wires that cross without a dot are not connected, ⏚ is ground and × a pin that is not connected. Switch to <b>Net labels</b> in the preview for the label style (pins with the same label are connected).</p>
-      <p><b>File → Export → SPICE netlist for LTspice</b> writes your circuit as a <b>.cir</b> file for LTspice (File → Open, then Run), using the same component models Wirebench simulates plus BJT, MOSFET and op-amp models; the oscilloscope sets the <code>.tran</code> time. Digital parts (555, 74HC logic, displays) are listed as comments with the net of each pin. Export while the simulation runs to include the Arduino pins' present state (HIGH, LOW or PWM).</p>
+      <p>Your work is saved automatically. Use <b>Save</b> / <b>Open</b> to keep projects as <b>JumperCraft project files (.wbproj)</b> — in the desktop app you can also double-click a .wbproj file to open it — and older .json projects still open; and <b>Export</b> for a picture of the breadboard (PNG/SVG), the sketch (.ino), a <b>schematic diagram</b> (an A4 sheet drawn from your circuit with standard symbols, a parts list and a title block — save it as SVG or PNG), or a netlist and parts list. The schematic draws the <b>wires</b>: parts are placed next to what they connect to and joined by right-angle wires; a dot marks joined wires, wires that cross without a dot are not connected, ⏚ is ground and × a pin that is not connected. Switch to <b>Net labels</b> in the preview for the label style (pins with the same label are connected).</p>
+      <p><b>File → Export → SPICE netlist for LTspice</b> writes your circuit as a <b>.cir</b> file for LTspice (File → Open, then Run), using the same component models JumperCraft simulates plus BJT, MOSFET and op-amp models; the oscilloscope sets the <code>.tran</code> time. Digital parts (555, 74HC logic, displays) are listed as comments with the net of each pin. Export while the simulation runs to include the Arduino pins' present state (HIGH, LOW or PWM).</p>
       <h3>Learn from examples</h3>
       <p>The <b>Examples</b> menu has ready-made projects: blink, buttons, fading, potentiometer, traffic light, servo, LED matrix, melody, temperature, ultrasonic distance, PIR motion, Modulino, and analog electronics with the function generator, power supply and scope.</p>`,
 
@@ -153,7 +153,7 @@
           ['Ctrl+B', 'Show / hide the code panel (the circuit is refitted to the new space)'],
           ['Ctrl+Shift+B', 'Show / hide the parts panel (◧ Parts: the parts list and the inspector on the left)'],
           ['Drag a category heading', 'Reorder the parts list (right-click a heading: move up / down / to top, or reset the order)'],
-          ['Ctrl+S / Ctrl+O', 'Save / open project (● in the title and on Save = unsaved changes; Wirebench asks before replacing or closing them)'],
+          ['Ctrl+S / Ctrl+O', 'Save / open project (● in the title and on Save = unsaved changes; JumperCraft asks before replacing or closing them)'],
           ['Ctrl+P', 'Print: choose the breadboard view, schematic, instrument screens, sketch and parts list, then print or save as PDF (File → Print…)'],
           ['Tab', 'Indent in the code editor'],
           ['F1', 'Open this help'],
@@ -252,6 +252,7 @@
       <h3 class="about-h">What's new</h3>
       <h3>What's new in 1.0 (beta)</h3>
       <ul>
+        <li>1.0.0-beta.2: <b>Wirebench is now JumperCraft.</b> The old name turned out to be used already by another electronics tool. Your work carries over: the autosave, settings, “My examples” (the old Wirebench examples folder is still read) and <code>.wbproj</code> project files all keep working, and installing JumperCraft removes the old Wirebench program. The web version moved to <b>isboonto.github.io/jumpercraft</b>; the old address forwards there.</li>
         <li>1.0.0-beta.1: the first <b>1.0 beta</b> — everything from 0.1 to 0.12 in one release, and the first with ready-made Windows installers on GitHub (Releases, marked “Pre-release”). New in it: the <b>dual power supply</b> can <b>sweep</b> — its <b>SWP</b> button makes a channel ramp from a start voltage to its set voltage (or up and down) over a sweep time, for I–V curves on the scope in X-Y mode; new example <i>LED I–V curve: DC sweep on the dual power supply</i>. Both power supplies are now drawn twice as large, so their buttons and displays are easier to use. <b>Auto-routing</b>: wires no longer end in a slanted piece after you move a part or drag a wire's end — they are routed again (wires you shaped yourself keep their joints and get right-angle corners), and older projects with the power supplies open with tidy wires. Auto-routing can no longer be switched off (the “Auto-route new wires” menu item and “Remove joints” are gone), so wires always run at right angles. <b>Phones and tablets</b>: on a phone the toolbar wraps onto more rows (so <b>Run</b> is always visible), the circuit fills the screen and the Parts and Code panels slide over it; on an upright iPad the toolbar also wraps instead of hiding Rotate and Tidy wires. On iPad and iPhone a part now moves with <b>one finger</b> (Safari used to take one-finger drags for scrolling). <b>Breadboards</b> have a grip frame round the holes, so they are easy to move with a finger. <b>Wires</b> can be dragged at any point: a horizontal piece moves up or down, a vertical one left or right, and the wire stays at right angles and on its pins. On a touch screen, <b>press and hold</b> (half a second) opens the same menu as a right-click — also on iPad, which had no menu before — and a wire's menu is the same wherever you press it (<b>Remove joint</b> takes the nearest joint). Please report anything that doesn't work as expected; fixes come as further betas before 1.0.0.</li>
       </ul>
       <h3>What's new in 0.12</h3>
@@ -270,7 +271,7 @@
       <h3>What's new in 0.9</h3>
       <ul>
         <li>0.9.2: <b>Export → Schematic diagram</b> and <b>Print</b> always start with the connections drawn as <b>wires</b>. Net labels is still one click away (“Connections: Wires | Net labels”), but is no longer remembered — a remembered choice made it look as if the wires had disappeared.</li>
-        <li>0.9.1: <b>security</b> — project files are checked when they are opened, so a shared or downloaded project can no longer slip script into Wirebench through a part setting or wire colour; sketches can't reach outside the simulator (names starting with <code>__</code>, <code>this</code>, <code>.constructor</code> and similar JavaScript internals are refused — none of them are Arduino C++); and a content security policy blocks injected scripts in both the desktop app and the web version. Print: a new <b>Schematic: Wires / Net labels</b> choice (default Wires) — the printout no longer follows the last choice in the schematic export.</li>
+        <li>0.9.1: <b>security</b> — project files are checked when they are opened, so a shared or downloaded project can no longer slip script into JumperCraft through a part setting or wire colour; sketches can't reach outside the simulator (names starting with <code>__</code>, <code>this</code>, <code>.constructor</code> and similar JavaScript internals are refused — none of them are Arduino C++); and a content security policy blocks injected scripts in both the desktop app and the web version. Print: a new <b>Schematic: Wires / Net labels</b> choice (default Wires) — the printout no longer follows the last choice in the schematic export.</li>
         <li>0.9.0: <b>File → Print…</b> (Ctrl+P). Choose the breadboard view, schematic, instrument screens (each instrument enlarged, exactly as it shows now — for lab reports), sketch with line numbers, and parts list &amp; netlist; add a title and your name; pick A4 or Letter, landscape or portrait. Each section starts a new page. Choose “Save as PDF” as the printer to get a PDF.</li>
         <li>New oscilloscopes start with 0 V in the middle of the screen for both channels.</li>
       </ul>
@@ -282,12 +283,12 @@
       <ul>
         <li>0.7.3: one <b>File</b> menu for New, Open, Save, Export and Theme, and small line icons in front of every menu item (File, Help, right-click and category menus) and on the toolbar's edit buttons.</li>
         <li>0.7.2: fixed the <b>◧ Parts</b> button — hiding the left panel showed a black area instead of a wider canvas. <b>Tidy wires</b> and auto-route now have a wire-route icon instead of ✨.</li>
-        <li>0.7.1: <b>unsaved changes</b> are tracked — a ● in the title and on Save, and Wirebench asks <i>Save / Don't save / Cancel</i> before New, Open, an example, a double-clicked project or closing the window (the desktop window title now shows the project name). New <b>compact Voltmeter and Ammeter</b> (Parts → Instruments): small panel meters that plug into the breadboard, with DC / AC (true RMS) readings. The toolbar now fits any window width without buttons overlapping; on narrower windows New / Open / Save move into a <b>File</b> menu.</li>
+        <li>0.7.1: <b>unsaved changes</b> are tracked — a ● in the title and on Save, and JumperCraft asks <i>Save / Don't save / Cancel</i> before New, Open, an example, a double-clicked project or closing the window (the desktop window title now shows the project name). New <b>compact Voltmeter and Ammeter</b> (Parts → Instruments): small panel meters that plug into the breadboard, with DC / AC (true RMS) readings. The toolbar now fits any window width without buttons overlapping; on narrower windows New / Open / Save move into a <b>File</b> menu.</li>
         <li>0.7.0: <b>rearrange the part categories</b> — drag a category heading up or down the parts list, or right-click it for Move to top / up / down / bottom and Reset category order; your order is remembered. Opening or closing the <b>code panel</b> or the parts panel now <b>refits the circuit</b> to the space left.</li>
       </ul>
       <h3>What's new in 0.6</h3>
       <ul>
-        <li>0.6.9: projects are saved as <b>Wirebench project files (.wbproj)</b>, named after the project, with a header (format, version, date, board) and one line per part and wire; in the desktop app double-clicking a .wbproj file opens it. Older .json projects still open.</li>
+        <li>0.6.9: projects are saved as <b>JumperCraft project files (.wbproj)</b>, named after the project, with a header (format, version, date, board) and one line per part and wire; in the desktop app double-clicking a .wbproj file opens it. Older .json projects still open.</li>
         <li>0.6.8: a new <b>About</b> page — version and platform at a glance, links to the website, source code, downloads and issue tracker (opened in your browser), author, engine and library cards, and this changelog in collapsible sections.</li>
         <li>0.6.7: circuit warnings stay on screen at least 4 seconds after the problem last occurred (then fade out) instead of flashing; warnings that differ only in a value update in place.</li>
         <li>0.6.6: <b>Export → SPICE netlist for LTspice</b> (.cir, same component models as the simulator); Arduino boards in the schematic are full symbols with every pin (PWM, RX/TX, SDA/SCL marked); every dialog has a close button at the top right.</li>
@@ -318,7 +319,7 @@
       <h3>What's new in 0.4</h3>
       <ul>
         <li>New parts: <b>inductor</b> and <b>zener diode</b>, simulated by both the Rust and JavaScript solvers. New examples: zener voltage regulator, RL circuit with a square wave.</li>
-        <li>Hide any part of the window: the <b>◧ Parts</b> button (${k('Ctrl+Shift+B')}) hides the whole left panel, and the ▾ button in each header collapses the Parts list, Inspector, Sketch or Serial Monitor on its own. Wirebench remembers the layout.</li>
+        <li>Hide any part of the window: the <b>◧ Parts</b> button (${k('Ctrl+Shift+B')}) hides the whole left panel, and the ▾ button in each header collapses the Parts list, Inspector, Sketch or Serial Monitor on its own. JumperCraft remembers the layout.</li>
         <li>Multimeter: click a mode on the dial to select it directly — also while simulating and while editing.</li>
         <li>0.4.1: click a category name in the parts list (Boards, Passive, Sensors…) to hide or show its parts; ⇕ next to the search box collapses or expands them all. Searching still finds parts in hidden categories.</li>
       </ul>
@@ -343,7 +344,7 @@
       <p>Circuits are solved with nodal analysis (the Rust <code>wb-core</code> crate), so voltages, currents and LED brightness are calculated, not faked. Circuits with capacitors or a function generator are stepped through time (BDF2 / Gear-2 integration, which keeps LC ringing accurate). Sketches are checked and translated from Arduino C++ and run against a virtual board in real time.</p>
       <h3>Good to know</h3>
       <p>This is a learning and prototyping aid, not the real Arduino compiler or hardware. Always double-check a real circuit before powering it.</p>
-      <p class="muted small">Arduino, UNO and Modulino are trademarks of Arduino S.r.l.; Wirebench is an independent project and is not affiliated with Arduino.</p>`,
+      <p class="muted small">Arduino, UNO and Modulino are trademarks of Arduino S.r.l.; JumperCraft is an independent project and is not affiliated with Arduino.</p>`,
   };
 
   WB.Help = {

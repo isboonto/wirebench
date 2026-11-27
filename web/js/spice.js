@@ -1,11 +1,11 @@
 'use strict';
 // SPICE netlist export for LTspice (Export → SPICE netlist).
 //
-// The circuit is written the way Wirebench's own solver sees it, so LTspice simulates the same
+// The circuit is written the way JumperCraft's own solver sees it, so LTspice simulates the same
 // thing: every part's simulation model (def.elements) is translated element by element —
 //   R → R, C → C, L → L (winding resistance as Rser), voltage sources with their internal
 //   resistance (Rser), function-generator waveforms as SINE / PULSE, diodes and LEDs as LTspice
-//   "ideal diode" models (Vfwd / Ron, Vrev for zeners — the same piecewise-linear model Wirebench
+//   "ideal diode" models (Vfwd / Ron, Vrev for zeners — the same piecewise-linear model JumperCraft
 //   uses), controlled-current elements as G (+ I).
 // Parts whose model switches state while simulating are written with real SPICE models instead:
 // BJTs and the TIP120 Darlington, MOSFETs (VDMOS), op-amps and voltage regulators (small
@@ -109,7 +109,7 @@
     function dep(p, letter) {
       const cc = letter === 'H' || letter === 'F';
       const op = byPart(p, 'O+'), on = byPart(p, 'O-'), name = elName(letter, p, 0, 1);
-      // Wirebench's output pushes current out of O+, through the load, back into O−;
+      // JumperCraft's output pushes current out of O+, through the load, back into O−;
       // SPICE G / F currents flow from the first node to the second inside the source.
       if (cc) {
         const vs = `V_${ident(p.name)}_sense`;
@@ -165,7 +165,7 @@
         k[L] = (k[L] || 0);
         const name = elName(L, p, k[L]++, count[L]);
         const a = nodeName(e.a), b = nodeName(e.b);
-        const note = e.cond ? ` ; in Wirebench only active while powered (≥ ${e.cond.min} V)` : '';
+        const note = e.cond ? ` ; in JumperCraft only active while powered (≥ ${e.cond.min} V)` : '';
         if (e.t === 'R') { if (e.r < 1e9) lines.push(`${name} ${a} ${b} ${num(e.r)}${note}`); }
         else if (e.t === 'C') { lines.push(`${name} ${a} ${b} ${num(e.c)}`); timeDomain = true; }
         else if (e.t === 'L') { lines.push(`${name} ${a} ${b} ${num(e.l)} Rser=${num(Math.max(1e-3, e.rw || 0))}`); timeDomain = true; }
@@ -244,7 +244,7 @@
     // ---------------------------------------------------------------- text
     const date = new Date().toISOString().slice(0, 10);
     const out = [];
-    out.push(`* Wirebench ${WB.VERSION || ''} — SPICE netlist for LTspice`);
+    out.push(`* JumperCraft ${WB.VERSION || ''} — SPICE netlist for LTspice`);
     out.push(`* Generated ${date} from the circuit on the workspace (${parts.length} parts).`);
     out.push('* Open this file in LTspice (File → Open, .cir) and press Run.');
     out.push('* Node names match File → Export → Schematic: 0 = GND, P5V = +5V, D9 = Arduino pin 9, N1 … = other nets.');
@@ -253,7 +253,7 @@
     if (comments.length) { out.push('*'); out.push('* ---- parts that are not part of the netlist ----'); out.push(...comments); }
     if (models.size || subckts.size) { out.push('*'); out.push('* ---- models ----'); out.push(...models.values()); out.push(...subckts.values()); }
     out.push('*');
-    if (probes.length || meters.length) { out.push('* ---- instruments: what Wirebench measures ----'); out.push(...probes, ...meters); }
+    if (probes.length || meters.length) { out.push('* ---- instruments: what JumperCraft measures ----'); out.push(...probes, ...meters); }
     out.push(analysis);
     out.push('.backanno');
     out.push('.end');

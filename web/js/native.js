@@ -84,7 +84,7 @@
         },
       };
     } catch (e) {
-      console.info('Wirebench: Rust/WebAssembly solver not available, using the JavaScript solver.', e && e.message);
+      console.info('JumperCraft: Rust/WebAssembly solver not available, using the JavaScript solver.', e && e.message);
     }
     return WB.Native;
   }

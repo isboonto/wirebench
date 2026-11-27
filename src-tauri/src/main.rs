@@ -1,4 +1,4 @@
-// Wirebench desktop app: a native Rust (Tauri) shell around the editor UI.
+// JumperCraft desktop app: a native Rust (Tauri) shell around the editor UI.
 // The circuit solver lives in the `wb-core` crate; the UI loads it compiled to
 // WebAssembly, and the desktop shell also links it natively (see `self_test`).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -17,8 +17,8 @@ struct OpenedFile {
 #[tauri::command]
 async fn open_project(window: tauri::Window) -> Result<Option<OpenedFile>, String> {
     let picked = rfd::FileDialog::new()
-        .set_title("Open Wirebench project")
-        .add_filter("Wirebench project", &["wbproj", "json"])
+        .set_title("Open JumperCraft project")
+        .add_filter("JumperCraft project", &["wbproj", "json"])
         .add_filter("All files", &["*"])
         .set_parent(&window)
         .pick_file();
@@ -35,8 +35,8 @@ fn read_project(path: &std::path::Path) -> Result<OpenedFile, String> {
     })
 }
 
-/// The project file Wirebench was started with, if any: double-clicking a .wbproj file in
-/// Windows Explorer (registered by the installer) runs `wirebench.exe "C:\…\name.wbproj"`.
+/// The project file JumperCraft was started with, if any: double-clicking a .wbproj file in
+/// Windows Explorer (registered by the installer) runs `jumpercraft.exe "C:\…\name.wbproj"`.
 #[tauri::command]
 fn startup_file() -> Option<OpenedFile> {
     let arg = std::env::args_os().nth(1)?;
@@ -91,12 +91,18 @@ struct UserExamples {
 }
 
 /// Folders scanned for example projects, in menu order:
-///   1. %APPDATA%\Wirebench\examples  (per user, always writable)
-///   2. <folder of wirebench.exe>\examples  (handy for a portable copy or a classroom install)
+///   1. %APPDATA%\JumperCraft\examples  (per user, always writable)
+///   2. %APPDATA%\Wirebench\examples  (the folder from when JumperCraft was called Wirebench)
+///   3. <folder of jumpercraft.exe>\examples  (handy for a portable copy or a classroom install)
 fn example_dirs() -> Vec<std::path::PathBuf> {
     let mut dirs = Vec::new();
     if let Some(appdata) = std::env::var_os("APPDATA") {
-        dirs.push(std::path::PathBuf::from(appdata).join("Wirebench").join("examples"));
+        let appdata = std::path::PathBuf::from(appdata);
+        dirs.push(appdata.join("JumperCraft").join("examples"));
+        let old = appdata.join("Wirebench").join("examples");
+        if old.is_dir() {
+            dirs.push(old);
+        }
     }
     if let Some(exe_dir) = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf())) {
         let d = exe_dir.join("examples");
@@ -184,5 +190,5 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![open_project, startup_file, save_file, list_examples, open_examples_folder, open_url, self_test])
         .run(tauri::generate_context!())
-        .expect("error while running Wirebench");
+        .expect("error while running JumperCraft");
 }

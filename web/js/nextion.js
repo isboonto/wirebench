@@ -44,7 +44,7 @@
 # number), min= max= (slider), dec= (float), size= (font),
 # send=release|press|both|none (touch events), global
 page main bco=0
-t0 text 20 20 760 70 "Wirebench + Nextion" bco=1055 pco=WHITE size=40
+t0 text 20 20 760 70 "JumperCraft + Nextion" bco=1055 pco=WHITE size=40
 t1 text 20 120 330 70 "Potentiometer" bco=0 pco=WHITE align=left
 n0 number 360 120 180 70 0 bco=0 pco=YELLOW size=48
 j0 progress 20 210 760 50 0 pco=2016

@@ -22,7 +22,7 @@
   function checkPins(p, a, b) {
     for (const [part, pin] of [a, b]) {
       const q = p.parts.find((x) => x.id === part);
-      if (q && WB.PARTS[q.type] && !WB.worldPin(q, pin)) console.warn(`Wirebench example: ${q.name || part} has no pin "${pin}"`);
+      if (q && WB.PARTS[q.type] && !WB.worldPin(q, pin)) console.warn(`JumperCraft example: ${q.name || part} has no pin "${pin}"`);
     }
   }
   function wire(p, a, b, color, pts) {
@@ -968,7 +968,7 @@ byte heart[8] = { 0b00000, 0b01010, 0b11111, 0b11111, 0b01110, 0b00100, 0b00000,
 void setup() {
   lcd.begin(16, 2);
   lcd.createChar(0, heart);
-  lcd.print("Hello, Wirebench");
+  lcd.print("Hi, JumperCraft!");   // 16 characters: one full line
 }
 
 void loop() {
@@ -1287,7 +1287,7 @@ void setup() {
   gfx->setTextColor(CYAN);
   gfx->setTextSize(4);
   gfx->setCursor(20, 18);
-  gfx->println("Wirebench + 7-inch CYD");
+  gfx->println("JumperCraft + 7-inch CYD");
   gfx->drawRect(16, 70, 768, 316, DARKGREY);
   drawButton(16, "LED ON", DARKGREEN);
   drawButton(204, "LED OFF", MAROON);
@@ -1837,7 +1837,7 @@ void loop() {
     ex.category = catOf.get(ex.name) || 'Other';
     // the heading already says what kind of circuit it is
     ex.label = ex.name.replace(/^(Electronics|No code|Controlled sources) · /, '');
-    if (ex.category === 'Other') console.warn('Wirebench: example without a menu category:', ex.name);
+    if (ex.category === 'Other') console.warn('JumperCraft: example without a menu category:', ex.name);
   }
   WB.EXAMPLE_CATEGORIES = CATS.map(([c]) => c).concat(EX.some((e) => e.category === 'Other') ? ['Other'] : []);
 
