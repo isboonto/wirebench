@@ -21,8 +21,14 @@ if ($cargoVer -ne $ver -or $helpVer -ne $ver -or $readmeVer -ne $short) {
   throw "Version mismatch: tauri.conf.json $ver, Cargo.toml $cargoVer, help.js $helpVer, README heading $readmeVer (should be $short)"
 }
 
-# index.html preloads every script it loads (see the comment there); stop if the two lists differ.
+# Stamp the version on index.html's own files (js/..., css/..., the wasm) as ?v=<version>, so a
+# browser that cached the previous release's scripts (GitHub Pages: 10 minutes) loads the new ones
+# instead of mixing an old script with the new page.
 $html = Get-Content web\index.html -Raw
+$stamped = [regex]::Replace($html, '(href|src)="((?:js|css)/[^"?]+|wasm/wb_core\.wasm)(\?v=[^"]*)?"', ('$1="$2?v=' + $ver + '"'))
+if ($stamped -ne $html) { [IO.File]::WriteAllText((Resolve-Path web\index.html), $stamped); $html = $stamped; Write-Host "==> index.html: file links stamped with ?v=$ver" }
+
+# index.html preloads every script it loads (see the comment there); stop if the two lists differ.
 $scripts = [regex]::Matches($html, '<script src="([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
 $preloads = [regex]::Matches($html, '<link rel="preload" href="([^"]+)" as="script"') | ForEach-Object { $_.Groups[1].Value }
 if (($scripts -join ',') -ne ($preloads -join ',')) {
