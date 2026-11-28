@@ -717,10 +717,10 @@
         <text x="${b.x + b.w / 2}" y="${b.y + b.h / 2 + 2}" font-size="5.6" text-anchor="middle" fill="#eef1f6" font-family="sans-serif" font-weight="700">${b.t}</text></g>`).join('');
       return `<rect x="-38" y="-94" width="106" height="88" rx="6" fill="#d7dbe0" stroke="#7d848c"/>
         <rect x="-32" y="-89" width="60" height="33" rx="3" fill="#10151b"/>
-        <text x="24" y="-75" font-size="12" text-anchor="end" fill="#ff5a4a" font-family="monospace" font-weight="700">${vs}</text>
-        <text x="26" y="-75" font-size="6" fill="#ff5a4a" font-family="monospace">V</text>
-        <text x="24" y="-60" font-size="9" text-anchor="end" fill="#4ade80" font-family="monospace" font-weight="700">${is}</text>
-        <text x="26" y="-60" font-size="6" fill="#4ade80" font-family="monospace">A</text>
+        <text x="20" y="-75" font-size="12" text-anchor="end" fill="#ff5a4a" font-family="monospace" font-weight="700">${vs}</text>
+        <text x="21.5" y="-75" font-size="6" fill="#ff5a4a" font-family="monospace">V</text>
+        <text x="20" y="-60" font-size="9" text-anchor="end" fill="#4ade80" font-family="monospace" font-weight="700">${is}</text>
+        <text x="21.5" y="-60" font-size="6" fill="#4ade80" font-family="monospace">A</text>
         <text x="-30" y="-60" font-size="4.3" fill="#7f8a99" font-family="monospace">≤${lim}A</text>
         ${btns}
         <text x="48" y="-55" font-size="4.6" text-anchor="middle" fill="#444" font-family="sans-serif">current limit</text>
