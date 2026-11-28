@@ -382,11 +382,21 @@ body.simulating [data-edit] { opacity: .35; pointer-events: none; }
 .io-plot-tools { display: none; gap: 4px; }
 body.io-plot .io-plot-tools { display: inline-flex; }
 body.io-plot .io-serial-tools, body.io-plot #serial-out, body.io-plot #serial-form { display: none; }
-#plot-wrap { flex: 0 0 240px; min-height: 120px; border-top: 1px solid var(--border); display: flex; }
+#plot-wrap { flex: 0 0 auto; height: min(420px, 55vh); min-height: 220px; border-top: 1px solid var(--border); display: flex; flex-direction: column; }
+.plot-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.plot-bar button { padding: 2px 8px; font-size: 12px; }
+.plot-bar button.on { background: var(--active-bg); color: var(--active-fg); border-color: var(--active-border, var(--accent)); }
+.plot-bar .pb-group { display: inline-flex; align-items: center; gap: 2px; }
+.plot-bar .pb-lbl { color: var(--muted); font-size: 11px; margin: 0 2px 0 4px; }
+#plot { flex: 1 1 auto; min-height: 140px; }
+#plot-info { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 5px 8px; font-size: 12px; border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+#plot-info[hidden] { display: none; }
+#plot-info i { display: inline-block; width: 10px; height: 3px; margin-right: 5px; vertical-align: middle; }
+#plot-info .pi-t { color: #e0b100; } #plot-info .pi-v { color: #c565e0; }
 #plot-wrap[hidden] { display: none; }
-body.hide-sketch #plot-wrap { flex: 1 1 auto; }
+body.hide-sketch #plot-wrap { flex: 1 1 auto; height: auto; }
 body.hide-serial #plot-wrap { display: none; }
-#plot { flex: 1; width: 100%; height: 100%; display: block; cursor: crosshair; --plot-bg: #0f141a; --plot-grid: #222c39; --plot-fg: #93a0b0; }
+#plot { width: 100%; display: block; cursor: crosshair; --plot-bg: #0f141a; --plot-grid: #222c39; --plot-fg: #93a0b0; }
 /* toolbar: simulation time and Run again */
 #simtime-box { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
 #simtime-box .st-ico { color: var(--muted); }

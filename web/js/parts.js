@@ -1692,19 +1692,30 @@
   // pin; a channel whose − is left open is measured against GND. The probes are ideal (they draw no
   // current). The recording is made by WB.Plotter (js/plotter.js).
   WB.PLOT_COLORS = ['#f2c200', '#22b8cf', '#ff5a5f', '#40c057'];
+  // Drawn in half-size units and scaled ×2 (PLOT_K) so the panel is easy to read and click; the
+  // pins then sit 0.2" apart, on every other breadboard hole.
+  const PLOT_K = 2;
+  const PLOT_BTN = { x: 44, y: -31, w: 32, h: 9 };   // SHOW PLOT button (half-size units)
+  const PLOT_SCREEN = { x: 1, y: -58, w: 76, h: 24 };
   WB.defPart('plotter', {
-    label: 'Data plotter', category: 'Instruments', prefix: 'PLT',
+    label: 'Data plotter', category: 'Instruments', prefix: 'PLT', interact: 'panel',
     pins: () => {
       const pins = [];
       for (let c = 1; c <= 4; c++) {
-        pins.push({ id: `CH${c}+`, label: `CH${c} + (the point to measure)`, x: (c - 1) * 20, y: 0 });
-        pins.push({ id: `CH${c}-`, label: `CH${c} − (reference; leave open to measure against GND)`, x: (c - 1) * 20 + 10, y: 0 });
+        pins.push({ id: `CH${c}+`, label: `CH${c} + (the point to measure)`, x: (c - 1) * 20 * PLOT_K, y: 0 });
+        pins.push({ id: `CH${c}-`, label: `CH${c} − (reference; leave open to measure against GND)`, x: ((c - 1) * 20 + 10) * PLOT_K, y: 0 });
       }
       return pins;
     },
-    bbox: () => [-8, -50, 86, 53],
-    summary: () => '4 channels · graph in the Plotter tab',
+    bbox: () => [-8, -62, 86, 65].map((v) => v * PLOT_K),
+    summary: () => '4 channels · SHOW PLOT opens the Plotter tab',
     elements: () => [],
+    // the SHOW PLOT button and the little screen open the Plotter tab (while editing too)
+    hit: (lx, ly) => {
+      const x = lx / PLOT_K, y = ly / PLOT_K, inR = (r) => x >= r.x - 1 && x <= r.x + r.w + 1 && y >= r.y - 1 && y <= r.y + r.h + 1;
+      return inR(PLOT_BTN) || inR(PLOT_SCREEN) ? 'show' : null;
+    },
+    panelAction(p, act, app) { if (act === 'show') app.showPlotter(); },
     render(p) {
       const C = WB.PLOT_COLORS;
       const T = (x, y, s, t, fill, extra = '') => `<text x="${x}" y="${y}" font-size="${s}" text-anchor="middle" fill="${fill}" font-family="sans-serif"${extra}>${t}</text>`;
@@ -1712,23 +1723,25 @@
       for (let c = 0; c < 4; c++) {
         const x = c * 20;
         legs += `<path d="M${x},0 V-6" ${MLEG}/><path d="M${x + 10},0 V-6" ${MLEG}/>`;
-        labels += `<rect x="${x - 3}" y="-13" width="16" height="6" rx="1.5" fill="${C[c]}"/>` + T(x, -8.6, 4.2, '+', '#111', ' font-weight="700"') + T(x + 10, -8.6, 4.2, '−', '#111', ' font-weight="700"') + T(x + 5, -15, 3.6, 'CH' + (c + 1), '#cfd6df', ' font-weight="700"');
+        labels += `<rect x="${x - 3}" y="-13" width="16" height="6" rx="1.5" fill="${C[c]}"/>` + T(x, -8.6, 4.2, '+', '#111', ' font-weight="700"') + T(x + 10, -8.6, 4.2, '−', '#111', ' font-weight="700"') + T(x + 5, -15.2, 3.4, 'CH' + (c + 1), '#cfd6df', ' font-weight="700"');
       }
-      // little screen with four sample traces
+      const sc = PLOT_SCREEN, b = PLOT_BTN;
       const wave = [
-        'M4,-25 C14,-25 16,-40 26,-40 S40,-25 52,-25 S66,-40 74,-40',
-        'M4,-30 L18,-30 L18,-38 L36,-38 L36,-30 L54,-30 L54,-38 L74,-38',
-        'M4,-27 Q30,-44 74,-43',
-        'M4,-35 L74,-28',
+        'M4,-38 C14,-38 16,-54 26,-54 S40,-38 52,-38 S66,-54 74,-54',
+        'M4,-43 L18,-43 L18,-51 L36,-51 L36,-43 L54,-43 L54,-51 L74,-51',
+        'M4,-40 Q30,-57 74,-56',
+        'M4,-48 L74,-41',
       ];
-      wave.forEach((d, i) => { traces += `<path d="${d}" stroke="${C[i]}" stroke-width="1.1" fill="none" stroke-linecap="round"/>`; });
-      return `${legs}
-        <rect x="-7" y="-49" width="84" height="44" rx="3" fill="url(#wbPlastic)" stroke="#0b0b0b" stroke-width=".6"/>
-        <rect x="1" y="-46" width="76" height="25" rx="1.5" fill="#0f141a" stroke="#2c3440" stroke-width=".5"/>
-        <path d="M1,-33.5 H77 M20,-46 V-21 M39,-46 V-21 M58,-46 V-21" stroke="#223040" stroke-width=".4"/>
+      wave.forEach((d, i) => { traces += `<path d="${d}" stroke="${C[i]}" stroke-width="1" fill="none" stroke-linecap="round"/>`; });
+      return `<g transform="scale(${PLOT_K})">${legs}
+        <rect x="-7" y="-61" width="84" height="56" rx="3" fill="url(#wbPlastic)" stroke="#0b0b0b" stroke-width=".5"/>
+        <rect x="${sc.x}" y="${sc.y}" width="${sc.w}" height="${sc.h}" rx="1.5" fill="#0f141a" stroke="#2c3440" stroke-width=".4" style="cursor:pointer"/>
+        <path d="M${sc.x},${sc.y + sc.h / 2} H${sc.x + sc.w} M20,${sc.y} V${sc.y + sc.h} M39,${sc.y} V${sc.y + sc.h} M58,${sc.y} V${sc.y + sc.h}" stroke="#223040" stroke-width=".35"/>
         ${traces}
-        ${T(39, -18.4, 3.8, 'DATA PLOTTER', '#e6ebf1', ' font-weight="700" letter-spacing=".4"')}
-        ${labels}`;
+        ${T(3, -27.6, 4, 'DATA PLOTTER', '#e6ebf1', ' font-weight="700" text-anchor="start" letter-spacing=".3"').replace('text-anchor="middle" ', '')}
+        <g style="cursor:pointer"><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="1.8" fill="#2f7de1" stroke="#1b4f97" stroke-width=".5"/>
+        ${T(b.x + b.w / 2, b.y + 6.1, 3.8, '▶ SHOW PLOT', '#fff', ' font-weight="700"')}</g>
+        ${labels}</g>`;
     },
   });
 

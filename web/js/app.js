@@ -2080,6 +2080,14 @@
       }
       if (any) WB.Plotter.requestDraw();
     }
+    // Data plotter's SHOW PLOT button: open the code panel on the Plotter tab
+    showPlotter() {
+      if (document.body.classList.contains('code-hidden')) this.setCodePanel(true);
+      if (document.body.classList.contains('hide-serial')) this.setSection('serial', true);
+      WB.Plotter.showTab('plot');
+      const w = document.getElementById('plot-wrap');
+      if (w && w.scrollIntoView) w.scrollIntoView({ block: 'nearest' });
+    }
     // ⏱ simulation time (toolbar): number + unit; stored in the project as seconds
     simTimeSec() { return this.project.simTime || 0; }
     syncSimTimeUI() {

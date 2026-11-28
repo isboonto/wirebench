@@ -7,30 +7,30 @@
        no inline scripts or event handlers, no eval. Keep in step with "csp" in src-tauri/tauri.conf.json. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; frame-src 'none'">
   <title>JumperCraft — breadboard designer &amp; Arduino simulator</title>
-  <link rel="stylesheet" href="css/app.css?v=1.0.0-beta.6-8c7daad4">
+  <link rel="stylesheet" href="css/app.css?v=1.0.0-beta.6-4e67b217">
   <!-- Preload every script and the solver: with the CSP <meta> above, Chrome/Edge don't look ahead
        for the <script> tags at the end of <body>, so without these they download one at a time
        (8 s on GitHub Pages instead of 2). Keep the list in step with the <script> tags — build.ps1 checks. -->
-  <link rel="preload" href="js/util.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/icons.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/parts.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/parts-more.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/nextion.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/boards.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/cyd.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/circuit.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/native.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/sketch.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/runtime.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/editor.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/router.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/schematic.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/spice.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/examples.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/help.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/plotter.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="js/app.js?v=1.0.0-beta.6-8c7daad4" as="script">
-  <link rel="preload" href="wasm/wb_core.wasm?v=1.0.0-beta.6-8c7daad4" as="fetch" type="application/wasm" crossorigin>
+  <link rel="preload" href="js/util.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/icons.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/parts.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/parts-more.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/nextion.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/boards.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/cyd.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/circuit.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/native.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/sketch.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/runtime.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/editor.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/router.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/schematic.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/spice.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/examples.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/help.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/plotter.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="js/app.js?v=1.0.0-beta.6-4e67b217" as="script">
+  <link rel="preload" href="wasm/wb_core.wasm?v=1.0.0-beta.6-4e67b217" as="fetch" type="application/wasm" crossorigin>
 </head>
 <body>
   <header id="toolbar">
@@ -217,31 +217,42 @@
         <input id="serial-input" placeholder="Send to the board (Enter)…">
         <button type="submit">Send</button>
       </form>
-      <div id="plot-wrap" hidden><canvas id="plot" aria-label="Data plotter graph"></canvas></div>
+      <div id="plot-wrap" hidden>
+        <div class="plot-bar">
+          <button data-plot="tm" title="Time markers T1 / T2: drag them along the graph; shows Δt, the frequency 1/Δt and each channel's value at T1 and T2">⇹ Time markers</button>
+          <button data-plot="vm" title="Value markers V1 / V2: drag them up and down; shows ΔV">⇳ Value markers</button>
+          <span class="grow"></span>
+          <span class="pb-group" title="Zoom the time axis (or turn the mouse wheel over the graph)"><span class="pb-lbl">t</span><button data-plot="zout" title="Zoom out (time)">−</button><button data-plot="zin" title="Zoom in (time)">+</button></span>
+          <span class="pb-group" title="Zoom the voltage axis (or Shift + mouse wheel over the graph)"><span class="pb-lbl">V</span><button data-plot="vout" title="Zoom out (volts)">−</button><button data-plot="vin" title="Zoom in (volts)">+</button></span>
+          <button data-plot="auto" title="Auto scale: show the whole recording, fitted (also: double-click the graph)">Auto</button>
+        </div>
+        <canvas id="plot" aria-label="Data plotter graph"></canvas>
+        <div id="plot-info" hidden></div>
+      </div>
     </aside>
   </main>
 
   <dialog id="modal"><button type="button" class="modal-x" title="Close (Esc)" aria-label="Close">✕</button><div id="modal-body"></div><form method="dialog"><button>Close</button></form></dialog>
   <input type="file" id="file-input" accept=".wbproj,.json,application/json" hidden>
 
-  <script src="js/util.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/icons.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/parts.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/parts-more.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/nextion.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/boards.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/cyd.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/circuit.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/native.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/sketch.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/runtime.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/editor.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/router.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/schematic.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/spice.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/examples.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/help.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/plotter.js?v=1.0.0-beta.6-8c7daad4"></script>
-  <script src="js/app.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/util.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/icons.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/parts.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/parts-more.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/nextion.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/boards.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/cyd.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/circuit.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/native.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/sketch.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/runtime.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/editor.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/router.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/schematic.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/spice.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/examples.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/help.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/plotter.js?v=1.0.0-beta.6-4e67b217"></script>
+  <script src="js/app.js?v=1.0.0-beta.6-4e67b217"></script>
 </body>
 </html>
