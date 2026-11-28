@@ -540,6 +540,8 @@ dialog.wide #modal-body { max-height: calc(92vh - 40px); }
 .about-btn:hover { background: var(--hover); }
 .about-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .about-btn.primary:hover { filter: brightness(1.08); }
+.about-btn.sponsor svg { color: #db61a2; }
+.about-btn.sponsor:hover { border-color: #db61a2; }
 .about-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 18px; }
 .about-card { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
 .about-card h4 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }

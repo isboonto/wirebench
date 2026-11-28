@@ -20,9 +20,11 @@
     repo: 'https://github.com/isboonto/jumpercraft',
     releases: 'https://github.com/isboonto/jumpercraft/releases',
     issues: 'https://github.com/isboonto/jumpercraft/issues',
+    sponsor: 'https://github.com/sponsors/isboonto',
   };
   const LOGO = '<svg viewBox="0 0 24 24" width="56" height="56" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="10" r="1.3" fill="currentColor"/><circle cx="11" cy="10" r="1.3" fill="currentColor"/><circle cx="15" cy="14" r="1.3" fill="currentColor"/><path d="M7 10 C 9 16, 13 16, 15 14" fill="none" stroke="#ffb020" stroke-width="1.8" stroke-linecap="round"/></svg>';
   const ICON = {
+    heart: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" fill="currentColor"/></svg>',
     globe: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
     code: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 7 4 12l5 5M15 7l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     download: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -34,7 +36,7 @@
     const boards = types.filter((t) => P[t].board).length;
     const parts = types.filter((t) => !P[t].board && !P[t].holes && !P[t].annotation).length;
     const examples = (WB.EXAMPLES || []).length;
-    const link = (key, icon, label, primary) => `<a class="about-btn${primary ? ' primary' : ''}" href="${LINKS[key]}" target="_blank" rel="noopener" data-ext>${ICON[icon]}<span>${label}</span></a>`;
+    const link = (key, icon, label, primary) => `<a class="about-btn${primary ? ' ' + (primary === true ? 'primary' : primary) : ''}" href="${LINKS[key]}" target="_blank" rel="noopener" data-ext>${ICON[icon]}<span>${label}</span></a>`;
     return `
       <div class="about-hero">
         <div class="about-logo">${LOGO}</div>
@@ -45,7 +47,7 @@
         </div>
       </div>
       <div class="about-links">
-        ${link('site', 'globe', 'Website', true)}${link('repo', 'code', 'Source code')}${link('releases', 'download', 'Download')}${link('issues', 'bug', 'Report a problem')}
+        ${link('site', 'globe', 'Website', true)}${link('repo', 'code', 'Source code')}${link('releases', 'download', 'Download')}${link('issues', 'bug', 'Report a problem')}${link('sponsor', 'heart', 'Support JumperCraft', 'sponsor')}
       </div>
       <div class="about-cards">
         <div class="about-card"><h4>Author</h4><p class="big">Sudchai Boonto</p><p class="muted small">© 2026 · released under the MIT License — free to use, change and share.</p></div>

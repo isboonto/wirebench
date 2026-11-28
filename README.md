@@ -147,6 +147,10 @@ web/js/app.js         UI glue, code editor, simulation loop
 
 To add a part, copy one of the `WB.defPart(...)` blocks in `web/js/parts.js`. Each part declares its pins, its SVG drawing, and its electrical elements (resistors, sources, diodes).
 
+## Support
+
+JumperCraft is free and open source. If it helps you or your students, you can support its development through [GitHub Sponsors](https://github.com/sponsors/isboonto) ♥ — thank you!
+
 ## Author
 
 Sudchai Boonto
