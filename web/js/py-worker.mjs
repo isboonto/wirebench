@@ -1,4 +1,4 @@
-// Wirebench 2.x — the UNO Q's Linux side: runs the project's Python program in a background
+// JumperCraft 2.x — the UNO Q's Linux side: runs the project's Python program in a background
 // worker with Pyodide (CPython compiled to WebAssembly), so `while True` loops and time.sleep()
 // never freeze the page. Messages:
 //   page -> worker: { type: 'run', code }                start Python

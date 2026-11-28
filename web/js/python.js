@@ -1,5 +1,5 @@
 'use strict';
-// Wirebench 2.x — starts the UNO Q's Python program (js/py-worker.mjs) and connects its Bridge
+// JumperCraft 2.x — starts the UNO Q's Python program (js/py-worker.mjs) and connects its Bridge
 // to the running sketch: Python's Bridge.call("name", ...) runs the function the sketch made
 // available with Bridge.provide("name", fn), between the sketch's own steps, and returns its result.
 (function (WB) {
