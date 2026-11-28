@@ -1638,6 +1638,13 @@
         const t = this.sim ? ` <span class="pr-note">— captured ${tm ? tm + ' after the simulation started' : 'while the simulation was running'}</span>` : '';
         const figs = this.project.parts.filter((p) => PARTS[p.type] && PARTS[p.type].category === 'Instruments').map((p) => {
           const def = PARTS[p.type];
+          // the Data plotter prints its graph (what its window shows), not a picture of the part
+          if (p.type === 'plotter') {
+            const png = WB.Plotter.printImage(p.id);
+            const info = png ? WB.Plotter.printInfo(p.id) : '';
+            const img = png ? `<img class="pr-inst pr-plot" alt="" src="${png}">` : `<div class="pr-plot-empty">No recording yet — run the simulation, then print.</div>`;
+            return `<figure class="pr-wide">${img}<figcaption><b>${WB.esc(p.name)}</b> — ${WB.esc(def.label)}${info ? '<br><span class="pr-note">' + WB.esc(info) + '</span>' : ''}</figcaption></figure>`;
+          }
           return `<figure>${this.printImg(this.instrumentSVG(p), 'pr-inst')}<figcaption><b>${WB.esc(p.name)}</b> — ${WB.esc(def.label)}${def.summary ? ': ' + WB.esc(def.summary(p)) : ''}</figcaption></figure>`;
         }).join('');
         secs.push(['Instrument screens' + t, `<div class="pr-insts n${Math.min(3, have.instruments)}">${figs}</div>`]);

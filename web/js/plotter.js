@@ -152,16 +152,25 @@
       const cv = document.getElementById('plot');
       if (!cv) return;
       const dpr = window.devicePixelRatio || 1;
-      const G = this.geom(cv), { W, H, L, T, pw, ph } = G;
+      const G = this.geom(cv), { W, H } = G;
       if (!W || !H) return;
       if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
       const g = cv.getContext('2d');
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       const css = getComputedStyle(cv);
-      const bg = css.getPropertyValue('--plot-bg').trim() || '#0f141a', grid = css.getPropertyValue('--plot-grid').trim() || '#253041', fg = css.getPropertyValue('--plot-fg').trim() || '#9aa6b5';
+      this.paint(g, G, {
+        bg: css.getPropertyValue('--plot-bg').trim() || '#0f141a', grid: css.getPropertyValue('--plot-grid').trim() || '#253041', fg: css.getPropertyValue('--plot-fg').trim() || '#9aa6b5',
+        interactive: true,
+      });
+    },
+    // Paint the graph into a 2D context. o: { bg, grid, fg, interactive (hover, zoom hint, hit map),
+    // pid (only that plotter's channels), color (s) => trace colour, font }.
+    paint(g, G, o) {
+      const { W, H, L, T, pw, ph } = G;
+      const bg = o.bg, grid = o.grid, fg = o.fg, col = o.color || ((s) => s.color), F = o.font || 11;
       g.fillStyle = bg; g.fillRect(0, 0, W, H);
-      const used = this.series.filter((s) => s.t.length);
-      g.font = '11px system-ui, sans-serif';
+      const used = this.series.filter((s) => s.t.length && (!o.pid || s.pid === o.pid));
+      g.font = `${F}px system-ui, sans-serif`;
       if (!used.length) {
         g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle';
         const msg = !this.app || !this.app.project.parts.some((p) => p.type === 'plotter')
@@ -172,7 +181,7 @@
       }
       const r = this.range();
       const X = (t) => L + ((t - r.x0) / (r.x1 - r.x0)) * pw, Y = (v) => T + (1 - (v - r.y0) / (r.y1 - r.y0)) * ph;
-      this._map = { r, G };
+      if (o.interactive) this._map = { r, G };
       // grid + labels
       const span = r.x1 - r.x0;
       const tu = timeUnit(span);
@@ -191,7 +200,7 @@
         let i0 = lowerBound(s.t, r.x0) - 1, i1 = lowerBound(s.t, r.x1) + 1;
         i0 = Math.max(0, i0); i1 = Math.min(s.t.length - 1, i1);
         const step = Math.max(1, Math.floor((i1 - i0) / (pw * 2)));
-        g.strokeStyle = s.color; g.lineWidth = 1.6; g.beginPath();
+        g.strokeStyle = col(s); g.lineWidth = o.interactive ? 1.6 : 2; g.beginPath();
         for (let i = i0; i <= i1; i += step) { const x = X(s.t[i]), y = Y(s.v[i]); if (i === i0) g.moveTo(x, y); else g.lineTo(x, y); }
         g.lineTo(X(s.t[i1]), Y(s.v[i1]));
         g.stroke();
@@ -200,7 +209,7 @@
       if (this.limit) { g.strokeStyle = fg; g.setLineDash([3, 3]); const x = Math.round(X(this.limit)) - 0.5; g.beginPath(); g.moveTo(x, T); g.lineTo(x, T + ph); g.stroke(); g.setLineDash([]); }
       // markers
       const MK_T = '#ffd43b', MK_V = '#da77f2';
-      g.font = 'bold 10px system-ui, sans-serif';
+      g.font = `bold ${F - 1}px system-ui, sans-serif`;
       if (this.vm) this.vm.forEach((v, i) => {
         const y = Math.round(Y(v)) + 0.5;
         g.strokeStyle = MK_V; g.setLineDash([6, 3]); g.beginPath(); g.moveTo(L, y); g.lineTo(L + pw, y); g.stroke(); g.setLineDash([]);
@@ -213,15 +222,15 @@
           const x = Math.round(X(t)) + 0.5;
           g.strokeStyle = MK_T; g.setLineDash([6, 3]); g.beginPath(); g.moveTo(x, T); g.lineTo(x, T + ph); g.stroke(); g.setLineDash([]);
           g.fillStyle = MK_T; g.fillRect(x - 11, T, 22, 14); g.fillStyle = '#111'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('T' + (i + 1), x, T + 7);
-          for (const s of used) { const v = valueAt(s, t); if (v != null) { g.fillStyle = s.color; g.beginPath(); g.arc(x, Y(v), 3.2, 0, 7); g.fill(); } }
+          for (const s of used) { const v = valueAt(s, t); if (v != null) { g.fillStyle = col(s); g.beginPath(); g.arc(x, Y(v), 3.2, 0, 7); g.fill(); } }
         });
       }
       g.restore();
-      g.font = '11px system-ui, sans-serif';
+      g.font = `${F}px system-ui, sans-serif`;
       g.strokeStyle = fg; g.strokeRect(L + 0.5, T + 0.5, pw - 1, ph - 1);
       // hover crosshair + legend (values at the pointer, else the latest values)
       let ht = null;
-      if (this.hover != null && !this.drag && this.hover >= L && this.hover <= L + pw) {
+      if (o.interactive && this.hover != null && !this.drag && this.hover >= L && this.hover <= L + pw) {
         ht = r.x0 + ((this.hover - L) / pw) * span;
         g.strokeStyle = fg; g.globalAlpha = 0.6; g.beginPath(); g.moveTo(Math.round(this.hover) + 0.5, T); g.lineTo(Math.round(this.hover) + 0.5, T + ph); g.stroke(); g.globalAlpha = 1;
       }
@@ -231,15 +240,38 @@
       if (head) { g.fillStyle = fg; g.fillText(head, lx, 11); lx += g.measureText(head).width + 12; }
       for (const s of used) {
         const v = ht != null ? valueAt(s, ht) : s.v[s.v.length - 1];
-        if (ht != null && v != null) { g.fillStyle = s.color; g.beginPath(); g.arc(X(ht), Y(v), 3, 0, 7); g.fill(); }
+        if (ht != null && v != null) { g.fillStyle = col(s); g.beginPath(); g.arc(X(ht), Y(v), 3, 0, 7); g.fill(); }
         const txt = `${s.label}: ${v == null ? '—' : v.toFixed(3) + ' V'}`;
-        g.fillStyle = s.color; g.fillRect(lx, 7, 10, 3);
+        g.fillStyle = col(s); g.fillRect(lx, 7, 10, 3);
         g.fillStyle = fg; g.fillText(txt, lx + 14, 11);
         lx += g.measureText(txt).width + 26;
       }
-      if (!this.view.auto) { g.fillStyle = fg; g.textAlign = 'right'; g.fillText('zoomed · double-click = auto scale', W - 6, T + ph + 11); }
+      if (o.interactive && !this.view.auto) { g.fillStyle = fg; g.textAlign = 'right'; g.fillText('zoomed · double-click = auto scale', W - 6, T + ph + 11); }
     },
 
+    // For Print: one plotter's graph as a PNG on a white background, and its marker readout as text.
+    printImage(pid, w = 900, h = 460) {
+      const used = this.series.filter((x) => x.t.length && x.pid === pid);
+      if (!used.length) return null;
+      const k = 3, cv = document.createElement('canvas');
+      cv.width = w * k; cv.height = h * k;
+      const g = cv.getContext('2d');
+      g.setTransform(k, 0, 0, k, 0, 0);
+      const PRINT = ['#b38600', '#0b7285', '#c92a2a', '#2b8a3e'];
+      this.paint(g, { W: w, H: h, L: 54, R: 12, T: 24, B: 24, pw: w - 66, ph: h - 48 }, { bg: '#ffffff', grid: '#dfe3e8', fg: '#333a44', color: (x) => PRINT[x.ch - 1], font: 12, pid });
+      return cv.toDataURL('image/png');
+    },
+    printInfo(pid) {
+      const keep = this.series;
+      this.series = keep.filter((x) => x.pid === pid);
+      const el = document.createElement('div');
+      el.id = 'plot-info';
+      const real = document.getElementById('plot-info');
+      if (real) real.id = 'plot-info-live';
+      document.body.appendChild(el);
+      try { this.info(); return el.hidden ? '' : el.innerText.replace(/\n/g, ' · '); }
+      finally { el.remove(); if (real) real.id = 'plot-info'; this.series = keep; }
+    },
     // ---------------------------------------------------------------- UI
     bind(app) {
       this.app = app;

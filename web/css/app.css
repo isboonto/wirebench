@@ -664,6 +664,9 @@ dialog#print-dlg { width: auto; max-width: 480px; padding: 16px 20px 14px; }
   #print-area.landscape .pr-fig { max-height: 150mm; }
   #print-area.portrait .pr-fig { max-height: 235mm; }
   #print-area .pr-insts { display: flex; flex-wrap: wrap; gap: 8mm; justify-content: center; }
+  #print-area .pr-wide { flex-basis: 100%; }
+  #print-area .pr-wide .pr-plot { width: 100%; max-height: none !important; max-width: 100% !important; border: 1px solid #ccc; }
+  #print-area .pr-plot-empty { padding: 10mm; border: 1px dashed #aaa; color: #666; text-align: center; }
   #print-area figure { margin: 0; break-inside: avoid; text-align: center; }
   #print-area .pr-inst { display: block; margin: 0 auto 3pt; max-width: 100%; }
   #print-area.landscape .pr-inst { max-height: 85mm; }
