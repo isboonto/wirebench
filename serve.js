@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const root = path.join(__dirname, 'web');
 const port = Number(process.env.PORT) || 8080;
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.wasm': 'application/wasm' };
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.wasm': 'application/wasm', '.mjs': 'text/javascript', '.zip': 'application/zip' };
 http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]);
   if (p === '/') p = '/index.html';
