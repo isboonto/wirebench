@@ -2,7 +2,7 @@
 name = "wb-core"
 version = "0.4.0"
 edition = "2021"
-description = "Wirebench circuit solver (nodal analysis with piecewise-linear diodes and PWM averaging)"
+description = "JumperCraft circuit solver (nodal analysis with piecewise-linear diodes and PWM averaging)"
 authors = ["Sudchai Boonto"]
 license = "MIT"
 

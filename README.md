@@ -1,14 +1,18 @@
-# Wirebench 0.12
+# JumperCraft 1.0
+
+*Formerly called Wirebench (renamed in 1.0.0-beta.2, because that name was already in use).*
 
 A free, offline breadboard designer and electronics simulator. Inspired by the breadboard view in tools like Fritzing, with built-in simulation for the **Arduino UNO Q** and similar boards, and bench instruments (multimeter, oscilloscope, Bode plotter, logic analyzer, function generator, power supply) for analog circuits with or without a microcontroller.
 
+![JumperCraft in the dark theme: an Arduino UNO Q fading an LED on a breadboard, with a multimeter and an oscilloscope showing the PWM signal while the simulation runs](docs/screenshot-dark.png)
+
 ## Run it
 
-**In a browser, nothing to install:** open **https://isboonto.github.io/wirebench/**. The site is rebuilt from the `web` folder by `.github/workflows/pages.yml` on every push to `main` that changes it.
+**In a browser, nothing to install:** open **https://isboonto.github.io/jumpercraft/**. The site is rebuilt from the `web` folder by `.github/workflows/pages.yml` on every push to `main` that changes it.
 
-**Windows installer:** ready-made installers will be published on the [Releases page](https://github.com/isboonto/wirebench/releases) from version 1.0. Until then, use the website above or build the installer yourself with `.\build.ps1 -Installer`.
+**Windows installer:** download it from the [Releases page](https://github.com/isboonto/jumpercraft/releases) — the current release is **1.0.0-beta.5**, a beta of 1.0. Take `JumperCraft_1.0.0-beta.5_x64-setup.exe` (or the `.msi`). The installers are not code-signed yet, so Windows SmartScreen may warn: choose *More info → Run anyway*. You can also build the installer yourself with `.\build.ps1 -Installer`.
 
-**Desktop app (Windows, native Rust):** run `target\release\wirebench.exe`. To build it yourself:
+**Desktop app (Windows, native Rust):** run `target\release\jumpercraft.exe`. To build it yourself:
 
 ```powershell
 .\build.ps1
@@ -18,9 +22,9 @@ This needs Rust (rustup) and the Microsoft Edge WebView2 runtime, which comes wi
 
 **In a browser:** run `node serve.js`, then open http://localhost:8080. You can also open `web/index.html` directly, but then the JavaScript fallback solver is used, because browsers block loading the WebAssembly module from `file://`.
 
-Your work is autosaved. **Save** / **Open** keep projects as **Wirebench project files (`.wbproj`)**, named after your project. In the desktop app these use native Windows file dialogs, and the installer registers `.wbproj` with Windows, so double-clicking a project file opens it in Wirebench. Older `.json` projects still open.
+Your work is autosaved. **Save** / **Open** keep projects as **JumperCraft project files (`.wbproj`)**, named after your project. In the desktop app these use native Windows file dialogs, and the installer registers `.wbproj` with Windows, so double-clicking a project file opens it in JumperCraft. Older `.json` projects still open.
 
-A `.wbproj` file is readable JSON with a header (`"format": "wirebench-project"`, `formatVersion`, the Wirebench version that saved it, the save date, title and board), then one line per part and per wire, and the sketch — so projects work well in Git.
+A `.wbproj` file is readable JSON with a header (`"format": "wirebench-project"`, `formatVersion`, the JumperCraft version that saved it, the save date, title and board), then one line per part and per wire, and the sketch — so projects work well in Git.
 
 ## Architecture
 
@@ -32,7 +36,7 @@ A `.wbproj` file is readable JSON with a header (`"format": "wirebench-project"`
 
 The solver runs as WebAssembly because the sketch runner needs answers *synchronously* (for example, `digitalRead()` must return immediately), and calls from the UI to the Rust process are asynchronous. If the WebAssembly module can't load, a JavaScript copy of the solver is used. Both give identical results on all examples. Run `cargo test -p wb-core` for the solver tests.
 
-New to Wirebench? Open **Help → Getting started** (or press **F1**) in the app. The Help menu also covers shortcuts, the parts and boards list, supported Arduino functions and libraries, and troubleshooting.
+New to JumperCraft? Open **Help → Getting started** (or press **F1**) in the app. The Help menu also covers shortcuts, the parts and boards list, supported Arduino functions and libraries, and troubleshooting.
 
 ## What it does
 
@@ -42,7 +46,7 @@ New to Wirebench? Open **Help → Getting started** (or press **F1**) in the app
 - Part legs that sit in breadboard holes connect automatically. Connected holes turn green.
 - Hover any pin to highlight everything on the same net. While simulating, hovering also shows the voltage, like a multimeter probe.
 - Rotate (**R**), delete (**Del**), duplicate (**Ctrl+D**), undo/redo (**Ctrl+Z/Y**), and box-select (**Shift+drag**).
-- Double-click a wire to add a bend. Drag the handles to move bends or re-attach wire ends.
+- Double-click a wire to add a bend. Drag the handles to move bends or re-attach wire ends. Choose **File → New wires → Curved** for smooth, Fritzing-style curved wires that you bend by dragging them (straight, auto-routed wires are the default).
 - Export the breadboard as PNG or SVG, the sketch as `.ino`, a **schematic diagram** (A4/A3 sheet with standard symbols and routed wires — or net labels — plus parts list and title block, as SVG or PNG), a **SPICE netlist for LTspice** (`.cir`, same component models as the simulator plus BJT / MOSFET / op-amp models), or a **netlist and parts list**.
 - **Print** (File → Print…, Ctrl+P) the breadboard view, schematic, instrument screens, sketch and parts list — or save them as a PDF for a lab report.
 - Three themes from **File → Theme**: Default (slate panels, light canvas), Light and Dark.
@@ -67,7 +71,7 @@ New to Wirebench? Open **Help → Getting started** (or press **F1**) in the app
 - **Bode plotter:** OUT drives the circuit with a small sine, IN measures the output; SWEEP measures gain (dB) and phase from 1 Hz to 1 MHz (stepped-sine through the full simulator, so op-amps and transistors work too) and marks the −3 dB points. SPICE export turns it into a `.ac` analysis.
 - **8-channel logic analyzer:** timing diagrams of digital signals with an edge trigger; records every edge of fast sequences such as `shiftOut()` (about 4 µs per Arduino call, as on a real UNO), shows PWM, and reads out frequencies.
 - **Function generator** (new in 0.3): sine, square, triangle or sawtooth, 0.1 Hz–1 MHz, amplitude and DC offset, 50 Ω output; clickable front panel (waveform keys, frequency ÷10/−/+/×10, amplitude, offset, OUTPUT ON/OFF).
-- **Dual power supply** (new in 0.5.1): two independent 0–30 V channels with current limits, or tracking mode for a ± supply.
+- **Dual power supply** (new in 0.5.1): two independent 0–30 V channels with current limits, or tracking mode for a ± supply. **DC sweep** (new in 1.0.0-beta.1): the **SWP** button makes a channel ramp from a start voltage to its set voltage (or up and down) over a sweep time — with the scope in X-Y mode this draws I–V curves.
 - **DC power supply** (new in 0.3): 0–30 V with an adjustable current limit (CV/CC), set with front-panel buttons.
 
 The function generator's COM and the scope's GND are earthed like real bench instruments, so they are always connected together (and to the board's GND).
@@ -139,9 +143,13 @@ web/js/examples.js    example projects
 web/js/app.js         UI glue, code editor, simulation loop
 ```
 
-**Your own examples (desktop app, no rebuild):** choose *Examples… → Open examples folder…* and save any project (`.json` or `.wbproj`) into it. That folder is `%APPDATA%\Wirebench\examples`; an `examples` folder next to `wirebench.exe` is read too, which is useful for a classroom install. Each file shows up under **My examples**, named after the file or after a `"name"` field in the JSON. The list is read again whenever the window regains focus, so you don't need to restart the app. Built-in examples live in `web/js/examples.js` and are compiled into the app.
+**Your own examples (desktop app, no rebuild):** choose *Examples… → Open examples folder…* and save any project (`.json` or `.wbproj`) into it. That folder is `%APPDATA%\JumperCraft\examples`; an `examples` folder next to `jumpercraft.exe` is read too, which is useful for a classroom install. Each file shows up under **My examples**, named after the file or after a `"name"` field in the JSON. The list is read again whenever the window regains focus, so you don't need to restart the app. Built-in examples live in `web/js/examples.js` and are compiled into the app.
 
 To add a part, copy one of the `WB.defPart(...)` blocks in `web/js/parts.js`. Each part declares its pins, its SVG drawing, and its electrical elements (resistors, sources, diodes).
+
+## Support
+
+JumperCraft is free and open source. If it helps you or your students, you can support its development through [GitHub Sponsors](https://github.com/sponsors/isboonto) ♥ — thank you!
 
 ## Author
 
@@ -149,6 +157,6 @@ Sudchai Boonto
 
 ## License
 
-Wirebench is released under the [MIT License](LICENSE). Copyright (c) 2026 Sudchai Boonto.
+JumperCraft is released under the [MIT License](LICENSE). Copyright (c) 2026 Sudchai Boonto.
 
-Arduino, UNO and Modulino are trademarks of Arduino S.r.l.; Wirebench is an independent project and is not affiliated with Arduino.
+Arduino, UNO and Modulino are trademarks of Arduino S.r.l.; JumperCraft is an independent project and is not affiliated with Arduino.

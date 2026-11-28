@@ -47,14 +47,14 @@
       this.menuWire = wireCtx || null;
       menu.classList.toggle('wire', !!wireCtx);
       menu.querySelector('[data-ctx="tidyAll"]').disabled = locked || !this.app.project.wires.length;
-      menu.querySelector('#ctx-autoroute').innerHTML = WB.icon(this.app.autoRoute ? 'checkOn' : 'checkOff') + '<span>Auto-route new wires</span>';
       if (wireCtx) {
         const wire = this.app.wire(wireCtx.id);
         menu.querySelector('[data-ctx="autoRoute"]').disabled = locked;
         menu.querySelector('[data-ctx="addJoint"]').disabled = locked;
-        menu.querySelector('[data-ctx="removeJoint"]').disabled = locked || wireCtx.bend < 0;
-        menu.querySelector('[data-ctx="removeJoint"]').style.display = wireCtx.bend < 0 ? 'none' : '';
-        menu.querySelector('[data-ctx="straighten"]').disabled = locked || !(wire.pts && wire.pts.length);
+        menu.querySelector('[data-ctx="removeJoint"]').disabled = locked || !(wire.pts && wire.pts.length);
+        const cb = menu.querySelector('[data-ctx="curve"]');
+        cb.disabled = locked;
+        cb.querySelector('span').textContent = wire.curve ? 'Make straight' : 'Make curved';
         menu.querySelector('.ctx-colors').innerHTML = WB.WIRE_COLORS.map((c) => `<button class="sw${c === wire.color ? ' on' : ''}" data-ctx="color" data-color="${c}" style="background:${c}" title="${c}"${locked ? ' disabled' : ''}></button>`).join('');
       }
       menu.querySelector('[data-ctx="copy"]').disabled = !parts.length;
@@ -207,7 +207,7 @@
       for (const w of this.app.project.wires) {
         const pts = this.wirePoints(w);
         if (!pts) continue;
-        const d = 'M' + pts.map((p) => p[0] + ',' + p[1]).join(' L');
+        const d = wirePathD(pts, w.curve);
         const isSel = sel.has(w.id);
         const dark = WB.mix(w.color, '#000000', 0.45);
         const A = pts[0], B = pts[pts.length - 1];
@@ -253,9 +253,47 @@
       const endTouch = (e) => { this.touches.delete(e.pointerId); if (this.touches.size < 2) this.pinch = null; };
       window.addEventListener('pointerup', endTouch, true);
       window.addEventListener('pointercancel', endTouch, true);
+      // iPad / iPhone Safari ignores touch-action on SVG elements: without this, a one-finger drag
+      // scrolls the page and cancels the pointer, so parts could only be moved with two fingers.
+      // (Blocking touchmove keeps taps and double-taps working; only the drawing itself is blocked,
+      // so the settings dialog and menus on top of it still scroll.)
+      svg.addEventListener('touchmove', (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+      // a touch the browser cancels anyway ends the drag like lifting the finger
+      window.addEventListener('pointercancel', (e) => { if (e.pointerType === 'touch' && (this.mode || this.drawing)) this.onUp(e); });
       svg.addEventListener('dblclick', (e) => this.onDbl(e));
       svg.addEventListener('contextmenu', (e) => {
         e.preventDefault();
+        // Android also sends contextmenu after a long press: the long-press menu below is already open
+        if (performance.now() - (this.longPressAt || 0) < 1500) return;
+        this.openContextMenu(e);
+      });
+      // Touch: press and hold (about half a second, without moving) opens the same menu as a
+      // right-click. Safari on iPad never sends contextmenu, so this is its only way to the menu.
+      const LP_MS = 550, LP_MOVE = 10;
+      const lpCancel = () => { clearTimeout(this.lpTimer); this.lp = null; };
+      svg.addEventListener('pointerdown', (e) => {
+        lpCancel();
+        if (e.pointerType !== 'touch' || this.touches.size > 1) return;
+        const lp = (this.lp = { x: e.clientX, y: e.clientY, target: e.target });
+        this.lpTimer = setTimeout(() => {
+          if (this.lp !== lp || this.touches.size > 1) return;
+          this.lp = null;
+          this.longPressAt = performance.now();
+          // the press began a drag or a wire: drop that, nothing has moved yet
+          this.mode = null;
+          if (this.drawing && !this.drawing.pts.length) this.cancelDraw();
+          this.openContextMenu({ clientX: lp.x, clientY: lp.y, target: lp.target, preventDefault() {} });
+        }, LP_MS);
+      });
+      window.addEventListener('pointermove', (e) => { if (this.lp && e.pointerType === 'touch' && Math.hypot(e.clientX - this.lp.x, e.clientY - this.lp.y) > LP_MOVE) lpCancel(); });
+      window.addEventListener('pointerup', lpCancel);
+      window.addEventListener('pointercancel', lpCancel);
+      this.bindMenu();
+    }
+    // Right-click (or a touch long-press) on the canvas: the menu for the wire or part under the
+    // pointer, or for the canvas.
+    openContextMenu(e) {
+      {
         if (this.drawing) { this.cancelDraw(); return; }
         const ti = this.targetInfo(e.target);
         const el = ti.wire || ti.part;
@@ -273,7 +311,10 @@
         this.mouseInside = true;
         this.menuWorld = this.mouseWorld;
         this.showMenu(e, wireCtx);
-      });
+      }
+    }
+    bindMenu() {
+      const svg = this.svg;
       document.getElementById('ctx-menu').addEventListener('click', (e) => {
         const b = e.target.closest('[data-ctx]');
         if (!b) return;
@@ -281,11 +322,31 @@
         const a = b.getAttribute('data-ctx');
         const mw = this.menuWire, wire = mw && this.app.wire(mw.id);
         if (wire && a === 'addJoint') { this.insertBend(wire, mw.world); return; }
-        if (wire && a === 'removeJoint') { this.app.mutate(() => { wire.pts.splice(mw.bend, 1); wire.auto = false; }); return; }
-        if (wire && a === 'straighten') { this.app.mutate(() => { wire.pts = []; wire.auto = false; }); return; }
+        if (wire && a === 'removeJoint') {
+          // the joint that was pressed, or else the one nearest to where the menu was opened
+          let k = mw.bend;
+          if (k < 0) { let bd = Infinity; (wire.pts || []).forEach((p, i) => { const d = Math.hypot(p[0] - mw.world.x, p[1] - mw.world.y); if (d < bd) { bd = d; k = i; } }); }
+          if (k < 0) return;
+          this.app.mutate(() => {
+            wire.pts.splice(k, 1); wire.auto = false;
+            const A = this.pinPos(wire.a), B = this.pinPos(wire.b);
+            if (A && B && !wire.curve) wire.pts = orthoPath(A, wire.pts, B); // what is left stays at right angles
+          });
+          return;
+        }
+        if (wire && a === 'curve') {
+          // curved <-> straight: a curve starts as a plain arc (old right-angle corners would make it
+          // wavy); a straightened wire is auto-routed again
+          this.app.mutate(() => {
+            if (wire.curve) {
+              delete wire.curve;
+              if (!WB.Router.routeWire(this.app, wire)) { const A = this.pinPos(wire.a), B = this.pinPos(wire.b); if (A && B) wire.pts = orthoPath(A, [], B); }
+            } else { wire.curve = true; wire.pts = []; wire.auto = false; }
+          });
+          return;
+        }
         if (wire && a === 'autoRoute') { this.app.mutate(() => { if (!WB.Router.routeWire(this.app, wire)) this.app.toast('No route found.'); }); return; }
         if (a === 'tidyAll') { this.app.tidyAllWires(); return; }
-        if (a === 'autoRouteToggle') { this.app.setAutoRoute(!this.app.autoRoute); return; }
         if (wire && a === 'color') { const c = b.getAttribute('data-color'); this.app.mutate(() => { wire.color = c; }); return; }
         if (a === 'copy') this.app.copySelection(false);
         else if (a === 'cut') this.app.copySelection(true);
@@ -451,7 +512,25 @@
         return;
       }
       if (ti.wire) {
-        app.select(ti.wire.getAttribute('data-id'), e.shiftKey);
+        const wire = app.wire(ti.wire.getAttribute('data-id'));
+        app.select(wire.id, e.shiftKey);
+        // dragging anywhere along a wire moves that piece of it (see 'seg' in onMove)
+        const full = this.wirePoints(wire);
+        if (full && !e.shiftKey && wire.curve) {
+          // a curved wire bends where it is grabbed: a new joint there follows the pointer
+          // (and is dropped again if the wire was only clicked)
+          let idx = 0, bd = Infinity;
+          for (let i = 0; i < full.length - 1; i++) { const d = segDist(w, full[i], full[i + 1]); if (d < bd) { bd = d; idx = i; } }
+          this.snapshot = app.snapshot();
+          const orig = wire.pts.map((p) => p.slice());
+          wire.pts.splice(idx, 0, [w.x, w.y]);
+          this.mode = { kind: 'bend', wire, idx, moved: false, base: wire.pts.map((p) => p.slice()), orig, sx: e.clientX, sy: e.clientY };
+        } else if (full && !e.shiftKey) {
+          let idx = 0, bd = Infinity;
+          for (let i = 0; i < full.length - 1; i++) { const d = segDist(w, full[i], full[i + 1]); if (d < bd) { bd = d; idx = i; } }
+          this.snapshot = app.snapshot();
+          this.mode = { kind: 'seg', wire, idx, start: w, sx: e.clientX, sy: e.clientY, full: full.map((p) => p.slice()), moved: false };
+        }
         e.preventDefault();
         return;
       }
@@ -602,9 +681,31 @@
         }
         for (const it of m.wires) it.w.pts = it.pts.map(([x, y]) => [x + dx, y + dy]);
         this.renderWires();
+      } else if (m.kind === 'seg') {
+        // Drag one piece of a wire: a horizontal piece moves up / down, a vertical one left / right,
+        // and the pieces next to it stretch so the wire stays at right angles. A piece that starts
+        // or ends on a pin gets a new corner there, so the wire stays on its pin.
+        if (!m.moved && Math.hypot(e.clientX - m.sx, e.clientY - m.sy) < 5) return;
+        const w = this.toWorld(e);
+        const F = m.full.map((p) => p.slice());
+        let i = m.idx;
+        const horiz = Math.abs(F[i][1] - F[i + 1][1]) < 0.5, vert = Math.abs(F[i][0] - F[i + 1][0]) < 0.5;
+        if (i === 0) { F.splice(1, 0, F[0].slice()); i = 1; }
+        if (i + 1 === F.length - 1) F.splice(F.length - 1, 0, F[F.length - 1].slice());
+        const dx = WB.snap(w.x - m.start.x), dy = WB.snap(w.y - m.start.y);
+        if (!horiz) { F[i][0] += dx; F[i + 1][0] += dx; }
+        if (!vert) { F[i][1] += dy; F[i + 1][1] += dy; }
+        m.wire.pts = orthoPath(F[0], F.slice(1, -1), F[F.length - 1]);
+        m.moved = true;
+        this.renderWires();
       } else if (m.kind === 'bend') {
+        if (m.orig && !m.moved && Math.hypot(e.clientX - m.sx, e.clientY - m.sy) < 4) return;
         const w = this.toWorld(e);
         const pts = m.base.map((p) => p.slice());
+        if (m.wire.curve) { // curves bend freely: no grid, no right angles
+          pts[m.idx] = [Math.round(w.x * 2) / 2, Math.round(w.y * 2) / 2];
+          m.wire.pts = pts; m.moved = true; this.renderWires(); return;
+        }
         pts[m.idx] = [WB.snap(w.x), WB.snap(w.y)];
         // keep the segments next to the dragged joint at right angles (auto-routing on)
         const A = this.pinPos(m.wire.a), B = this.pinPos(m.wire.b);
@@ -659,13 +760,14 @@
       this.svg.classList.remove('panning');
       if (m.kind === 'drag' && m.moved) {
         app.pushUndo(m.snapshot);
-        // auto-routed wires with one end on a moved part are re-routed (wires moving with both ends were translated)
-        const affected = app.project.wires.filter((w) => w.auto && (m.ids.has(w.a.part) !== m.ids.has(w.b.part)));
-        if (affected.length) WB.Router.routeMany(app, affected);
+        // wires with one end on a moved part are re-routed or squared up (wires moving with both ends were translated)
+        const affected = app.project.wires.filter((w) => m.ids.has(w.a.part) !== m.ids.has(w.b.part));
+        if (affected.length) WB.Router.retidy(app, affected);
         app.changed();
       }
       else if (m.kind === 'drag' && m.dup) { app.undo(); app.redoStack = []; } // Ctrl+click without moving: drop the copy
-      else if (m.kind === 'bend' && m.moved) { m.wire.auto = false; app.pushUndo(this.snapshot); app.changed(); }
+      else if ((m.kind === 'bend' || m.kind === 'seg') && m.moved) { m.wire.auto = false; app.pushUndo(this.snapshot); app.changed(); }
+      else if (m.kind === 'bend' && m.orig) { m.wire.pts = m.orig; this.renderWires(); } // only clicked: no new joint
       else if (m.kind === 'end') {
         this.layerOver.innerHTML = '';
         if (!m.moved) return;
@@ -676,7 +778,7 @@
           if (!(ref.part === other.part && ref.pin === other.pin)) {
             m.wire[m.end] = ref;
             app.pushUndo(this.snapshot);
-            if (m.wire.auto) WB.Router.routeWire(app, m.wire);
+            WB.Router.retidy(app, [m.wire]);
             app.changed();
             return;
           }
@@ -729,7 +831,7 @@
         app.mutate(() => {
           wire.pts.splice(idx, 1); wire.auto = false;
           const A = this.pinPos(wire.a), B = this.pinPos(wire.b);
-          if (app.autoRoute && A && B) wire.pts = orthoPath(A, wire.pts, B); // square up what's left
+          if (app.autoRoute && !wire.curve && A && B) wire.pts = orthoPath(A, wire.pts, B); // square up what's left
         });
         return;
       }
@@ -746,7 +848,7 @@
         const d = segDist(w, pts[i], pts[i + 1]);
         if (d < bd) { bd = d; best = i; }
       }
-      app.mutate(() => { wire.pts.splice(best, 0, [WB.snap(w.x), WB.snap(w.y)]); wire.auto = false; app.selection = new Set([wire.id]); });
+      app.mutate(() => { wire.pts.splice(best, 0, wire.curve ? [w.x, w.y] : [WB.snap(w.x), WB.snap(w.y)]); wire.auto = false; app.selection = new Set([wire.id]); });
     }
 
     // ------------------------------------------------------------ wire drawing
@@ -757,8 +859,9 @@
       if (!A) return;
       // with auto-routing on, show the right-angle path the wire will get once you click its joints
       const end = [w.x, w.y];
-      const pts = this.app.autoRoute && d.pts.length ? [A].concat(orthoPath(A, d.pts, end), [end]) : [A].concat(d.pts, [end]);
-      this.layerOver.innerHTML = `<path class="rubber" d="M${pts.map((p) => p[0] + ',' + p[1]).join(' L')}"/>`;
+      const curved = this.app.curvedWires;
+      const pts = this.app.autoRoute && !curved && d.pts.length ? [A].concat(orthoPath(A, d.pts, end), [end]) : [A].concat(d.pts, [end]);
+      this.layerOver.innerHTML = `<path class="rubber" d="${wirePathD(pts, curved)}"/>`;
     }
     cancelDraw() {
       this.drawing = null;
@@ -779,8 +882,11 @@
       const wire = { id: WB.uid('w'), a: d.from, b: to, pts: d.pts, color };
       // Pin-to-pin wires (no hand-placed joints) are auto-routed into a tidy right-angle path;
       // wires drawn through clicked joints keep them, joined by right-angle corners.
-      if (app.autoRoute && !d.pts.length) WB.Router.routeWire(app, wire);
-      else if (app.autoRoute) wire.pts = orthoPath([pa.x, pa.y], d.pts, [pb.x, pb.y]);
+      if (app.curvedWires) { wire.curve = true; wire.auto = false; } // curved: it passes through the clicked joints
+      else if (app.autoRoute && !d.pts.length && !WB.Router.routeWire(app, wire)) {
+        wire.pts = orthoPath([pa.x, pa.y], [], [pb.x, pb.y]);
+        app.toast('No tidy route found around the parts — the wire got simple right-angle corners.');
+      } else if (app.autoRoute && d.pts.length) wire.pts = orthoPath([pa.x, pa.y], d.pts, [pb.x, pb.y]);
       app.mutate(() => { app.project.wires.push(wire); app.selection = new Set([wire.id]); });
     }
 
@@ -894,6 +1000,29 @@
     return s.slice(1, -1).map(([x, y]) => [x, y]);
   }
   WB.orthoPath = orthoPath;
+
+  // SVG path of a wire through its points. Straight wires: lines. Curved wires (like Fritzing's
+  // curvy wires): a smooth curve through every joint (Catmull-Rom); with no joints, a gentle arc
+  // that bows downward (or to the right for an upright wire), like a real jumper.
+  function wirePathD(pts, curve) {
+    const f = (v) => +v.toFixed(2);
+    if (!curve || pts.length < 2) return 'M' + pts.map((p) => f(p[0]) + ',' + f(p[1])).join(' L');
+    if (pts.length === 2) {
+      const [A, B] = pts, dx = B[0] - A[0], dy = B[1] - A[1], len = Math.hypot(dx, dy);
+      if (len < 1) return `M${f(A[0])},${f(A[1])} L${f(B[0])},${f(B[1])}`;
+      let nx = -dy / len, ny = dx / len;
+      if (ny < -1e-6 || (Math.abs(ny) < 1e-6 && nx < 0)) { nx = -nx; ny = -ny; }
+      const k = Math.min(30, len * 0.18) / 0.75; // the curve bows out by 3/4 of the control offset
+      return `M${f(A[0])},${f(A[1])} C${f(A[0] + dx / 3 + nx * k)},${f(A[1] + dy / 3 + ny * k)} ${f(B[0] - dx / 3 + nx * k)},${f(B[1] - dy / 3 + ny * k)} ${f(B[0])},${f(B[1])}`;
+    }
+    let d = `M${f(pts[0][0])},${f(pts[0][1])}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+      d += ` C${f(p1[0] + (p2[0] - p0[0]) / 6)},${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)},${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])},${f(p2[1])}`;
+    }
+    return d;
+  }
+  WB.wirePathD = wirePathD;
 
   WB.Editor = Editor;
 })(window.WB);

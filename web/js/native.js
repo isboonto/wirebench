@@ -8,7 +8,9 @@
 
   async function init() {
     try {
-      const res = await fetch('wasm/wb_core.wasm');
+      // same URL as index.html's preload (it carries ?v=<version>), so the preloaded copy is used
+      const pre = document.querySelector('link[rel="preload"][href^="wasm/wb_core.wasm"]');
+      const res = await fetch(pre ? pre.getAttribute('href') : 'wasm/wb_core.wasm');
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const { instance } = await WebAssembly.instantiate(await res.arrayBuffer(), {});
       const ex = instance.exports;
@@ -84,7 +86,7 @@
         },
       };
     } catch (e) {
-      console.info('Wirebench: Rust/WebAssembly solver not available, using the JavaScript solver.', e && e.message);
+      console.info('JumperCraft: Rust/WebAssembly solver not available, using the JavaScript solver.', e && e.message);
     }
     return WB.Native;
   }

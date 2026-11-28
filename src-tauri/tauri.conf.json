@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Wirebench",
-  "version": "0.12.1",
+  "productName": "JumperCraft",
+  "version": "1.0.0-beta.5",
   "identifier": "app.wirebench.desktop",
   "build": {
     "frontendDist": "../web"
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Wirebench",
+        "title": "JumperCraft",
         "width": 1440,
         "height": 900,
         "minWidth": 960,
@@ -34,8 +34,8 @@
     "fileAssociations": [
       {
         "ext": ["wbproj"],
-        "name": "Wirebench project",
-        "description": "Wirebench project",
+        "name": "JumperCraft project",
+        "description": "JumperCraft project",
         "mimeType": "application/x-wirebench-project",
         "role": "Editor"
       }
@@ -43,6 +43,10 @@
     "windows": {
       "nsis": {
         "template": "nsis/installer.nsi"
+      },
+      "wix": {
+        "version": "1.0.0.13",
+        "upgradeCode": "5fd73b27-1d6c-50b5-bd0c-73f3a8d72101"
       }
     },
     "category": "Education"

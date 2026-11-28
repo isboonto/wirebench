@@ -122,6 +122,7 @@
       };
       if (w.route === true) wire.route = true;
       if (typeof w.auto === 'boolean') wire.auto = w.auto;
+      if (w.curve === true) wire.curve = true;
       wires.push(wire);
     }
     return { parts, wires, code: typeof o.code === 'string' ? o.code : WB.DEFAULT_CODE };
@@ -204,8 +205,13 @@
       this.serialBuf = '';
       this.warnShown = '';
       this.applyTheme(); // Default / Light / Dark, plus the canvas override (◐)
+      // Wires are always auto-routed (right angles, around parts). Until 1.0.0-beta.1 this could be
+      // switched off from the canvas menu; a stored "off" is cleared so everyone gets the same behaviour.
       this.autoRoute = true;
-      try { this.autoRoute = localStorage.getItem('wirebench.autoroute') !== 'off'; } catch (e) { /* storage unavailable */ }
+      // new wires: straight (auto-routed, right angles) or curved -- File menu > New wires
+      try { this.curvedWires = localStorage.getItem('wirebench.curvedWires') === '1'; } catch (e) { this.curvedWires = false; }
+      this.syncWireMenu();
+      try { localStorage.removeItem('wirebench.autoroute'); } catch (e) { /* storage unavailable */ }
       this.editor = new WB.Editor(this);
       this.code = new CodeEditor(() => {
         this.project.code = this.code.value;
@@ -223,6 +229,8 @@
       try { panelPref = localStorage.getItem('wirebench.codePanel'); } catch (e) { /* storage unavailable */ }
       if (panelPref === 'hidden') this.setCodePanel(false, true); else $('#btn-panel').classList.add('active');
       this.loadLayout();
+      // phones: start with the circuit on the whole screen (the panels open on top of it)
+      if (this.narrow()) { this.setLeftPanel(false, true); this.setCodePanel(false, true); }
       const saved = this.loadLocal();
       if (saved) this.loadProject(saved, true);
       else this.loadProject(WB.EXAMPLES[1].build(), true);
@@ -309,6 +317,7 @@
       }
       const part = { id: WB.uid(def.prefix.toLowerCase()), type, x: WB.snap(at.x - bx - bw / 2), y: WB.snap(at.y - by - bh / 2), rot: 0, props: WB.clone(def.defaults), name: this.nextName(def.prefix) };
       this.mutate(() => { this.project.parts.push(part); this.selection = new Set([part.id]); });
+      if (this.narrow()) this.setLeftPanel(false, true); // phones: show the new part instead of the parts list
     }
     // Toolbar "📝 Note" / key N: drop a note in the middle of the view and open its editor
     // with the placeholder text selected, so typing replaces it.
@@ -347,21 +356,16 @@
       this.mutate(() => {
         for (const p of parts) p.rot = (((p.rot || 0) + (dir || 90)) % 360 + 360) % 360;
         const ids = new Set(parts.map((p) => p.id));
-        const affected = this.project.wires.filter((w) => w.auto && (ids.has(w.a.part) || ids.has(w.b.part)));
-        if (affected.length) WB.Router.routeMany(this, affected);
+        const affected = this.project.wires.filter((w) => ids.has(w.a.part) || ids.has(w.b.part));
+        if (affected.length) WB.Router.retidy(this, affected);
       });
     }
 
     // ---------------- wire auto-routing
-    setAutoRoute(on) {
-      this.autoRoute = on;
-      try { localStorage.setItem('wirebench.autoroute', on ? 'on' : 'off'); } catch (e) { /* storage unavailable */ }
-      this.toast(on ? 'New wires will be auto-routed' : 'Auto-routing of new wires is off');
-    }
     // Tidy the selected wires, or every wire when none is selected.
     tidyAllWires() {
       const sel = this.project.wires.filter((w) => this.selection.has(w.id));
-      const wires = sel.length ? sel : this.project.wires;
+      const wires = sel.length ? sel : this.project.wires.filter((w) => !w.curve); // all: leave curved wires alone
       if (!wires.length) { this.toast('There are no wires to tidy.'); return; }
       let n = 0;
       if (this.mutate(() => { n = WB.Router.routeMany(this, wires); })) this.toast(`Tidied ${n} wire${n === 1 ? '' : 's'}`);
@@ -463,7 +467,7 @@
           <div class="muted small">${WB.esc(pa ? pa.name : '?')}.${WB.esc(w.a.pin)} → ${WB.esc(pb ? pb.name : '?')}.${WB.esc(w.b.pin)}</div>
           <label class="field-label">Color</label>
           <div class="swatches">${WB.WIRE_COLORS.map((c) => `<button class="sw${c === w.color ? ' on' : ''}" data-color="${c}" style="background:${c}"></button>`).join('')}</div>
-          <div class="insp-actions"><button data-act="autoroute">${WB.icon('route')} Auto-route</button><button data-act="straight">Remove joints</button><button data-act="del" class="danger">Delete</button></div>`;
+          <div class="insp-actions"><button data-act="autoroute">${WB.icon('route')} Auto-route</button><button data-act="del" class="danger">Delete</button></div>`;
         el.querySelectorAll('.sw').forEach((b) => b.addEventListener('click', () => this.mutate(() => { w.color = b.dataset.color; })));
         this.bindInspectorActions(el, w);
         if (this.locked()) this.lockForm(el);
@@ -474,10 +478,23 @@
       this.renderPartForm(el, p, 'insp', true);
     }
 
+    // Picture of the part (as on the breadboard, with its current settings) next to its standard
+    // schematic symbol. Boards and breadboards get the picture only.
+    partFigureHTML(p, def) {
+      if (def.annotation) return '';
+      const props = p.props || {};
+      const [x, y, w, h] = def.bbox(props);
+      const pad = 3;
+      const pic = `<svg viewBox="${x - pad} ${y - pad} ${w + pad * 2} ${h + pad * 2}" preserveAspectRatio="xMidYMid meet">${def.render({ id: 'fig', type: p.type, props, rot: 0, name: '' }, {})}</svg>`;
+      let sym = '';
+      try { sym = WB.Schematic && WB.Schematic.preview ? WB.Schematic.preview(p) : ''; } catch (e) { sym = ''; }
+      return `<div class="part-fig"><div class="fig-pic" title="Picture">${pic}</div>${sym ? `<div class="fig-sym" title="Schematic symbol">${sym}</div>` : ''}</div>`;
+    }
     // Settings form for one part — used by the inspector and the double-click dialog.
     renderPartForm(el, p, prefix, withTitle) {
       const def = PARTS[p.type];
-      let html = withTitle
+      let html = this.partFigureHTML(p, def);
+      html += withTitle
         ? `<div class="insp-title"><input class="name" value="${WB.esc(p.name || '')}" title="Part label"></div><div class="muted small">${WB.esc(def.label)}${def.summary ? ' · ' + WB.esc(def.summary(p)) : ''}</div>`
         : `<label class="field-label">Name</label><input class="name wide" value="${WB.esc(p.name || '')}"><div class="muted small" style="margin-top:4px">${WB.esc(def.label)}${def.summary ? ' · ' + WB.esc(def.summary(p)) : ''}</div>`;
       if (def.board) {
@@ -643,7 +660,6 @@
         if (a === 'del') this.deleteSelection();
         else if (a === 'rotate') this.rotateSelection(90);
         else if (a === 'dup') this.duplicateSelection();
-        else if (a === 'straight' && wire) this.mutate(() => { wire.pts = []; wire.auto = false; });
         else if (a === 'autoroute' && wire) this.mutate(() => { WB.Router.routeWire(this, wire); });
       }));
     }
@@ -657,6 +673,8 @@
       const known = new Set(WB.CATEGORIES);
       const order = (Array.isArray(saved) ? saved : []).filter((c) => known.has(c));
       for (const c of WB.CATEGORIES) if (!order.includes(c)) order.push(c);
+      // General (new in 1.0.0-beta.5) starts at the top, also for someone who had reordered the list
+      if (!saved.includes('General') && order[0] !== 'General') { order.splice(order.indexOf('General'), 1); order.unshift('General'); }
       return order;
     }
     // Put the categories in this order (moves the existing elements, so nothing is rebuilt).
@@ -748,7 +766,7 @@
       const pal = $('#palette');
       let html = '';
       for (const cat of this.categoryOrder()) {
-        const types = Object.keys(PARTS).filter((t) => PARTS[t].category === cat);
+        const types = cat === 'General' ? WB.GENERAL.filter((t) => PARTS[t]) : Object.keys(PARTS).filter((t) => PARTS[t].category === cat);
         if (!types.length) continue;
         const shut = this.hiddenCats.has(cat);
         html += `<div class="cat${shut ? ' collapsed' : ''}" data-cat="${WB.esc(cat)}"><button class="cat-title" draggable="true" title="Click to hide / show ${WB.esc(cat)} · drag to move it · right-click for more"><span class="chev">${shut ? '▸' : '▾'}</span><span>${WB.esc(cat)}</span><span class="count">${types.length}</span></button><div class="tiles">`;
@@ -785,7 +803,8 @@
       $('#part-search').addEventListener('input', (e) => {
         const q = e.target.value.trim().toLowerCase();
         pal.querySelectorAll('.tile').forEach((t) => { t.style.display = !q || t.title.toLowerCase().includes(q) ? '' : 'none'; });
-        pal.querySelectorAll('.cat').forEach((c) => { c.style.display = [...c.querySelectorAll('.tile')].some((t) => t.style.display !== 'none') ? '' : 'none'; });
+        // while searching, General is hidden: its parts are found in their own categories
+        pal.querySelectorAll('.cat').forEach((c) => { c.style.display = (q && c.dataset.cat === 'General') || ![...c.querySelectorAll('.tile')].some((t) => t.style.display !== 'none') ? 'none' : ''; });
         pal.classList.toggle('searching', !!q);
       });
     }
@@ -1044,6 +1063,9 @@
       $('#modal-body').scrollTop = 0;
       if (!dlg.open) dlg.showModal();
     }
+    syncWireMenu() {
+      document.querySelectorAll('#wires-menu button').forEach((b) => b.classList.toggle('on', b.dataset.cmd === (this.curvedWires ? 'wires:curved' : 'wires:straight')));
+    }
     // Themes: 'default' (slate panels, light canvas), 'light', 'dark'. The canvas follows the
     // theme unless it was switched with the ◐ button (stored as wirebench.canvas).
     applyTheme() {
@@ -1062,6 +1084,14 @@
     }
     cmd(c) {
       if (c.startsWith('help:')) { this.showHelp(c.slice(5)); return; }
+      if (c.startsWith('wires:')) {
+        document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
+        this.curvedWires = c === 'wires:curved';
+        try { localStorage.setItem('wirebench.curvedWires', this.curvedWires ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+        this.syncWireMenu();
+        this.toast(this.curvedWires ? 'New wires will be curved. Drag a curved wire anywhere to bend it.' : 'New wires will be straight and auto-routed.');
+        return;
+      }
       if (c.startsWith('theme:')) { document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open')); this.setTheme(c.slice(6)); return; }
       if (!c.endsWith('Menu')) document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
       switch (c) {
@@ -1083,7 +1113,7 @@
         case 'save': this.saveProject(); break;
         case 'fileMenu': this.toggleMenu('#file-menu'); break;
         case 'helpMenu': this.toggleMenu('#help-menu'); break;
-        case 'exportSVG': this.saveAs('wirebench-breadboard.svg', new Blob([this.editor.exportSVGString()], { type: 'image/svg+xml' }), 'SVG image', ['svg']); break;
+        case 'exportSVG': this.saveAs('jumpercraft-breadboard.svg', new Blob([this.editor.exportSVGString()], { type: 'image/svg+xml' }), 'SVG image', ['svg']); break;
         case 'exportPNG': this.exportPNG(); break;
         case 'exportSketch': this.saveAs('sketch.ino', new Blob([this.code.value], { type: 'text/plain' }), 'Arduino sketch', ['ino']); break;
         case 'netlist': this.showNetlist(); break;
@@ -1128,6 +1158,10 @@
       // wires marked "route" (e.g. in examples) are laid out by the auto-router
       const toRoute = this.project.wires.filter((w) => w.route);
       if (toRoute.length) { WB.Router.routeMany(this, toRoute); toRoute.forEach((w) => delete w.route); }
+      // auto-routed wires that no longer fit their pins (a part's pins moved in a newer version, e.g. the
+      // larger power supplies in 1.0) are routed again instead of ending in a slanted piece
+      const stale = this.project.wires.filter((w) => w.auto && WB.Router.slanted(this, w));
+      if (stale.length) WB.Router.routeMany(this, stale);
       this.selection = new Set();
       this.undoStack = [];
       this.redoStack = [];
@@ -1203,11 +1237,11 @@
         return path || null;
       } catch (e) { alert('Could not save: ' + e); return null; }
     }
-    // Example projects saved as files in %APPDATA%\Wirebench\examples (or an "examples"
-    // folder next to wirebench.exe) are listed under "My examples" — no rebuild needed.
+    // Example projects saved as files in %APPDATA%\JumperCraft\examples (or an "examples"
+    // folder next to jumpercraft.exe) are listed under "My examples" — no rebuild needed.
     async refreshUserExamples() {
       let res;
-      try { res = await WB.invoke('list_examples'); } catch (e) { console.warn('Wirebench: could not list examples', e); return; }
+      try { res = await WB.invoke('list_examples'); } catch (e) { console.warn('JumperCraft: could not list examples', e); return; }
       const sig = JSON.stringify(res.items.map((u) => [u.file, u.contents.length]));
       if (sig === this._userExSig) return;
       this._userExSig = sig;
@@ -1241,10 +1275,10 @@
     }
 
     // ---------------- project files (.wbproj)
-    // A Wirebench project file is JSON with a header saying what it is, so other programs and
+    // A JumperCraft project file is JSON with a header saying what it is, so other programs and
     // future versions can recognise it:
     //   format        "wirebench-project"   formatVersion  2 (1 = the older plain .json files)
-    //   generator     "Wirebench 0.6.8"     saved          ISO date/time
+    //   generator     "JumperCraft 0.6.8"     saved          ISO date/time
     //   title, board  then parts, wires and the sketch code
     // Each part and wire is written on its own line: readable, and small, clean diffs in Git.
     projectFileText() {
@@ -1252,7 +1286,7 @@
       const head = {
         format: 'wirebench-project',
         formatVersion: PROJECT_FORMAT,
-        generator: 'Wirebench ' + (WB.VERSION || ''),
+        generator: 'JumperCraft ' + (WB.VERSION || ''),
         saved: new Date().toISOString().replace(/\.\d+Z$/, 'Z'),
         title: this.docName || 'Untitled',
         board: board ? board.type : null,
@@ -1269,11 +1303,11 @@
     // Open project text (from the file dialog, the web file picker, or a double-clicked file).
     openProjectText(text, fileName) {
       let o;
-      try { o = JSON.parse(text); } catch (e) { alert(`Could not open ${fileName || 'this file'}: it is not a Wirebench project (${e.message}).`); return false; }
+      try { o = JSON.parse(text); } catch (e) { alert(`Could not open ${fileName || 'this file'}: it is not a JumperCraft project (${e.message}).`); return false; }
       if (!o || typeof o !== 'object' || (o.format && o.format !== 'wirebench-project') || !Array.isArray(o.parts || [])) {
-        alert(`Could not open ${fileName || 'this file'}: it is not a Wirebench project.`); return false;
+        alert(`Could not open ${fileName || 'this file'}: it is not a JumperCraft project.`); return false;
       }
-      if ((o.formatVersion || 1) > PROJECT_FORMAT) this.toast(`This project was saved by a newer Wirebench (${o.generator || 'unknown version'}); some parts may be missing.`);
+      if ((o.formatVersion || 1) > PROJECT_FORMAT) this.toast(`This project was saved by a newer JumperCraft (${o.generator || 'unknown version'}); some parts may be missing.`);
       this.loadProject(o);
       this.setDocName(fileName || o.title || 'Untitled');
       this.markSaved();
@@ -1289,7 +1323,7 @@
       this.updateTitle();
     }
     updateTitle() {
-      const t = `${this.modified ? '● ' : ''}${this.docName || 'Untitled'} — Wirebench`;
+      const t = `${this.modified ? '● ' : ''}${this.docName || 'Untitled'} — JumperCraft`;
       if (t === this._title) return;
       this._title = t;
       document.title = t;
@@ -1323,7 +1357,7 @@
     // Save the project to a .wbproj file; resolves true when it was saved.
     async saveProject() {
       const name = (this.docName || 'Untitled') + '.wbproj';
-      const path = await this.saveAs(name, new Blob([this.projectFileText()], { type: 'application/json' }), 'Wirebench project', ['wbproj']);
+      const path = await this.saveAs(name, new Blob([this.projectFileText()], { type: 'application/json' }), 'JumperCraft project', ['wbproj']);
       if (!path) return false;
       this.setDocName(path);
       this.markSaved();
@@ -1370,8 +1404,8 @@
       this.updateTitle();
       this.appWindow.onCloseRequested(async (e) => {
         this.saveLocal();
-        if (!(await this.askSaveChanges('closing Wirebench'))) e.preventDefault();
-      }).catch((err) => console.warn('Wirebench: no close handler', err));
+        if (!(await this.askSaveChanges('closing JumperCraft'))) e.preventDefault();
+      }).catch((err) => console.warn('JumperCraft: no close handler', err));
     }
 
     // ---------------- export / netlist
@@ -1400,7 +1434,7 @@
           render();
         }));
         $('#modal-body').querySelectorAll('[data-sch]').forEach((b) => b.addEventListener('click', () => {
-          if (b.dataset.sch === 'svg') this.saveAs('wirebench-schematic.svg', new Blob([sch.svg], { type: 'image/svg+xml' }), 'SVG image', ['svg']);
+          if (b.dataset.sch === 'svg') this.saveAs('jumpercraft-schematic.svg', new Blob([sch.svg], { type: 'image/svg+xml' }), 'SVG image', ['svg']);
           else this.schematicPNG(sch);
         }));
       };
@@ -1416,10 +1450,10 @@
       if (!this.project.parts.some((p) => PARTS[p.type] && !PARTS[p.type].holes && !PARTS[p.type].annotation)) { this.toast('Add some parts first — the netlist is written from the circuit on the workspace.'); return; }
       const net = WB.Spice.build(this);
       $('#modal-body').innerHTML = `<h2>SPICE netlist for LTspice</h2>
-        <p class="muted small">Written from the circuit on the workspace with the same models Wirebench simulates, plus BJT / MOSFET / op-amp models. Save it as a <b>.cir</b> file and open it in LTspice (File → Open), then press Run. Analysis: <code>${WB.esc(net.analysis)}</code>.${net.skipped ? ` ${net.skipped} digital / behavioural part${net.skipped > 1 ? 's are' : ' is'} listed as comments with their pin nets.` : ''}</p>
+        <p class="muted small">Written from the circuit on the workspace with the same models JumperCraft simulates, plus BJT / MOSFET / op-amp models. Save it as a <b>.cir</b> file and open it in LTspice (File → Open), then press Run. Analysis: <code>${WB.esc(net.analysis)}</code>.${net.skipped ? ` ${net.skipped} digital / behavioural part${net.skipped > 1 ? 's are' : ' is'} listed as comments with their pin nets.` : ''}</p>
         <div class="sch-actions"><button data-spice="save">Save as .cir</button><button data-spice="copy">Copy to clipboard</button></div>
         <pre class="spice-text">${WB.esc(net.text)}</pre>`;
-      $('#modal-body').querySelector('[data-spice="save"]').addEventListener('click', () => this.saveAs('wirebench.cir', new Blob([net.text], { type: 'text/plain' }), 'SPICE netlist', ['cir', 'net', 'sp']));
+      $('#modal-body').querySelector('[data-spice="save"]').addEventListener('click', () => this.saveAs('jumpercraft.cir', new Blob([net.text], { type: 'text/plain' }), 'SPICE netlist', ['cir', 'net', 'sp']));
       $('#modal-body').querySelector('[data-spice="copy"]').addEventListener('click', () => {
         (navigator.clipboard ? navigator.clipboard.writeText(net.text) : Promise.reject()).then(() => this.toast('Netlist copied'), () => this.toast('Copy failed — select the text and press Ctrl+C'));
       });
@@ -1438,7 +1472,7 @@
         ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
         ctx.scale(k, k); ctx.drawImage(img, 0, 0);
         URL.revokeObjectURL(url);
-        c.toBlob((b) => this.saveAs('wirebench-schematic.png', b, 'PNG image', ['png']), 'image/png');
+        c.toBlob((b) => this.saveAs('jumpercraft-schematic.png', b, 'PNG image', ['png']), 'image/png');
       };
       img.src = url;
     }
@@ -1453,7 +1487,7 @@
         ctx.scale(2, 2);
         ctx.drawImage(img, 0, 0);
         URL.revokeObjectURL(url);
-        c.toBlob((b) => this.saveAs('wirebench-breadboard.png', b, 'PNG image', ['png']), 'image/png');
+        c.toBlob((b) => this.saveAs('jumpercraft-breadboard.png', b, 'PNG image', ['png']), 'image/png');
       };
       img.src = url;
     }
@@ -1572,7 +1606,7 @@
       const have = this.printContent();
       const want = (k) => have[k] && o[k];
       const date = new Date().toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' });
-      const meta = [o.name ? `<b>${WB.esc(o.name)}</b>` : '', WB.esc(date), `Wirebench ${WB.esc(WB.VERSION)}`].filter(Boolean).join(' · ');
+      const meta = [o.name ? `<b>${WB.esc(o.name)}</b>` : '', WB.esc(date), `JumperCraft ${WB.esc(WB.VERSION)}`].filter(Boolean).join(' · ');
       const secs = [];
       if (want('breadboard')) secs.push(['Breadboard view', this.printImg(this.editor.exportSVGString())]);
       if (want('schematic')) secs.push(['Schematic', this.printImg(WB.Schematic.build(this, { mode: o.schMode === 'labels' ? 'labels' : 'wires' }).svg)]);
@@ -1604,7 +1638,7 @@
       // wait until the drawings are decoded so none print blank
       await Promise.all([...area.querySelectorAll('img')].map((im) => (im.decode ? im.decode().catch(() => {}) : null)));
       const prevTitle = document.title;
-      document.title = o.title || this.docName || 'Wirebench'; // the suggested PDF file name
+      document.title = o.title || this.docName || 'JumperCraft'; // the suggested PDF file name
       const cleanup = () => { document.title = prevTitle; area.innerHTML = ''; window.removeEventListener('afterprint', cleanup); };
       window.addEventListener('afterprint', cleanup);
       window.print();
@@ -1630,6 +1664,8 @@
       document.querySelectorAll(`.sec-toggle[data-sec="${sec}"]`).forEach((b) => { b.textContent = show ? '▾' : '▸'; });
       this.saveLayout();
     }
+    // Phone-sized screen (see the 700 px layout in app.css): side panels cover the circuit.
+    narrow() { return !!(window.matchMedia && window.matchMedia('(max-width: 700px)').matches); }
     // Show / hide the whole left panel (parts list and inspector).
     setLeftPanel(show, quiet) {
       if (show === !document.body.classList.contains('left-hidden')) return;

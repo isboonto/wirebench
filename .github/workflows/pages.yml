@@ -1,4 +1,4 @@
-# Publishes the web version of Wirebench (the web/ folder) on GitHub Pages
+# Publishes the web version of JumperCraft (the web/ folder) on GitHub Pages
 # at https://<your-username>.github.io/<repository>/
 #
 # One-time setup on github.com: Settings → Pages → Build and deployment → Source: "GitHub Actions".

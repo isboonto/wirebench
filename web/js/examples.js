@@ -22,7 +22,7 @@
   function checkPins(p, a, b) {
     for (const [part, pin] of [a, b]) {
       const q = p.parts.find((x) => x.id === part);
-      if (q && WB.PARTS[q.type] && !WB.worldPin(q, pin)) console.warn(`Wirebench example: ${q.name || part} has no pin "${pin}"`);
+      if (q && WB.PARTS[q.type] && !WB.worldPin(q, pin)) console.warn(`JumperCraft example: ${q.name || part} has no pin "${pin}"`);
     }
   }
   function wire(p, a, b, color, pts) {
@@ -968,7 +968,7 @@ byte heart[8] = { 0b00000, 0b01010, 0b11111, 0b11111, 0b01110, 0b00100, 0b00000,
 void setup() {
   lcd.begin(16, 2);
   lcd.createChar(0, heart);
-  lcd.print("Hello, Wirebench");
+  lcd.print("Hi, JumperCraft!");   // 16 characters: one full line
 }
 
 void loop() {
@@ -1287,7 +1287,7 @@ void setup() {
   gfx->setTextColor(CYAN);
   gfx->setTextSize(4);
   gfx->setCursor(20, 18);
-  gfx->println("Wirebench + 7-inch CYD");
+  gfx->println("JumperCraft + 7-inch CYD");
   gfx->drawRect(16, 70, 768, 316, DARKGREY);
   drawButton(16, "LED ON", DARKGREEN);
   drawButton(204, "LED OFF", MAROON);
@@ -1656,7 +1656,7 @@ void loop() {
       add(p, 'q', 'darlington', hole('f10'), 0, {}, 'Q1');
       add(p, 'rb', 'resistor', hole('i5'), 0, { ohms: 1000 }, 'R1');
       add(p, 'd', 'diode', hole('j11'), 0, { model: '1N4001' }, 'D1');
-      add(p, 'm', 'motor', [560, 330], 0, { model: 'dc' }, 'M1');
+      add(p, 'm', 'motor', [560, 340], 0, { model: 'dc' }, 'M1');
       add(p, 'bat', 'battery', [430, 380], 0, { volts: 9 }, 'BAT1');
       const G = '#1f1f1f', R = '#d62828';
       rw(p, ['board', 'D9'], ['bb', 'j5'], '#2f7de1');
@@ -1787,6 +1787,35 @@ void loop() {
     },
   });
 
+  EX.push({
+    name: 'Electronics · LED I–V curve: DC sweep on the dual power supply (scope X-Y)', build: () => {
+      const p = { parts: [], wires: [], code: NOCODE(`// Measure an LED's current–voltage curve with a swept DC supply.
+// CH1 of the dual power supply is set to SWEEP: every 40 ms it ramps from 0 V up to
+// 5 V and back down (the SWP button cycles off → ramp → up and down; the start voltage
+// and sweep time are in its settings). The LED and a 100 Ω current-sense resistor are
+// in series across CH1. The scope ground sits between them:
+//  - scope CH1 = voltage across the LED                     -> X axis
+//  - scope CH2 = voltage across the resistor = I × 100 Ω    -> Y axis (INV, as it is
+//    measured backwards across the resistor)
+// In X-Y mode the trace is the LED's I–V curve: nothing flows below about 1.8 V,
+// then the current rises steeply. 1 V on the Y axis = 10 mA.
+// Try it: change the LED's colour (blue and white start near 2.7 V), raise the sweep's
+// set voltage, or press X-Y on the scope to see the sweep against time.`) };
+      add(p, 'ps', 'psu2', [120, 300], 0, { mode: 'indep', v1: 5, i1: 0.1, v2: 0, i2: 0.1, sw1: 'tri', lo1: 0, per1: 0.04, sw2: 'off', lo2: 0, per2: 1 }, 'PS1');
+      add(p, 'led', 'led', [470, 120], 0, { color: 'red' }, 'LED1');
+      add(p, 'r', 'resistor', [470, 300], 0, { ohms: 100 }, 'R1');
+      add(p, 'osc', 'scope', [760, 640], 0, { tdiv: 5, vdiv: 0.5, vdiv2: 0.5, pos1: -3, pos2: -3, inv2: true, xy: true }, 'OSC1');
+      const G = '#1f1f1f';
+      rw(p, ['ps', '1+'], ['led', 'A'], '#d62828');
+      rw(p, ['led', 'K'], ['r', '2'], '#7f8c8d');
+      rw(p, ['r', '1'], ['ps', '1-'], G);
+      rw(p, ['osc', 'GND'], ['led', 'K'], G);
+      rw(p, ['osc', 'CH1'], ['led', 'A'], '#f2c200');
+      rw(p, ['osc', 'CH2'], ['ps', '1-'], '#00b3b3');
+      return p;
+    },
+  });
+
   // ---------------------------------------------------------------- menu categories
   // The Examples menu groups examples under these headings, in this order. Each example
   // name must appear exactly once; anything missing lands in "Other".
@@ -1794,7 +1823,7 @@ void loop() {
     ['DC circuits', ['No code · Battery, switch and LED', 'Electronics · Zener voltage regulator']],
     ['Transients (RC, RL, RLC)', ['Electronics · Capacitor charging (power supply + switch)', 'Electronics · RL circuit: inductor with a square wave', 'Electronics · RLC circuit: underdamped ringing']],
     ['AC circuits & filters', ['Electronics · RC low-pass filter (function generator + scope)', 'Electronics · Bode plot: RC low-pass and Sallen-Key filters', 'Electronics · Half-wave rectifier with smoothing capacitor']],
-    ['Semiconductors & ICs', ['Electronics · Diode V-I curve (scope in X-Y mode)', 'Electronics · 555 timer LED blinker', 'Electronics · LM358 op-amp: amplifier + comparator']],
+    ['Semiconductors & ICs', ['Electronics · Diode V-I curve (scope in X-Y mode)', 'Electronics · LED I–V curve: DC sweep on the dual power supply (scope X-Y)', 'Electronics · 555 timer LED blinker', 'Electronics · LM358 op-amp: amplifier + comparator']],
     ['Controlled sources', ['Controlled sources · Sallen-Key low-pass filter (VCVS)', 'Controlled sources · Sallen-Key high-pass filter (VCVS)', 'Controlled sources · Transistor small-signal model (CCCS)']],
     ['Arduino basics', ['Mega 2560 · LED chaser on pins 22–29 + speed knob on A8', 'UNO Q · Blink (built-in LED)', 'UNO Q · Blink an external LED', 'UNO Q · Button controls LED', 'UNO Q · Fade an LED (PWM)', 'UNO Q · Potentiometer dimmer + Serial', 'UNO R3 · Traffic light', 'Nano · on a breadboard']],
     ['Arduino + measuring & analog', ['UNO Q · Measuring: multimeter & oscilloscope (v0.2)', 'UNO Q · PWM + RC filter = analog voltage', 'UNO R3 · Transistor motor driver (PWM speed)']],
@@ -1808,7 +1837,7 @@ void loop() {
     ex.category = catOf.get(ex.name) || 'Other';
     // the heading already says what kind of circuit it is
     ex.label = ex.name.replace(/^(Electronics|No code|Controlled sources) · /, '');
-    if (ex.category === 'Other') console.warn('Wirebench: example without a menu category:', ex.name);
+    if (ex.category === 'Other') console.warn('JumperCraft: example without a menu category:', ex.name);
   }
   WB.EXAMPLE_CATEGORIES = CATS.map(([c]) => c).concat(EX.some((e) => e.category === 'Other') ? ['Other'] : []);
 

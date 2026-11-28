@@ -1141,33 +1141,52 @@
   // Two floating channels, each constant-voltage with a current limit (then constant-current).
   // TRACK (series) mode links CH1 − to CH2 + inside and makes CH2 follow CH1: a ± supply
   // around the middle terminal (e.g. ±12 V for an op-amp).
+  // SWEEP (per channel): the output moves from a start voltage to the set voltage over the
+  // sweep time and repeats — a ramp, or up and down — for I–V curves on the scope in X-Y mode.
   const P2_I = [0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 1, 1.5, 2, 3];
   const P2X = { 1: 10, 2: 90 }; // channel centres
   const P2BTN = [];
   for (const ch of [1, 2]) {
     const cx = P2X[ch];
     [['v--', '−1'], ['v-', '−.1'], ['v+', '+.1'], ['v++', '+1']].forEach(([a, t], k) => P2BTN.push({ a: a + ch, ch, x: cx - 29 + k * 14.75, y: -80, w: 13.5, h: 11, t }));
-    [['i-', 'I −'], ['i+', 'I +']].forEach(([a, t], k) => P2BTN.push({ a: a + ch, ch, x: cx - 29 + k * 30, y: -65, w: 28, h: 11, t }));
+    [['i-', 'I −'], ['i+', 'I +'], ['sw', 'SWP']].forEach(([a, t], k) => P2BTN.push({ a: a + ch, ch, x: cx - 29 + k * 19.8, y: -65, w: 18.4, h: 11, t }));
   }
   P2BTN.push({ a: 'mode', x: 38, y: -112, w: 24, h: 14, t: 'TRACK' });
   const p2v = (p, ch) => clamp(Number(p.props[p.props.mode === 'series' && ch === 2 ? 'v1' : 'v' + ch]) || 0, 0, 30);
   const p2i = (p, ch) => clamp(Number(p.props[p.props.mode === 'series' && ch === 2 ? 'i1' : 'i' + ch]) || 1, 0.001, 3);
+  // sweep of a channel (CH2 follows CH1 in TRACK mode): null, or { kind, lo, hi, period }
+  const P2_SW = ['off', 'ramp', 'tri'];
+  const p2sw = (p, ch) => {
+    const c = p.props.mode === 'series' && ch === 2 ? 1 : ch;
+    const kind = p.props['sw' + c];
+    if (kind !== 'ramp' && kind !== 'tri') return null;
+    return { kind, lo: clamp(Number(p.props['lo' + c]) || 0, 0, 30), hi: p2v(p, ch), period: clamp(Number(p.props['per' + c]) || 1, 0.001, 600) };
+  };
+  const fmtSec = (t) => (t < 1 ? +(t * 1000).toPrecision(3) + ' ms' : +t.toPrecision(3) + ' s');
   WB.defPart('psu2', {
     label: 'Dual power supply', category: 'Instruments', prefix: 'PS', dynamic: true, refPin: '1-', interact: 'panel',
-    defaults: { v1: 12, i1: 0.5, v2: 5, i2: 0.5, mode: 'indep' },
+    defaults: { v1: 12, i1: 0.5, v2: 5, i2: 0.5, mode: 'indep', sw1: 'off', lo1: 0, per1: 1, sw2: 'off', lo2: 0, per2: 1 },
     pins: () => [
       { id: '1+', label: 'CH1 + (red)', x: 0, y: 0, kind: 'pwr' }, { id: '1-', label: 'CH1 − (black)', x: 20, y: 0, kind: 'gnd' },
       { id: '2+', label: 'CH2 + (red)', x: 80, y: 0, kind: 'pwr' }, { id: '2-', label: 'CH2 − (black)', x: 100, y: 0, kind: 'gnd' },
     ],
     groups: (pr) => (pr.mode === 'series' ? [['1-', '2+']] : []),
     bbox: () => [-32, -124, 164, 130],
-    summary: (p) => (p.props.mode === 'series' ? `±${p2v(p, 1).toFixed(1)} V tracking` : `CH1 ${p2v(p, 1).toFixed(1)} V, CH2 ${p2v(p, 2).toFixed(1)} V`),
+    summary: (p) => {
+      const ch = (n) => { const w = p2sw(p, n); return w ? `${w.lo.toFixed(1)}→${w.hi.toFixed(1)} V sweep (${w.kind === 'tri' ? 'up and down' : 'ramp'}, ${fmtSec(w.period)})` : `${p2v(p, n).toFixed(1)} V`; };
+      return p.props.mode === 'series' ? `± tracking, CH1 ${ch(1)}` : `CH1 ${ch(1)}, CH2 ${ch(2)}`;
+    },
     inspector: [
       { key: 'mode', label: 'Mode', type: 'select', options: [['indep', 'Independent (two separate supplies)'], ['series', 'Tracking: CH1 − joined to CH2 +, CH2 = CH1 (± supply)']], live: true },
       { key: 'v1', label: 'CH1 voltage', type: 'range', min: 0, max: 30, step: 0.1, fmt: (v) => Number(v).toFixed(1) + ' V', live: true },
       { key: 'i1', label: 'CH1 current limit', type: 'range', min: 0.01, max: 3, step: 0.01, fmt: (v) => Number(v).toFixed(2) + ' A', live: true },
       { key: 'v2', label: 'CH2 voltage', type: 'range', min: 0, max: 30, step: 0.1, fmt: (v) => Number(v).toFixed(1) + ' V', live: true },
       { key: 'i2', label: 'CH2 current limit', type: 'range', min: 0.01, max: 3, step: 0.01, fmt: (v) => Number(v).toFixed(2) + ' A', live: true },
+      ...[1, 2].flatMap((ch) => [
+        { key: 'sw' + ch, label: `CH${ch} sweep`, type: 'select', options: [['off', 'Off (steady DC)'], ['ramp', 'Ramp: start → set voltage, then again'], ['tri', 'Up and down: start ↔ set voltage']], live: true },
+        { key: 'lo' + ch, label: `CH${ch} sweep start voltage`, type: 'range', min: 0, max: 30, step: 0.1, fmt: (v) => Number(v).toFixed(1) + ' V', live: true },
+        { key: 'per' + ch, label: `CH${ch} sweep time (s)`, type: 'number', min: 0.001, step: 'any', live: true, suggestions: [0.01, 0.02, 0.05, 0.1, 0.5, 1, 2, 5, 10], sugFmt: fmtSec },
+      ]),
     ],
     hit(lx, ly) { const b = P2BTN.find((q) => lx >= q.x && lx <= q.x + q.w && ly >= q.y && ly <= q.y + q.h); return b ? b.a : null; },
     panelAction(part, act) {
@@ -1175,6 +1194,7 @@
       if (act === 'mode') { pr.mode = pr.mode === 'series' ? 'indep' : 'series'; return; }
       const ch = act.slice(-1), a = act.slice(0, -1);
       if (pr.mode === 'series' && ch === '2') return; // CH2 follows CH1
+      if (a === 'sw') { pr['sw' + ch] = P2_SW[(P2_SW.indexOf(pr['sw' + ch] || 'off') + 1) % P2_SW.length]; return; }
       const vk = 'v' + ch, ik = 'i' + ch;
       const dv = { 'v--': -1, 'v-': -0.1, 'v+': 0.1, 'v++': 1 }[a];
       if (dv !== undefined) pr[vk] = +clamp((Number(pr[vk]) || 0) + dv, 0, 30).toFixed(1);
@@ -1188,8 +1208,12 @@
       const out = [];
       for (const ch of [1, 2]) {
         const p = { props: c.props };
-        const vset = p2v(p, ch), ilim = p2i(p, ch);
-        const e = c.state['cc' + ch] ? { t: 'V', a: c.n(ch + '+'), b: c.n(ch + '-'), v: ilim * 1e6, r: 1e6 } : { t: 'V', a: c.n(ch + '+'), b: c.n(ch + '-'), v: vset, r: 0.01 };
+        const vset = p2v(p, ch), ilim = p2i(p, ch), w = p2sw(p, ch);
+        let e;
+        if (c.state['cc' + ch]) e = { t: 'V', a: c.n(ch + '+'), b: c.n(ch + '-'), v: ilim * 1e6, r: 1e6 };
+        // sweep: the solver's sawtooth (3 = triangle, 4 = sawtooth) around the middle of start and end
+        else if (w) e = { t: 'V', a: c.n(ch + '+'), b: c.n(ch + '-'), v: (w.lo + w.hi) / 2, amp: (w.hi - w.lo) / 2, shape: w.kind === 'tri' ? 3 : 4, freq: 1 / w.period, r: 0.01 };
+        else e = { t: 'V', a: c.n(ch + '+'), b: c.n(ch + '-'), v: vset, r: 0.01 };
         e.tag = ch;
         out.push(e);
       }
@@ -1201,8 +1225,10 @@
       for (const ch of [1, 2]) {
         const e = c.els.find((x) => x.tag === ch);
         const p = { props: c.props };
-        const vset = p2v(p, ch), ilim = p2i(p, ch);
+        const w = p2sw(p, ch);
+        const vset = w ? Math.max(w.lo, w.hi) : p2v(p, ch), ilim = p2i(p, ch);
         if (!e) { out['v' + ch] = 0; out['i' + ch] = 0; continue; }
+        if (w) out['sw' + ch] = w.kind;
         const vout = c.V(ch + '+') - c.V(ch + '-');
         const k = 'cc' + ch;
         if (!c.state[k] && e.i > ilim * 1.001) { c.state[k] = true; again = true; }
@@ -1231,6 +1257,7 @@
           <text x="${cx + 18}" y="-86.5" font-size="7.5" text-anchor="end" fill="#4ade80" font-family="monospace" font-weight="700">${is}</text>
           <text x="${cx + 20}" y="-86.5" font-size="5.5" fill="#4ade80" font-family="monospace">A</text>
           <text x="${cx - 27}" y="-86.5" font-size="4.2" fill="#7f8a99" font-family="monospace">≤${lim}A</text>
+          ${p2sw(p, ch) ? `<text x="${cx - 27}" y="-101" font-size="4.2" fill="#ffd166" font-family="monospace" font-weight="700">${p2sw(p, ch).kind === 'tri' ? 'SWP ⋀' : 'SWP ⟋'}</text>` : ''}
           <circle cx="${cx - 24}" cy="-46" r="2.3" fill="${v['cc' + ch] ? '#333' : '#4ade80'}"/><text x="${cx - 20}" y="-44" font-size="5" fill="#333" font-family="sans-serif">CV</text>
           <circle cx="${cx + 6}" cy="-46" r="2.3" fill="${v['cc' + ch] ? '#ff5a4a' : '#333'}"/><text x="${cx + 10}" y="-44" font-size="5" fill="#333" font-family="sans-serif">CC</text>
           <circle cx="${cx - 10}" cy="-24" r="6" fill="#111" stroke="#d62828" stroke-width="2.2"/><circle cx="${cx + 10}" cy="-24" r="6" fill="#111" stroke="#555" stroke-width="2.2"/>
@@ -1240,7 +1267,7 @@
       }
       s += P2BTN.map((b) => {
         const off = series && b.ch === 2;
-        const on = b.a === 'mode' && series;
+        const on = (b.a === 'mode' && series) || (/^sw/.test(b.a) && !!p2sw(p, b.ch));
         return `<g style="cursor:pointer" opacity="${off ? 0.35 : 1}"><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="2" fill="${on ? '#2d5fa8' : '#3a404b'}" stroke="${on ? '#7fb0ff' : '#1d2129'}" stroke-width=".7"/>
           <text x="${b.x + b.w / 2}" y="${b.y + b.h / 2 + 2}" font-size="${b.a === 'mode' ? 5 : 5.6}" text-anchor="middle" fill="#eef1f6" font-family="sans-serif" font-weight="700">${b.t}</text></g>`;
       }).join('');
@@ -1251,6 +1278,19 @@
       return s;
     },
   });
+
+  // Both bench supplies are drawn at twice their design size, so their buttons and displays are
+  // easy to use (pins stay on the 0.1" grid: every coordinate doubles, the panels' hit tests halve).
+  function enlarge(type, k) {
+    const d = WB.PARTS[type];
+    const pins = d.pins, bbox = d.bbox, hit = d.hit, render = d.render;
+    d.pins = (pr) => pins(pr).map((p) => Object.assign({}, p, { x: p.x * k, y: p.y * k }));
+    d.bbox = (pr) => bbox(pr).map((v) => v * k);
+    if (hit) d.hit = (lx, ly, part) => hit(lx / k, ly / k, part);
+    d.render = (p, v) => `<g transform="scale(${k})">${render(p, v)}</g>`;
+  }
+  enlarge('psu', 2);
+  enlarge('psu2', 2);
 
   // ---------------------------------------------------------------- Coin cell
   WB.defPart('coincell', {

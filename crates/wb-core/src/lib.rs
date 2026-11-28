@@ -1,4 +1,4 @@
-//! Wirebench circuit solver.
+//! JumperCraft circuit solver.
 //!
 //! Every element is reduced to conductances and current injections (voltage
 //! sources use their Norton equivalent). LEDs/diodes are piecewise-linear

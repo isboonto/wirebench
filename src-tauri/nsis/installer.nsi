@@ -1,4 +1,4 @@
-; Wirebench: customised copy of Tauri's NSIS installer template (tauri-bundler 2.10.6,
+; JumperCraft: customised copy of Tauri's NSIS installer template (tauri-bundler 2.10.6,
 ; src/bundle/windows/nsis/installer.nsi), used through bundle.windows.nsis.template.
 ;
 ; The only change: the previous install folder is found through ReadPreviousInstallDir
@@ -381,7 +381,7 @@ Function PageLeaveReinstall
       ReadRegStr $R1 HKLM "$R6" "UninstallString"
       ExecWait '$R1' $0
     ${Else}
-      Call ReadPreviousInstallDir ; Wirebench: sets $4, with a fallback for older publishers
+      Call ReadPreviousInstallDir ; JumperCraft: sets $4, with a fallback for older publishers
       ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
       ${IfThen} $UpdateMode = 1 ${|} StrCpy $R1 "$R1 /UPDATE" ${|} ; append /UPDATE
       ${IfThen} $PassiveMode = 1 ${|} StrCpy $R1 "$R1 /P" ${|} ; append /P
@@ -701,6 +701,8 @@ Section Install
 
   !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
+  Call RemoveOldWirebench ; JumperCraft: see the function below
+
   ; Copy main executable
   File "${MAINBINARYSRCPATH}"
 
@@ -952,14 +954,14 @@ Section Uninstall
 SectionEnd
 
 Function RestorePreviousInstallLocation
-  Call ReadPreviousInstallDir ; Wirebench: sets $4, with a fallback for older publishers
+  Call ReadPreviousInstallDir ; JumperCraft: sets $4, with a fallback for older publishers
   StrCmp $4 "" +2 0
     StrCpy $INSTDIR $4
 FunctionEnd
 
-; Wirebench: folder of the installed copy in $4 ("" if none). Prefers the publisher key
+; JumperCraft: folder of the installed copy in $4 ("" if none). Prefers the publisher key
 ; written by this installer; otherwise uses the folder of the registered uninstaller
-; (UninstallString, e.g. "C:\Users\me\AppData\Local\Wirebench\uninstall.exe", with quotes).
+; (UninstallString, e.g. "C:\Users\me\AppData\Local\JumperCraft\uninstall.exe", with quotes).
 Function ReadPreviousInstallDir
   Push $5
   Push $6
@@ -973,6 +975,32 @@ Function ReadPreviousInstallDir
     StrCpy $5 $5 -1   ; and the trailing one
   ${GetParent} $5 $4
   done:
+  Pop $6
+  Pop $5
+FunctionEnd
+
+; JumperCraft: this app was called "Wirebench" up to 1.0.0-beta.1. If that copy is still
+; installed, run its own uninstaller silently (it keeps the user's data: the autosave and
+; settings live in the app-data folder, which has not changed), so Windows lists only one app.
+Function RemoveOldWirebench
+  Push $5
+  Push $6
+  Push $7
+  ReadRegStr $5 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Wirebench" "UninstallString"
+  StrCmp $5 "" done
+  StrCpy $6 $5 1
+  StrCmp $6 '"' 0 +3
+    StrCpy $5 $5 "" 1 ; drop the leading quote
+    StrCpy $5 $5 -1   ; and the trailing one
+  ${GetParent} $5 $7
+  IfFileExists "$5" 0 done
+  DetailPrint "Removing the old Wirebench install from $7"
+  ExecWait '"$5" /S _?=$7'
+  Delete "$5" ; with _?= the uninstaller leaves itself behind
+  RMDir "$7"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Wirebench"
+  done:
+  Pop $7
   Pop $6
   Pop $5
 FunctionEnd
