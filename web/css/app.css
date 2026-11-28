@@ -375,14 +375,16 @@ body.simulating [data-edit] { opacity: .35; pointer-events: none; }
   white-space: pre-wrap; word-break: break-all;
 }
 #serial-form { display: flex; gap: 6px; padding: 6px; border-top: 1px solid var(--border); }
-/* Serial Monitor / Plotter tabs */
-.io-tabs { display: inline-flex; gap: 2px; }
-.io-tab { border: 0; background: transparent; color: var(--muted); padding: 3px 8px; border-radius: 6px; font-weight: 600; }
-.io-tab.on { background: var(--active-bg); color: var(--active-fg); }
-.io-plot-tools { display: none; gap: 4px; }
-body.io-plot .io-plot-tools { display: inline-flex; }
-body.io-plot .io-serial-tools, body.io-plot #serial-out, body.io-plot #serial-form { display: none; }
-#plot-wrap { flex: 0 0 auto; height: min(420px, 55vh); min-height: 220px; border-top: 1px solid var(--border); display: flex; flex-direction: column; }
+/* Data plotter: floating window (drag by the title bar, resize from the corner) */
+.float-win { position: fixed; z-index: 70; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .45); overflow: hidden; resize: both; min-width: 360px; min-height: 240px; max-width: calc(100vw - 8px); max-height: calc(100vh - 8px);
+  right: 24px; bottom: 56px; width: 620px; height: 420px; }
+.float-win[hidden] { display: none; }
+.fw-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 5px 6px 5px 10px; background: var(--panel2, var(--panel)); border-bottom: 1px solid var(--border); cursor: move; user-select: none; touch-action: none; }
+.fw-head .fw-title { font-weight: 600; }
+.fw-head button { padding: 2px 8px; font-size: 12px; cursor: pointer; }
+.fw-head .fw-close { border: 0; background: transparent; font-size: 14px; }
+@media (max-width: 700px) { .float-win { left: 6px !important; right: 6px !important; width: auto !important; min-width: 0; } }
 .plot-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 6px; border-bottom: 1px solid var(--border); }
 .plot-bar button { padding: 2px 8px; font-size: 12px; }
 .plot-bar button.on { background: var(--active-bg); color: var(--active-fg); border-color: var(--active-border, var(--accent)); }
@@ -393,13 +395,12 @@ body.io-plot .io-serial-tools, body.io-plot #serial-out, body.io-plot #serial-fo
 #plot-info[hidden] { display: none; }
 #plot-info i { display: inline-block; width: 10px; height: 3px; margin-right: 5px; vertical-align: middle; }
 #plot-info .pi-t { color: #e0b100; } #plot-info .pi-v { color: #c565e0; }
-#plot-wrap[hidden] { display: none; }
-body.hide-sketch #plot-wrap { flex: 1 1 auto; height: auto; }
-body.hide-serial #plot-wrap { display: none; }
 #plot { width: 100%; display: block; cursor: crosshair; --plot-bg: #0f141a; --plot-grid: #222c39; --plot-fg: #93a0b0; }
 /* toolbar: simulation time and Run again */
 #simtime-box { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
-#simtime-box .st-ico { color: var(--muted); }
+#simtime-box .ico { color: var(--text); width: 17px; height: 17px; }
+#simtime-box .st-lbl { color: var(--text); font-size: 12px; font-weight: 600; white-space: nowrap; margin-right: 2px; }
+#toolbar.c3 #simtime-box .st-lbl { display: none; }
 #simtime { width: 58px; padding: 4px 5px; }
 #simtime-unit { padding: 4px 2px; }
 #btn-rerun { flex-shrink: 0; font-size: 15px; padding: 4px 9px; }

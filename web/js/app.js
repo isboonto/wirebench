@@ -228,7 +228,6 @@
       this.buildPalette();
       this.bindUI();
       WB.Plotter.bind(this);
-      try { if (localStorage.getItem('wirebench.ioTab') === 'plot') WB.Plotter.showTab('plot'); } catch (e) { /* storage unavailable */ }
       $('#simtime').addEventListener('change', () => this.readSimTimeUI());
       $('#simtime').addEventListener('keydown', (e) => { if (e.key === 'Enter') { this.readSimTimeUI(); e.target.blur(); } e.stopPropagation(); });
       $('#simtime-unit').addEventListener('change', () => this.readSimTimeUI());
@@ -2080,14 +2079,8 @@
       }
       if (any) WB.Plotter.requestDraw();
     }
-    // Data plotter's SHOW PLOT button: open the code panel on the Plotter tab
-    showPlotter() {
-      if (document.body.classList.contains('code-hidden')) this.setCodePanel(true);
-      if (document.body.classList.contains('hide-serial')) this.setSection('serial', true);
-      WB.Plotter.showTab('plot');
-      const w = document.getElementById('plot-wrap');
-      if (w && w.scrollIntoView) w.scrollIntoView({ block: 'nearest' });
-    }
+    // Data plotter: double-click it (or its SHOW PLOT button) to open the floating plot window
+    showPlotter() { WB.Plotter.open(); }
     // ⏱ simulation time (toolbar): number + unit; stored in the project as seconds
     simTimeSec() { return this.project.simTime || 0; }
     syncSimTimeUI() {
@@ -2217,7 +2210,6 @@
       this.editor.renderWires(); // a selected wire drops its joint handles while running
       this.sim.clock = 0; // simulation time (s), for the ⏱ limit and the data plotter
       WB.Plotter.reset(this);
-      if (this.project.parts.some((p) => p.type === 'plotter')) WB.Plotter.showTab('plot');
       // chips that react to clock edges (74HC595): solve after every digitalWrite so no edge is missed
       this.clocked = this.project.parts.some((p) => PARTS[p.type] && PARTS[p.type].clocked);
       this.setRunUI(true);

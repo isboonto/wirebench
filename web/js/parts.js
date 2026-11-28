@@ -1708,7 +1708,7 @@
       return pins;
     },
     bbox: () => [-8, -62, 86, 65].map((v) => v * PLOT_K),
-    summary: () => '4 channels · SHOW PLOT opens the Plotter tab',
+    summary: () => '4 channels · double-click it (or SHOW PLOT) for the graph',
     elements: () => [],
     // the SHOW PLOT button and the little screen open the Plotter tab (while editing too)
     hit: (lx, ly) => {
@@ -1716,6 +1716,7 @@
       return inR(PLOT_BTN) || inR(PLOT_SCREEN) ? 'show' : null;
     },
     panelAction(p, act, app) { if (act === 'show') app.showPlotter(); },
+    dblclick(p, app) { app.showPlotter(); },
     render(p) {
       const C = WB.PLOT_COLORS;
       const T = (x, y, s, t, fill, extra = '') => `<text x="${x}" y="${y}" font-size="${s}" text-anchor="middle" fill="${fill}" font-family="sans-serif"${extra}>${t}</text>`;

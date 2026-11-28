@@ -823,7 +823,10 @@
         const part = app.part(ti.part.getAttribute('data-id'));
         const def = part && PARTS[part.type];
         const onControl = def && (def.interact === 'panel' ? !!this.panelHit(part, def, e) : app.sim && def.interact);
-        if (part && !onControl) app.openPropDialog(part.id, e.clientX, e.clientY);
+        if (part && !onControl) {
+          if (def.dblclick) def.dblclick(part, app); // e.g. the Data plotter opens its plot window
+          else app.openPropDialog(part.id, e.clientX, e.clientY);
+        }
         return;
       }
       if (ti.handle && ti.handle.classList.contains('bend')) {

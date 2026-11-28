@@ -1,6 +1,6 @@
 'use strict';
 // Data plotter: records the channels of every "Data plotter" part over a whole run and draws them
-// in the Plotter tab next to the Serial Monitor. Time is the simulation's time in seconds (exact
+// in a floating window (double-click a Data plotter to open it). Time is the simulation's time in seconds (exact
 // solver time for circuits with capacitors / function generators, the sketch's clock otherwise).
 // The recording stays after the simulation stops, so it can be inspected and saved as CSV.
 (function (WB) {
@@ -142,7 +142,7 @@
     },
 
     // ---------------------------------------------------------------- drawing
-    visible() { const w = document.getElementById('plot-wrap'); return w && !w.hidden && w.offsetParent !== null; },
+    visible() { const w = document.getElementById('plot-wrap'); return !!w && !w.hidden; },
     requestDraw() {
       if (this._raf) return;
       this._raf = requestAnimationFrame(() => { this._raf = 0; if (this.visible()) { this.draw(); this.info(); } });
@@ -243,10 +243,10 @@
     // ---------------------------------------------------------------- UI
     bind(app) {
       this.app = app;
-      document.querySelectorAll('.io-tab').forEach((b) => b.addEventListener('click', () => this.showTab(b.dataset.io)));
       document.querySelectorAll('[data-plot]').forEach((b) => b.addEventListener('click', () => {
         const a = b.dataset.plot;
-        if (a === 'tm') this.toggleTimeMarkers();
+        if (a === 'close') this.close();
+        else if (a === 'tm') this.toggleTimeMarkers();
         else if (a === 'vm') this.toggleValueMarkers();
         else if (a === 'auto') this.setAuto();
         else if (a === 'zin') this.zoom(0.5, 'x');
@@ -305,14 +305,60 @@
         const q = toData(pos(e)), f = e.deltaY > 0 ? 1.25 : 0.8;
         this.zoom(f, e.shiftKey || e.ctrlKey ? 'y' : 'x', q.t, q.v);
       }, { passive: false });
-      new ResizeObserver(() => this.requestDraw()).observe(cv);
+      new ResizeObserver(() => { this.requestDraw(); this.saveGeom(); }).observe(cv);
       this.syncButtons();
+      this.bindWindow();
     },
-    showTab(which) {
-      document.querySelectorAll('.io-tab').forEach((b) => b.classList.toggle('on', b.dataset.io === which));
-      document.body.classList.toggle('io-plot', which === 'plot');
-      document.getElementById('plot-wrap').hidden = which !== 'plot';
-      try { localStorage.setItem('wirebench.ioTab', which); } catch (e) { /* storage unavailable */ }
+    // ---------------------------------------------------------------- floating window
+    open() {
+      const w = document.getElementById('plot-wrap');
+      if (w.hidden) { w.hidden = false; this.restoreGeom(); }
+      w.style.zIndex = 70;
+      this.requestDraw();
+    },
+    close() { document.getElementById('plot-wrap').hidden = true; },
+    bindWindow() {
+      const w = document.getElementById('plot-wrap'), head = w.querySelector('.fw-head');
+      let d = null;
+      head.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button')) return;
+        const r = w.getBoundingClientRect();
+        d = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+        try { head.setPointerCapture(e.pointerId); } catch (err) { /* fine without */ }
+        e.preventDefault();
+      });
+      head.addEventListener('pointermove', (e) => {
+        if (!d) return;
+        const W = w.offsetWidth, H = w.offsetHeight;
+        const x = Math.max(4 - W + 80, Math.min(window.innerWidth - 80, e.clientX - d.dx)), y = Math.max(0, Math.min(window.innerHeight - 36, e.clientY - d.dy));
+        Object.assign(w.style, { left: x + 'px', top: y + 'px', right: 'auto', bottom: 'auto' });
+      });
+      const up = () => { if (d) { d = null; this.saveGeom(); } };
+      head.addEventListener('pointerup', up);
+      head.addEventListener('pointercancel', up);
+      head.addEventListener('dblclick', (e) => { if (!e.target.closest('button')) this.resetGeom(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !w.hidden && w.contains(document.activeElement)) this.close(); });
+    },
+    // position and size are remembered between sessions (only while they fit the screen)
+    saveGeom() {
+      const w = document.getElementById('plot-wrap');
+      if (w.hidden || !w.style.left) return;
+      try { localStorage.setItem('wirebench.plotWin', JSON.stringify({ x: w.offsetLeft, y: w.offsetTop, w: w.offsetWidth, h: w.offsetHeight })); } catch (e) { /* storage unavailable */ }
+    },
+    restoreGeom() {
+      const w = document.getElementById('plot-wrap');
+      let g = null;
+      try { g = JSON.parse(localStorage.getItem('wirebench.plotWin') || 'null'); } catch (e) { g = null; }
+      if (!g || window.innerWidth <= 700) return;
+      const W = Math.min(g.w, window.innerWidth - 8), H = Math.min(g.h, window.innerHeight - 8);
+      const x = Math.max(0, Math.min(window.innerWidth - W, g.x)), y = Math.max(0, Math.min(window.innerHeight - H, g.y));
+      Object.assign(w.style, { left: x + 'px', top: y + 'px', width: W + 'px', height: H + 'px', right: 'auto', bottom: 'auto' });
+    },
+    // double-click the title bar: back to the default place and size
+    resetGeom() {
+      const w = document.getElementById('plot-wrap');
+      Object.assign(w.style, { left: '', top: '', width: '', height: '', right: '', bottom: '' });
+      try { localStorage.removeItem('wirebench.plotWin'); } catch (e) { /* storage unavailable */ }
       this.requestDraw();
     },
   });
