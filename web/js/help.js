@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '1.0.0-beta.3';
+  WB.VERSION = '1.0.0-beta.4';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -71,7 +71,7 @@
       <ol>
         <li><b>Add a board.</b> Drag an <b>Arduino UNO Q</b> (or another board) from <b>Parts → Boards</b> onto the canvas, or double-click it. A project has one board.</li>
         <li><b>Add parts.</b> Drag parts (LEDs, resistors, buttons, sensors, Modulino…) onto the canvas or the breadboard, or double-click them in the parts list. Quicker: point at the workspace and just <b>type the part name</b> (for example <i>led</i> or <i>res</i>) — a search box opens; press Enter to drop the part at the mouse. Legs placed in breadboard holes connect automatically — connected holes turn green.</li>
-        <li><b>Wire it up.</b> Click a pin or hole to start a jumper wire, then click another pin to finish. The wire is <b>auto-routed</b> into a tidy right-angle path around parts (and re-routes when you move a part). Click empty space on the way to place joints yourself instead; the wire still runs at right angles through your joints (also when you drag a joint later). Wires are always kept at right angles; drag any piece of a wire to move it. Right-click a wire (on a touch screen: press and hold) to auto-route it again, add or remove a joint, or change its color; <b>Tidy wires</b> (toolbar) re-routes everything at once.
+        <li><b>Wire it up.</b> Click a pin or hole to start a jumper wire, then click another pin to finish. The wire is <b>auto-routed</b> into a tidy right-angle path around parts (and re-routes when you move a part). Click empty space on the way to place joints yourself instead; the wire still runs at right angles through your joints (also when you drag a joint later). Wires are always kept at right angles; drag any piece of a wire to move it. Right-click a wire (on a touch screen: press and hold) to auto-route it again, add or remove a joint, or change its color; <b>Tidy wires</b> (toolbar) re-routes everything at once. Prefer the look of real jumpers? Choose <b>File → New wires → Curved</b>: new wires are drawn as smooth curves, and you bend one by dragging it anywhere (each bend adds a joint the curve passes through). Right-click any wire to <b>Make curved</b> or <b>Make straight</b>.
           Modulino modules have a <b>Connect to board</b> button that wires them to the Qwiic connector for you.</li>
         <li><b>Configure parts.</b> Double-click a part to change its settings (resistance, LED color, sensor values…).</li>
         <li><b>Write the sketch.</b> Type Arduino code in the <b>Sketch</b> panel. Errors are checked as you type — a red badge shows the problem and the line turns red. Press <b>✓ Verify</b> to check explicitly.</li>
@@ -140,7 +140,8 @@
           ['Click empty space while wiring', 'Add a joint'],
           ['Double-click a wire', 'Add a joint there'],
           ['Drag a joint / wire end', 'Move the joint / re-attach the wire'],
-          ['Right-click a wire', 'Auto-route it, add/remove joints, change color'],
+          ['Right-click a wire', 'Auto-route it, make it curved or straight, add/remove joints, change color'],
+          ['Drag a curved wire', 'Bend it there (File → New wires → Curved)'],
           ['Tidy wires (toolbar)', 'Auto-route the selected wires, or all wires'],
         ]],
         ['View', [
@@ -254,6 +255,7 @@
       <h3 class="about-h">What's new</h3>
       <h3>What's new in 1.0 (beta)</h3>
       <ul>
+        <li>1.0.0-beta.4: <b>Curved wires</b>, as in Fritzing — choose <b>File → New wires → Curved</b>, then drag a wire anywhere to bend it; right-click a wire to make it curved or straight. Curved wires follow their pins when you move a part and are left alone by Tidy wires. <b>Nicer parts</b>: LEDs (clear epoxy with the die inside), pushbuttons (steel cover and rivets), the slide switch, and batteries — now drawn as AA cells in a holder (1.5–6 V), an 18650 Li-ion cell (3.7 V) or a 9 V battery with snap terminals — plus shading on resistors, capacitors and diodes.</li>
         <li>1.0.0-beta.3: a <b>Support JumperCraft ♥</b> button on this About page — if JumperCraft helps you or your students, you can support its development through GitHub Sponsors.</li>
         <li>1.0.0-beta.2: <b>Wirebench is now JumperCraft.</b> The old name turned out to be used already by another electronics tool. Your work carries over: the autosave, settings, “My examples” (the old Wirebench examples folder is still read) and <code>.wbproj</code> project files all keep working, and installing JumperCraft removes the old Wirebench program. The web version moved to <b>isboonto.github.io/jumpercraft</b>; the old address forwards there.</li>
         <li>1.0.0-beta.1: the first <b>1.0 beta</b> — everything from 0.1 to 0.12 in one release, and the first with ready-made Windows installers on GitHub (Releases, marked “Pre-release”). New in it: the <b>dual power supply</b> can <b>sweep</b> — its <b>SWP</b> button makes a channel ramp from a start voltage to its set voltage (or up and down) over a sweep time, for I–V curves on the scope in X-Y mode; new example <i>LED I–V curve: DC sweep on the dual power supply</i>. Both power supplies are now drawn twice as large, so their buttons and displays are easier to use. <b>Auto-routing</b>: wires no longer end in a slanted piece after you move a part or drag a wire's end — they are routed again (wires you shaped yourself keep their joints and get right-angle corners), and older projects with the power supplies open with tidy wires. Auto-routing can no longer be switched off (the “Auto-route new wires” menu item and “Remove joints” are gone), so wires always run at right angles. <b>Phones and tablets</b>: on a phone the toolbar wraps onto more rows (so <b>Run</b> is always visible), the circuit fills the screen and the Parts and Code panels slide over it; on an upright iPad the toolbar also wraps instead of hiding Rotate and Tidy wires. On iPad and iPhone a part now moves with <b>one finger</b> (Safari used to take one-finger drags for scrolling). <b>Breadboards</b> have a grip frame round the holes, so they are easy to move with a finger. <b>Wires</b> can be dragged at any point: a horizontal piece moves up or down, a vertical one left or right, and the wire stays at right angles and on its pins. On a touch screen, <b>press and hold</b> (half a second) opens the same menu as a right-click — also on iPad, which had no menu before — and a wire's menu is the same wherever you press it (<b>Remove joint</b> takes the nearest joint). Please report anything that doesn't work as expected; fixes come as further betas before 1.0.0.</li>

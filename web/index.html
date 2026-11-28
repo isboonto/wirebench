@@ -49,6 +49,11 @@
           <button data-cmd="schematic"><i data-ico="schematic"></i><span>Schematic diagram…</span></button>
           <button data-cmd="spice"><i data-ico="wave"></i><span>SPICE netlist for LTspice (.cir)…</span></button>
           <button data-cmd="netlist"><i data-ico="list"></i><span>Netlist &amp; parts list…</span></button>
+          <hr><div class="menu-head">New wires</div>
+          <div id="wires-menu">
+            <button data-cmd="wires:straight"><i data-ico="route"></i><span>Straight</span><kbd>auto-routed, right angles</kbd></button>
+            <button data-cmd="wires:curved"><i data-ico="curve"></i><span>Curved</span><kbd>drag a wire to bend it</kbd></button>
+          </div>
           <hr><div class="menu-head">Theme</div>
           <div id="theme-menu">
             <button data-cmd="theme:default"><i data-ico="themeDefault"></i><span>Default</span><kbd>slate panels, light canvas</kbd></button>
@@ -107,6 +112,12 @@
       <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
         <defs id="wbDefs">
           <filter id="wbGlow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="3.5"/></filter>
+          <linearGradient id="wbShadeH"><stop offset="0" stop-color="#000" stop-opacity=".38"/><stop offset=".22" stop-color="#fff" stop-opacity=".05"/><stop offset=".34" stop-color="#fff" stop-opacity=".42"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset=".85" stop-color="#000" stop-opacity=".22"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></linearGradient>
+          <linearGradient id="wbShadeV" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".35"/><stop offset=".25" stop-color="#fff" stop-opacity=".1"/><stop offset=".38" stop-color="#fff" stop-opacity=".4"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".4"/></linearGradient>
+          <linearGradient id="wbMetal"><stop offset="0" stop-color="#7f858d"/><stop offset=".4" stop-color="#eef0f2"/><stop offset=".7" stop-color="#b9bec4"/><stop offset="1" stop-color="#6f757d"/></linearGradient>
+          <linearGradient id="wbMetalV" x2="0" y2="1"><stop offset="0" stop-color="#f2f4f6"/><stop offset=".5" stop-color="#b7bcc3"/><stop offset="1" stop-color="#868c94"/></linearGradient>
+          <linearGradient id="wbPlastic" x2="0" y2="1"><stop offset="0" stop-color="#4a4d52"/><stop offset="1" stop-color="#16171a"/></linearGradient>
+          <radialGradient id="wbCap" cx=".38" cy=".33" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".35" stop-color="#fff" stop-opacity=".08"/><stop offset=".8" stop-color="#000" stop-opacity=".15"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></radialGradient>
         </defs>
         <defs>
           <pattern id="gridPattern" width="10" height="10" patternUnits="userSpaceOnUse">
@@ -144,6 +155,7 @@
         <div class="ctx-wire">
           <div class="ctx-head">Jumper wire</div>
           <button data-ctx="autoRoute"><i data-ico="route"></i><span>Auto-route this wire</span></button>
+          <button data-ctx="curve"><i data-ico="curve"></i><span>Make curved</span></button>
           <button data-ctx="addJoint"><i data-ico="plus"></i><span>Add joint here</span><kbd>Double-click</kbd></button>
           <button data-ctx="removeJoint"><i data-ico="minus"></i><span>Remove joint</span></button>
           <hr>

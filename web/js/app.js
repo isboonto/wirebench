@@ -122,6 +122,7 @@
       };
       if (w.route === true) wire.route = true;
       if (typeof w.auto === 'boolean') wire.auto = w.auto;
+      if (w.curve === true) wire.curve = true;
       wires.push(wire);
     }
     return { parts, wires, code: typeof o.code === 'string' ? o.code : WB.DEFAULT_CODE };
@@ -207,6 +208,9 @@
       // Wires are always auto-routed (right angles, around parts). Until 1.0.0-beta.1 this could be
       // switched off from the canvas menu; a stored "off" is cleared so everyone gets the same behaviour.
       this.autoRoute = true;
+      // new wires: straight (auto-routed, right angles) or curved -- File menu > New wires
+      try { this.curvedWires = localStorage.getItem('wirebench.curvedWires') === '1'; } catch (e) { this.curvedWires = false; }
+      this.syncWireMenu();
       try { localStorage.removeItem('wirebench.autoroute'); } catch (e) { /* storage unavailable */ }
       this.editor = new WB.Editor(this);
       this.code = new CodeEditor(() => {
@@ -361,7 +365,7 @@
     // Tidy the selected wires, or every wire when none is selected.
     tidyAllWires() {
       const sel = this.project.wires.filter((w) => this.selection.has(w.id));
-      const wires = sel.length ? sel : this.project.wires;
+      const wires = sel.length ? sel : this.project.wires.filter((w) => !w.curve); // all: leave curved wires alone
       if (!wires.length) { this.toast('There are no wires to tidy.'); return; }
       let n = 0;
       if (this.mutate(() => { n = WB.Router.routeMany(this, wires); })) this.toast(`Tidied ${n} wire${n === 1 ? '' : 's'}`);
@@ -1043,6 +1047,9 @@
       $('#modal-body').scrollTop = 0;
       if (!dlg.open) dlg.showModal();
     }
+    syncWireMenu() {
+      document.querySelectorAll('#wires-menu button').forEach((b) => b.classList.toggle('on', b.dataset.cmd === (this.curvedWires ? 'wires:curved' : 'wires:straight')));
+    }
     // Themes: 'default' (slate panels, light canvas), 'light', 'dark'. The canvas follows the
     // theme unless it was switched with the ◐ button (stored as wirebench.canvas).
     applyTheme() {
@@ -1061,6 +1068,14 @@
     }
     cmd(c) {
       if (c.startsWith('help:')) { this.showHelp(c.slice(5)); return; }
+      if (c.startsWith('wires:')) {
+        document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
+        this.curvedWires = c === 'wires:curved';
+        try { localStorage.setItem('wirebench.curvedWires', this.curvedWires ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+        this.syncWireMenu();
+        this.toast(this.curvedWires ? 'New wires will be curved. Drag a curved wire anywhere to bend it.' : 'New wires will be straight and auto-routed.');
+        return;
+      }
       if (c.startsWith('theme:')) { document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open')); this.setTheme(c.slice(6)); return; }
       if (!c.endsWith('Menu')) document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
       switch (c) {

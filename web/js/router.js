@@ -171,6 +171,7 @@
   // corners where they became slanted. (app.autoRoute is always on since 1.0.0-beta.1.)
   function retidy(app, wires) {
     const on = app.autoRoute;
+    wires = wires.filter((w) => !w.curve); // curved wires follow their pins by themselves
     const route = wires.filter((w) => w.auto || (on && !(w.pts && w.pts.length) && slanted(app, w)));
     if (route.length) routeMany(app, route);
     if (!on) return;

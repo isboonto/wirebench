@@ -52,6 +52,9 @@
         menu.querySelector('[data-ctx="autoRoute"]').disabled = locked;
         menu.querySelector('[data-ctx="addJoint"]').disabled = locked;
         menu.querySelector('[data-ctx="removeJoint"]').disabled = locked || !(wire.pts && wire.pts.length);
+        const cb = menu.querySelector('[data-ctx="curve"]');
+        cb.disabled = locked;
+        cb.querySelector('span').textContent = wire.curve ? 'Make straight' : 'Make curved';
         menu.querySelector('.ctx-colors').innerHTML = WB.WIRE_COLORS.map((c) => `<button class="sw${c === wire.color ? ' on' : ''}" data-ctx="color" data-color="${c}" style="background:${c}" title="${c}"${locked ? ' disabled' : ''}></button>`).join('');
       }
       menu.querySelector('[data-ctx="copy"]').disabled = !parts.length;
@@ -204,7 +207,7 @@
       for (const w of this.app.project.wires) {
         const pts = this.wirePoints(w);
         if (!pts) continue;
-        const d = 'M' + pts.map((p) => p[0] + ',' + p[1]).join(' L');
+        const d = wirePathD(pts, w.curve);
         const isSel = sel.has(w.id);
         const dark = WB.mix(w.color, '#000000', 0.45);
         const A = pts[0], B = pts[pts.length - 1];
@@ -327,7 +330,18 @@
           this.app.mutate(() => {
             wire.pts.splice(k, 1); wire.auto = false;
             const A = this.pinPos(wire.a), B = this.pinPos(wire.b);
-            if (A && B) wire.pts = orthoPath(A, wire.pts, B); // what is left stays at right angles
+            if (A && B && !wire.curve) wire.pts = orthoPath(A, wire.pts, B); // what is left stays at right angles
+          });
+          return;
+        }
+        if (wire && a === 'curve') {
+          // curved <-> straight: a curve starts as a plain arc (old right-angle corners would make it
+          // wavy); a straightened wire is auto-routed again
+          this.app.mutate(() => {
+            if (wire.curve) {
+              delete wire.curve;
+              if (!WB.Router.routeWire(this.app, wire)) { const A = this.pinPos(wire.a), B = this.pinPos(wire.b); if (A && B) wire.pts = orthoPath(A, [], B); }
+            } else { wire.curve = true; wire.pts = []; wire.auto = false; }
           });
           return;
         }
@@ -502,7 +516,16 @@
         app.select(wire.id, e.shiftKey);
         // dragging anywhere along a wire moves that piece of it (see 'seg' in onMove)
         const full = this.wirePoints(wire);
-        if (full && !e.shiftKey) {
+        if (full && !e.shiftKey && wire.curve) {
+          // a curved wire bends where it is grabbed: a new joint there follows the pointer
+          // (and is dropped again if the wire was only clicked)
+          let idx = 0, bd = Infinity;
+          for (let i = 0; i < full.length - 1; i++) { const d = segDist(w, full[i], full[i + 1]); if (d < bd) { bd = d; idx = i; } }
+          this.snapshot = app.snapshot();
+          const orig = wire.pts.map((p) => p.slice());
+          wire.pts.splice(idx, 0, [w.x, w.y]);
+          this.mode = { kind: 'bend', wire, idx, moved: false, base: wire.pts.map((p) => p.slice()), orig, sx: e.clientX, sy: e.clientY };
+        } else if (full && !e.shiftKey) {
           let idx = 0, bd = Infinity;
           for (let i = 0; i < full.length - 1; i++) { const d = segDist(w, full[i], full[i + 1]); if (d < bd) { bd = d; idx = i; } }
           this.snapshot = app.snapshot();
@@ -676,8 +699,13 @@
         m.moved = true;
         this.renderWires();
       } else if (m.kind === 'bend') {
+        if (m.orig && !m.moved && Math.hypot(e.clientX - m.sx, e.clientY - m.sy) < 4) return;
         const w = this.toWorld(e);
         const pts = m.base.map((p) => p.slice());
+        if (m.wire.curve) { // curves bend freely: no grid, no right angles
+          pts[m.idx] = [Math.round(w.x * 2) / 2, Math.round(w.y * 2) / 2];
+          m.wire.pts = pts; m.moved = true; this.renderWires(); return;
+        }
         pts[m.idx] = [WB.snap(w.x), WB.snap(w.y)];
         // keep the segments next to the dragged joint at right angles (auto-routing on)
         const A = this.pinPos(m.wire.a), B = this.pinPos(m.wire.b);
@@ -739,6 +767,7 @@
       }
       else if (m.kind === 'drag' && m.dup) { app.undo(); app.redoStack = []; } // Ctrl+click without moving: drop the copy
       else if ((m.kind === 'bend' || m.kind === 'seg') && m.moved) { m.wire.auto = false; app.pushUndo(this.snapshot); app.changed(); }
+      else if (m.kind === 'bend' && m.orig) { m.wire.pts = m.orig; this.renderWires(); } // only clicked: no new joint
       else if (m.kind === 'end') {
         this.layerOver.innerHTML = '';
         if (!m.moved) return;
@@ -802,7 +831,7 @@
         app.mutate(() => {
           wire.pts.splice(idx, 1); wire.auto = false;
           const A = this.pinPos(wire.a), B = this.pinPos(wire.b);
-          if (app.autoRoute && A && B) wire.pts = orthoPath(A, wire.pts, B); // square up what's left
+          if (app.autoRoute && !wire.curve && A && B) wire.pts = orthoPath(A, wire.pts, B); // square up what's left
         });
         return;
       }
@@ -819,7 +848,7 @@
         const d = segDist(w, pts[i], pts[i + 1]);
         if (d < bd) { bd = d; best = i; }
       }
-      app.mutate(() => { wire.pts.splice(best, 0, [WB.snap(w.x), WB.snap(w.y)]); wire.auto = false; app.selection = new Set([wire.id]); });
+      app.mutate(() => { wire.pts.splice(best, 0, wire.curve ? [w.x, w.y] : [WB.snap(w.x), WB.snap(w.y)]); wire.auto = false; app.selection = new Set([wire.id]); });
     }
 
     // ------------------------------------------------------------ wire drawing
@@ -830,8 +859,9 @@
       if (!A) return;
       // with auto-routing on, show the right-angle path the wire will get once you click its joints
       const end = [w.x, w.y];
-      const pts = this.app.autoRoute && d.pts.length ? [A].concat(orthoPath(A, d.pts, end), [end]) : [A].concat(d.pts, [end]);
-      this.layerOver.innerHTML = `<path class="rubber" d="M${pts.map((p) => p[0] + ',' + p[1]).join(' L')}"/>`;
+      const curved = this.app.curvedWires;
+      const pts = this.app.autoRoute && !curved && d.pts.length ? [A].concat(orthoPath(A, d.pts, end), [end]) : [A].concat(d.pts, [end]);
+      this.layerOver.innerHTML = `<path class="rubber" d="${wirePathD(pts, curved)}"/>`;
     }
     cancelDraw() {
       this.drawing = null;
@@ -852,7 +882,8 @@
       const wire = { id: WB.uid('w'), a: d.from, b: to, pts: d.pts, color };
       // Pin-to-pin wires (no hand-placed joints) are auto-routed into a tidy right-angle path;
       // wires drawn through clicked joints keep them, joined by right-angle corners.
-      if (app.autoRoute && !d.pts.length && !WB.Router.routeWire(app, wire)) {
+      if (app.curvedWires) { wire.curve = true; wire.auto = false; } // curved: it passes through the clicked joints
+      else if (app.autoRoute && !d.pts.length && !WB.Router.routeWire(app, wire)) {
         wire.pts = orthoPath([pa.x, pa.y], [], [pb.x, pb.y]);
         app.toast('No tidy route found around the parts — the wire got simple right-angle corners.');
       } else if (app.autoRoute && d.pts.length) wire.pts = orthoPath([pa.x, pa.y], d.pts, [pb.x, pb.y]);
@@ -969,6 +1000,29 @@
     return s.slice(1, -1).map(([x, y]) => [x, y]);
   }
   WB.orthoPath = orthoPath;
+
+  // SVG path of a wire through its points. Straight wires: lines. Curved wires (like Fritzing's
+  // curvy wires): a smooth curve through every joint (Catmull-Rom); with no joints, a gentle arc
+  // that bows downward (or to the right for an upright wire), like a real jumper.
+  function wirePathD(pts, curve) {
+    const f = (v) => +v.toFixed(2);
+    if (!curve || pts.length < 2) return 'M' + pts.map((p) => f(p[0]) + ',' + f(p[1])).join(' L');
+    if (pts.length === 2) {
+      const [A, B] = pts, dx = B[0] - A[0], dy = B[1] - A[1], len = Math.hypot(dx, dy);
+      if (len < 1) return `M${f(A[0])},${f(A[1])} L${f(B[0])},${f(B[1])}`;
+      let nx = -dy / len, ny = dx / len;
+      if (ny < -1e-6 || (Math.abs(ny) < 1e-6 && nx < 0)) { nx = -nx; ny = -ny; }
+      const k = Math.min(30, len * 0.18) / 0.75; // the curve bows out by 3/4 of the control offset
+      return `M${f(A[0])},${f(A[1])} C${f(A[0] + dx / 3 + nx * k)},${f(A[1] + dy / 3 + ny * k)} ${f(B[0] - dx / 3 + nx * k)},${f(B[1] - dy / 3 + ny * k)} ${f(B[0])},${f(B[1])}`;
+    }
+    let d = `M${f(pts[0][0])},${f(pts[0][1])}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+      d += ` C${f(p1[0] + (p2[0] - p0[0]) / 6)},${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)},${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])},${f(p2[1])}`;
+    }
+    return d;
+  }
+  WB.wirePathD = wirePathD;
 
   WB.Editor = Editor;
 })(window.WB);

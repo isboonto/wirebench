@@ -38,6 +38,9 @@
 
   const LEG = 'stroke="#aeb3ba" stroke-width="1.8" stroke-linecap="round" fill="none"';
   WB.LEG = LEG;
+  // Leg of a component that sits upright (LED, capacitor): tinned wire.
+  const MLEG = 'stroke="#b4b9bf" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"';
+  WB.MLEG = MLEG;
 
   // ---------------------------------------------------------------- Resistor
   const BAND = ['#111111', '#7b4a12', '#d32020', '#f07c00', '#f5d000', '#1f9e3a', '#1f55d6', '#8a3fd1', '#8a8a8a', '#f5f5f5'];
@@ -66,7 +69,8 @@
         <rect x="11" y="-5" width="2.6" height="10" fill="${b[0]}"/>
         <rect x="15.5" y="-5" width="2.6" height="10" fill="${b[1]}"/>
         <rect x="20" y="-5" width="2.6" height="10" fill="${b[2]}"/>
-        <rect x="27" y="-5" width="2.6" height="10" fill="#c9a227"/>`;
+        <rect x="27" y="-5" width="2.6" height="10" fill="#c9a227"/>
+        <rect x="7" y="-5" width="26" height="10" rx="4.5" fill="url(#wbShadeV)"/>`;
     },
   });
 
@@ -109,12 +113,22 @@
       v = v || {};
       const col = LEDC[p.props.color] || LEDC.red;
       const b = v.burnt ? 0 : v.b || 0;
-      const fill = v.burnt ? '#3a3330' : WB.mix(col.off, col.on, b);
-      return `<path d="M0,0 V-6 L1.5,-9" ${LEG}/><path d="M10,0 V-9" ${LEG}/>
+      // 5 mm LED: translucent epoxy dome with a flange, the die cup (cathode "anvil") and the
+      // anode post visible inside, bent anode leg (the longer one), shading for a round body.
+      const fill = v.burnt ? '#3a3330' : WB.mix(WB.mix(col.off, col.on, 0.45), col.on, b);
+      const dome = 'M-1.5,-9.5 V-17.5 A6.5,6.5 0 0 1 11.5,-17.5 V-9.5 Z';
+      return `<path d="M0,0 V-5 L1.6,-7 V-9" ${MLEG}/><path d="M10,0 V-9" ${MLEG}/>
         ${b > 0.02 ? `<circle cx="5" cy="-17" r="${(8 + 10 * b).toFixed(1)}" fill="${col.on}" opacity="${(0.15 + 0.55 * b).toFixed(2)}" filter="url(#wbGlow)"/>` : ''}
-        <rect x="-3" y="-11" width="16" height="3" rx="1" fill="${fill}" stroke="#0005" stroke-width=".6"/>
-        <path d="M-1.5,-10 V-17.5 A6.5,6.5 0 0 1 11.5,-17.5 V-10 Z" fill="${fill}" fill-opacity="${v.burnt ? 1 : 0.92}" stroke="#0006" stroke-width=".6"/>
-        <path d="M1.2,-15 Q1.2,-21.5 5.5,-22.6" stroke="#fff" stroke-opacity=".6" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+        <path d="${dome}" fill="${fill}" fill-opacity="${v.burnt ? 1 : 0.78}"/>
+        ${v.burnt ? '' : `<path d="M2.3,-9.5 V-14.5 L4,-15.5" stroke="#7d838b" stroke-width="1.1" fill="none" opacity=".75"/>
+        <path d="M9,-9.5 V-13.5 H5.3 L6.2,-16.2 H9.8 Z" fill="#7d838b" opacity=".75"/>
+        <path d="M4,-15.5 Q5,-17.5 6,-16.2" stroke="#ccc" stroke-width=".35" fill="none"/>
+        ${b > 0.02 ? `<circle cx="5.6" cy="-16" r="${(1.2 + 1.8 * b).toFixed(1)}" fill="#fff" opacity="${(0.4 + 0.6 * b).toFixed(2)}"/>` : ''}`}
+        <path d="${dome}" fill="url(#wbShadeH)" stroke="${WB.mix(fill, '#000000', 0.45)}" stroke-width=".5"/>
+        <rect x="-3" y="-10.6" width="16" height="2.6" rx=".8" fill="${fill}" fill-opacity="${v.burnt ? 1 : 0.9}"/>
+        <rect x="-3" y="-10.6" width="16" height="2.6" rx=".8" fill="url(#wbShadeH)" stroke="${WB.mix(fill, '#000000', 0.45)}" stroke-width=".5"/>
+        <path d="M11.5,-10.6 V-8" stroke="${WB.mix(fill, '#000000', 0.5)}" stroke-width=".7"/>
+        <path d="M0.6,-14 Q0.6,-21.6 5,-22.9" stroke="#fff" stroke-opacity=".75" stroke-width="1.1" fill="none" stroke-linecap="round"/>
         ${v.burnt ? `<path d="M3,-26 q-3,-3 0,-6 q3,-3 0,-6" stroke="#9a9a9a" stroke-width="1.2" fill="none" opacity=".8"/><text x="5" y="-12.5" font-size="6" text-anchor="middle" fill="#ffb347" font-family="sans-serif">✕</text>` : ''}`;
     },
   });
@@ -153,10 +167,11 @@
       const lit = Math.max(r, g, b);
       const col = lit > 0.02 ? `rgb(${Math.round(255 * r)},${Math.round(255 * g)},${Math.round(255 * b)})` : '#d9dbe3';
       const body = lit > 0.02 ? WB.mix('#d9dbe3', '#ffffff', 0) : '#d9dbe3';
-      return `<path d="M0,0 V-10" ${LEG}/><path d="M10,0 V-6 L11.5,-10" ${LEG}/><path d="M20,0 V-10" ${LEG}/><path d="M30,0 V-10" ${LEG}/>
+      return `<path d="M0,0 V-10" ${MLEG}/><path d="M10,0 V-6 L11.5,-10" ${MLEG}/><path d="M20,0 V-10" ${MLEG}/><path d="M30,0 V-10" ${MLEG}/>
         ${lit > 0.02 ? `<circle cx="15" cy="-21" r="${(10 + 10 * lit).toFixed(1)}" fill="${col}" opacity="${(0.2 + 0.5 * lit).toFixed(2)}" filter="url(#wbGlow)"/>` : ''}
         <rect x="4" y="-13" width="22" height="3.5" rx="1" fill="${body}" stroke="#0005" stroke-width=".6"/>
-        <path d="M6,-12 V-21 A9,9 0 0 1 24,-21 V-12 Z" fill="${lit > 0.02 ? col : body}" fill-opacity=".9" stroke="#0006" stroke-width=".6"/>
+        <path d="M6,-12 V-21 A9,9 0 0 1 24,-21 V-12 Z" fill="${lit > 0.02 ? col : body}" fill-opacity=".9"/>
+        <path d="M6,-12 V-21 A9,9 0 0 1 24,-21 V-12 Z" fill="url(#wbShadeH)" stroke="#0006" stroke-width=".6"/>
         <path d="M9,-18 Q9.5,-26 14,-27.5" stroke="#fff" stroke-opacity=".7" stroke-width="1.3" fill="none" stroke-linecap="round"/>
         ${v.burnt ? `<text x="15" y="-15" font-size="7" text-anchor="middle" fill="#c0392b" font-family="sans-serif">✕</text>` : ''}`;
     },
@@ -179,12 +194,20 @@
     render(p, v) {
       const pr = v && v.pressed;
       const cap = CAPS[p.props.cap] || CAPS.red;
-      return `<rect x="-5" y="-3" width="30" height="36" rx="2.5" fill="#262626" stroke="#0b0b0b"/>
-        <rect x="-2" y="-2" width="4" height="4" fill="#bfc4ca"/><rect x="18" y="-2" width="4" height="4" fill="#bfc4ca"/>
-        <rect x="-2" y="28" width="4" height="4" fill="#bfc4ca"/><rect x="18" y="28" width="4" height="4" fill="#bfc4ca"/>
-        <circle cx="10" cy="15" r="10" fill="#3a3a3a"/>
-        <circle cx="10" cy="15" r="${pr ? 7 : 8}" fill="${pr ? WB.mix(cap, '#000000', 0.35) : cap}" stroke="#0007"/>
-        ${pr ? '' : '<circle cx="7.5" cy="12" r="2.2" fill="#fff" opacity=".25"/>'}`;
+      // 12 mm tactile switch: four bent legs, black base, steel cover plate with its
+      // four corner rivets, and a round cap that sinks in when pressed.
+      const capc = pr ? WB.mix(cap, '#000000', 0.3) : cap;
+      const leg = (x, y, dy) => `<path d="M${x},${y} v${dy * 3}" stroke="#aab0b7" stroke-width="2.6" stroke-linecap="square"/><path d="M${x - 0.5},${y} v${dy * 3}" stroke="#eef0f2" stroke-width=".8"/>`;
+      const rivet = (x, y) => `<circle cx="${x}" cy="${y}" r="1.4" fill="#8d939b"/><circle cx="${x - 0.3}" cy="${y - 0.3}" r=".7" fill="#e3e6e9"/>`;
+      return `${leg(0, 0, 1)}${leg(20, 0, 1)}${leg(0, 30, -1)}${leg(20, 30, -1)}
+        <rect x="-4" y="2" width="28" height="26" rx="1.8" fill="url(#wbPlastic)" stroke="#0b0b0b" stroke-width=".6"/>
+        <rect x="-2.6" y="3.4" width="25.2" height="23.2" rx="1" fill="url(#wbMetalV)" stroke="#5f656c" stroke-width=".5"/>
+        <rect x="-2.6" y="3.4" width="25.2" height="23.2" rx="1" fill="url(#wbShadeH)" opacity=".5"/>
+        ${rivet(-0.3, 5.7)}${rivet(20.3, 5.7)}${rivet(-0.3, 24.3)}${rivet(20.3, 24.3)}
+        <circle cx="10" cy="15" r="9.6" fill="#1c1d20"/>
+        <circle cx="10" cy="${pr ? 15.4 : 15}" r="${pr ? 7.6 : 8.2}" fill="${capc}"/>
+        <circle cx="10" cy="${pr ? 15.4 : 15}" r="${pr ? 7.6 : 8.2}" fill="url(#wbCap)" stroke="#0007" stroke-width=".5" opacity="${pr ? 0.6 : 1}"/>
+        <circle cx="10" cy="${pr ? 15.4 : 15}" r="${pr ? 5.4 : 6}" fill="none" stroke="#000" stroke-opacity=".18" stroke-width=".6"/>`;
     },
   });
 
@@ -199,10 +222,15 @@
     elements(c) { return [{ t: 'R', a: c.n('C'), b: c.n(c.props.on ? '2' : '1'), r: 0.01 }]; },
     render(p) {
       const on = !!p.props.on;
-      return `<path d="M0,0 V-5" ${LEG}/><path d="M10,0 V-5" ${LEG}/><path d="M20,0 V-5" ${LEG}/>
-        <rect x="-6" y="-16" width="32" height="12" rx="1.5" fill="#2b2f36" stroke="#111"/>
-        <rect x="-2" y="-13" width="24" height="6" rx="1" fill="#15171b"/>
-        <rect x="${on ? 11 : -1}" y="-15" width="10" height="10" rx="1.5" fill="#d6d9de" stroke="#777"/>`;
+      // SPDT slide switch: steel frame, black housing, slot and a ribbed slider.
+      const kx = on ? 11 : -1;
+      return `<path d="M0,0 V-5" ${MLEG}/><path d="M10,0 V-5" ${MLEG}/><path d="M20,0 V-5" ${MLEG}/>
+        <rect x="-6" y="-16" width="32" height="12" rx="1" fill="url(#wbMetalV)" stroke="#5f656c" stroke-width=".5"/>
+        <rect x="-4.5" y="-14.5" width="29" height="9" rx=".8" fill="url(#wbPlastic)"/>
+        <rect x="-2" y="-12.2" width="24" height="4.4" rx=".8" fill="#0d0e10"/>
+        <rect x="${kx}" y="-15" width="10" height="10" rx="1.2" fill="#2a2c30" stroke="#000" stroke-width=".5"/>
+        <rect x="${kx}" y="-15" width="10" height="10" rx="1.2" fill="url(#wbShadeV)"/>
+        ${[2, 4, 6, 8].map((d) => `<path d="M${kx + d},-13.5 v7" stroke="#55585e" stroke-width=".7"/>`).join('')}`;
     },
   });
 
@@ -452,13 +480,46 @@
       return {};
     },
     render(p) {
-      return `<path d="M0,0 C0,-14 6,-18 6,-30" stroke="#d62828" stroke-width="2" fill="none"/>
-        <path d="M20,0 C20,-14 14,-18 14,-30" stroke="#222" stroke-width="2" fill="none"/>
-        <rect x="-20" y="-84" width="60" height="54" rx="4" fill="#2b2b2b" stroke="#000"/>
-        <rect x="-20" y="-84" width="60" height="16" rx="4" fill="#c49a2a"/>
-        <text x="10" y="-48" font-size="13" text-anchor="middle" fill="#eee" font-family="sans-serif" font-weight="700">${p.props.volts}V</text>
-        <text x="-14" y="-73" font-size="8" fill="#111" font-family="sans-serif" font-weight="700">+</text>
-        <text x="30" y="-73" font-size="8" fill="#111" font-family="sans-serif" font-weight="700">−</text>`;
+      const volts = Number(p.props.volts) || 9;
+      const wires = (y) => `<path d="M0,0 C0,-12 4,${y + 14} 4,${y}" stroke="#7a1414" stroke-width="2.6" fill="none"/><path d="M0,0 C0,-12 4,${y + 14} 4,${y}" stroke="#e03131" stroke-width="1.7" fill="none"/>
+        <path d="M20,0 C20,-12 16,${y + 14} 16,${y}" stroke="#000" stroke-width="2.6" fill="none"/><path d="M20,0 C20,-12 16,${y + 14} 16,${y}" stroke="#2d2f33" stroke-width="1.7" fill="none"/>
+        <circle cx="0" cy="0" r="1.3" fill="#d0d4d8"/><circle cx="20" cy="0" r="1.3" fill="#d0d4d8"/>`;
+      const T = (x, y, s, t, c, extra = '') => `<text x="${x}" y="${y}" font-size="${s}" text-anchor="middle" fill="${c}" font-family="sans-serif"${extra}>${t}</text>`;
+      // AA cells in a black holder (1–4 cells), lying side by side, alternating direction.
+      const cells = { 1.5: 1, 3: 2, 4.5: 3, 6: 4 }[volts];
+      if (cells) {
+        const h = 50 / cells, top = -82;
+        let s = `<rect x="-20" y="-84" width="60" height="54" rx="3" fill="url(#wbPlastic)" stroke="#000" stroke-width=".6"/>`;
+        for (let k = 0; k < cells; k++) {
+          const y = top + k * h + 0.8, ch = h - 1.6, flip = k % 2 === 1;
+          const x0 = -14, x1 = 34, nub = flip ? x0 - 2 : x1;
+          s += `<rect x="${nub}" y="${y + ch * 0.32}" width="2" height="${ch * 0.36}" rx=".5" fill="url(#wbMetalV)"/>
+            <rect x="${x0}" y="${y}" width="${x1 - x0}" height="${ch}" rx="${Math.min(3, ch / 3)}" fill="#2f6fc0"/>
+            <rect x="${flip ? x0 : x1 - 13}" y="${y}" width="13" height="${ch}" fill="#c9d0d8"/>
+            <rect x="${x0}" y="${y}" width="${x1 - x0}" height="${ch}" rx="${Math.min(3, ch / 3)}" fill="url(#wbShadeV)" stroke="#0006" stroke-width=".4"/>
+            ${ch > 9 ? T(flip ? 14.5 : 8.5, y + ch / 2 + 2.2, Math.min(6, ch * 0.45), 'AA 1.5V', '#fff', ' font-weight="700"') : ''}
+            ${T(flip ? 31 : -11, y + ch / 2 + 2, Math.min(7, ch * 0.55), flip ? '−' : '+', '#fff', ' font-weight="700"')}`;
+        }
+        return wires(-30) + s;
+      }
+      // 3.7 V: one 18650 Li-ion cell in a holder.
+      if (volts === 3.7) {
+        return `${wires(-38)}<rect x="-20" y="-80" width="60" height="42" rx="3" fill="url(#wbPlastic)" stroke="#000" stroke-width=".6"/>
+          <rect x="-18" y="-70" width="3" height="22" fill="url(#wbMetal)"/><rect x="35" y="-70" width="3" height="22" fill="url(#wbMetal)"/>
+          <rect x="-15" y="-74" width="50" height="30" rx="4" fill="#1d8f86"/>
+          <rect x="31" y="-74" width="4" height="30" fill="#c9d0d8"/>
+          <rect x="-15" y="-74" width="50" height="30" rx="4" fill="url(#wbShadeV)" stroke="#0006" stroke-width=".4"/>
+          ${T(8, -60, 7, 'Li-ion 18650', '#fff', ' font-weight="700"')}${T(8, -51, 7, '3.7 V', '#e6fffb')}`;
+      }
+      // 9 V (and others): rectangular battery, snap terminals on top, two-tone label.
+      return `${wires(-30)}<rect x="-20" y="-76" width="60" height="46" rx="3.5" fill="#2a2b2f"/>
+        <rect x="-20" y="-76" width="60" height="21" rx="3.5" fill="#d9a520"/><rect x="-20" y="-59" width="60" height="4" fill="#d9a520"/>
+        <rect x="-20" y="-76" width="60" height="46" rx="3.5" fill="url(#wbShadeH)" stroke="#000" stroke-width=".6"/>
+        <rect x="-16" y="-80" width="52" height="5" rx="1.2" fill="url(#wbMetalV)" stroke="#6b7179" stroke-width=".4"/>
+        <circle cx="-3" cy="-82" r="4.2" fill="url(#wbMetal)" stroke="#5f656c" stroke-width=".5"/><circle cx="-3" cy="-82" r="2" fill="#7d838b"/>
+        <path d="M18.4,-82 l2.3,-4 h4.6 l2.3,4 l-2.3,4 h-4.6 Z" fill="url(#wbMetal)" stroke="#5f656c" stroke-width=".5"/>
+        ${T(-3, -62, 9, '+', '#3a2a00', ' font-weight="700"')}${T(23, -62, 9, '−', '#3a2a00', ' font-weight="700"')}
+        ${T(10, -37, 15, volts + 'V', '#f4f4f4', ' font-weight="800"')}`;
     },
   });
 
@@ -484,8 +545,9 @@
     elements: (c) => [{ t: 'C', a: c.n('1'), b: c.n('2'), c: capValue(c.props, 100e-9), st: c.state }],
     render(p) {
       const lbl = WB.fmtFarads(p.props.farads).replace(' ', '');
-      return `<path d="M0,0 V-8 L2,-11" ${LEG}/><path d="M10,0 V-8 L8,-11" ${LEG}/>
+      return `<path d="M0,0 V-8 L2,-11" ${MLEG}/><path d="M10,0 V-8 L8,-11" ${MLEG}/>
         <ellipse cx="5" cy="-16" rx="9" ry="7.5" fill="#d9822b" stroke="#8a4d12" stroke-width=".8"/>
+        <ellipse cx="5" cy="-16" rx="9" ry="7.5" fill="url(#wbCap)" opacity=".8"/>
         <text x="5" y="-14" font-size="4.6" text-anchor="middle" fill="#3a1f05" font-family="sans-serif" font-weight="700">${WB.esc(lbl)}</text>`;
     },
   });
@@ -504,12 +566,13 @@
     },
     render(p, v) {
       const bad = v && v.bad;
-      return `<path d="M0,0 V-8" ${LEG}/><path d="M10,0 V-8" ${LEG}/>
+      return `<path d="M0,0 V-8" ${MLEG}/><path d="M10,0 V-8" ${MLEG}/>
         <rect x="-4" y="-38" width="18" height="30" rx="3" fill="${bad ? '#7a2f2f' : '#1f3f8f'}" stroke="#0d214f" stroke-width=".8"/>
         <rect x="8" y="-38" width="6" height="30" fill="#c9d3e8" opacity=".85"/>
         <text x="11" y="-31" font-size="5" text-anchor="middle" fill="#1f3f8f" font-family="sans-serif" font-weight="700">−</text>
         <text x="11" y="-14" font-size="5" text-anchor="middle" fill="#1f3f8f" font-family="sans-serif" font-weight="700">−</text>
-        <ellipse cx="5" cy="-38" rx="9" ry="2" fill="#aab4c8"/>
+        <rect x="-4" y="-38" width="18" height="30" rx="3" fill="url(#wbShadeH)"/>
+        <ellipse cx="5" cy="-38" rx="9" ry="2" fill="url(#wbMetal)"/><path d="M1,-38 h8 M5,-39.6 v3.2" stroke="#7d838b" stroke-width=".5"/>
         <text x="2" y="-21" font-size="4.6" text-anchor="middle" fill="#e6ecf8" font-family="sans-serif" transform="rotate(-90 2 -21)">${WB.esc(WB.fmtFarads(p.props.farads).replace(' ', ''))}</text>`;
     },
   });
@@ -528,7 +591,8 @@
       const big = p.props.model === '1N4001';
       return `<line x1="0" y1="0" x2="40" y2="0" ${LEG}/>
         <rect x="${big ? 9 : 11}" y="${big ? -5 : -4}" width="${big ? 22 : 18}" height="${big ? 10 : 8}" rx="2" fill="${big ? '#1d1d1f' : '#c0392b'}" fill-opacity="${big ? 1 : 0.8}" stroke="#0007" stroke-width=".6"/>
-        <rect x="${big ? 26 : 25}" y="${big ? -5 : -4}" width="2.6" height="${big ? 10 : 8}" fill="${big ? '#d8d8d8' : '#111'}"/>`;
+        <rect x="${big ? 26 : 25}" y="${big ? -5 : -4}" width="2.6" height="${big ? 10 : 8}" fill="${big ? '#d8d8d8' : '#111'}"/>
+        <rect x="${big ? 9 : 11}" y="${big ? -5 : -4}" width="${big ? 22 : 18}" height="${big ? 10 : 8}" rx="2" fill="url(#wbShadeV)"/>`;
     },
   });
 

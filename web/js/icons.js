@@ -28,6 +28,7 @@
     duplicate: `<rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.2" ${S}/><path d="M9.75 8v4M7.75 10h4M10.5 3.5v-.5a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v6.5a1 1 0 0 0 1 1h.5" ${S}/>`,
     rotate: `<path d="M13.2 8A5.2 5.2 0 1 1 11.6 4.3" ${S}/><path d="M13.6 1.8v3.4h-3.4" ${S}/>`,
     rotateBack: `<path d="M2.8 8A5.2 5.2 0 1 0 4.4 4.3" ${S}/><path d="M2.4 1.8v3.4h3.4" ${S}/>`,
+    curve: `<path d="M2.5 12.5C4 3 12 13 13.5 3.5" ${S} stroke-width="1.8"/><circle cx="2.5" cy="12.5" r="1.9" fill="currentColor"/><circle cx="13.5" cy="3.5" r="1.9" fill="currentColor"/>`,
     route: `<path d="M2.5 12.5H7.5V3.5H13.5" ${S} stroke-width="1.8"/><circle cx="2.5" cy="12.5" r="1.9" fill="currentColor"/><circle cx="13.5" cy="3.5" r="1.9" fill="currentColor"/>`,
     plus: `<circle cx="8" cy="8" r="6.3" ${S}/><path d="M8 5v6M5 8h6" ${S}/>`,
     minus: `<circle cx="8" cy="8" r="6.3" ${S}/><path d="M5 8h6" ${S}/>`,

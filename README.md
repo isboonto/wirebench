@@ -10,7 +10,7 @@ A free, offline breadboard designer and electronics simulator. Inspired by the b
 
 **In a browser, nothing to install:** open **https://isboonto.github.io/jumpercraft/**. The site is rebuilt from the `web` folder by `.github/workflows/pages.yml` on every push to `main` that changes it.
 
-**Windows installer:** download it from the [Releases page](https://github.com/isboonto/jumpercraft/releases) — the current release is **1.0.0-beta.3**, a beta of 1.0. Take `JumperCraft_1.0.0-beta.3_x64-setup.exe` (or the `.msi`). The installers are not code-signed yet, so Windows SmartScreen may warn: choose *More info → Run anyway*. You can also build the installer yourself with `.\build.ps1 -Installer`.
+**Windows installer:** download it from the [Releases page](https://github.com/isboonto/jumpercraft/releases) — the current release is **1.0.0-beta.4**, a beta of 1.0. Take `JumperCraft_1.0.0-beta.4_x64-setup.exe` (or the `.msi`). The installers are not code-signed yet, so Windows SmartScreen may warn: choose *More info → Run anyway*. You can also build the installer yourself with `.\build.ps1 -Installer`.
 
 **Desktop app (Windows, native Rust):** run `target\release\jumpercraft.exe`. To build it yourself:
 
@@ -46,7 +46,7 @@ New to JumperCraft? Open **Help → Getting started** (or press **F1**) in the a
 - Part legs that sit in breadboard holes connect automatically. Connected holes turn green.
 - Hover any pin to highlight everything on the same net. While simulating, hovering also shows the voltage, like a multimeter probe.
 - Rotate (**R**), delete (**Del**), duplicate (**Ctrl+D**), undo/redo (**Ctrl+Z/Y**), and box-select (**Shift+drag**).
-- Double-click a wire to add a bend. Drag the handles to move bends or re-attach wire ends.
+- Double-click a wire to add a bend. Drag the handles to move bends or re-attach wire ends. Choose **File → New wires → Curved** for smooth, Fritzing-style curved wires that you bend by dragging them (straight, auto-routed wires are the default).
 - Export the breadboard as PNG or SVG, the sketch as `.ino`, a **schematic diagram** (A4/A3 sheet with standard symbols and routed wires — or net labels — plus parts list and title block, as SVG or PNG), a **SPICE netlist for LTspice** (`.cir`, same component models as the simulator plus BJT / MOSFET / op-amp models), or a **netlist and parts list**.
 - **Print** (File → Print…, Ctrl+P) the breadboard view, schematic, instrument screens, sketch and parts list — or save them as a PDF for a lab report.
 - Three themes from **File → Theme**: Default (slate panels, light canvas), Light and Dark.
