@@ -1686,6 +1686,52 @@
     },
   });
 
+  // ---------------------------------------------------------------- Data plotter
+  // Records up to four voltages over the whole run and draws them in the Plotter tab (next to the
+  // Serial Monitor), from where they can be saved as CSV. Each channel measures between its + and −
+  // pin; a channel whose − is left open is measured against GND. The probes are ideal (they draw no
+  // current). The recording is made by WB.Plotter (js/plotter.js).
+  WB.PLOT_COLORS = ['#f2c200', '#22b8cf', '#ff5a5f', '#40c057'];
+  WB.defPart('plotter', {
+    label: 'Data plotter', category: 'Instruments', prefix: 'PLT',
+    pins: () => {
+      const pins = [];
+      for (let c = 1; c <= 4; c++) {
+        pins.push({ id: `CH${c}+`, label: `CH${c} + (the point to measure)`, x: (c - 1) * 20, y: 0 });
+        pins.push({ id: `CH${c}-`, label: `CH${c} − (reference; leave open to measure against GND)`, x: (c - 1) * 20 + 10, y: 0 });
+      }
+      return pins;
+    },
+    bbox: () => [-8, -50, 86, 53],
+    summary: () => '4 channels · graph in the Plotter tab',
+    elements: () => [],
+    render(p) {
+      const C = WB.PLOT_COLORS;
+      const T = (x, y, s, t, fill, extra = '') => `<text x="${x}" y="${y}" font-size="${s}" text-anchor="middle" fill="${fill}" font-family="sans-serif"${extra}>${t}</text>`;
+      let legs = '', labels = '', traces = '';
+      for (let c = 0; c < 4; c++) {
+        const x = c * 20;
+        legs += `<path d="M${x},0 V-6" ${MLEG}/><path d="M${x + 10},0 V-6" ${MLEG}/>`;
+        labels += `<rect x="${x - 3}" y="-13" width="16" height="6" rx="1.5" fill="${C[c]}"/>` + T(x, -8.6, 4.2, '+', '#111', ' font-weight="700"') + T(x + 10, -8.6, 4.2, '−', '#111', ' font-weight="700"') + T(x + 5, -15, 3.6, 'CH' + (c + 1), '#cfd6df', ' font-weight="700"');
+      }
+      // little screen with four sample traces
+      const wave = [
+        'M4,-25 C14,-25 16,-40 26,-40 S40,-25 52,-25 S66,-40 74,-40',
+        'M4,-30 L18,-30 L18,-38 L36,-38 L36,-30 L54,-30 L54,-38 L74,-38',
+        'M4,-27 Q30,-44 74,-43',
+        'M4,-35 L74,-28',
+      ];
+      wave.forEach((d, i) => { traces += `<path d="${d}" stroke="${C[i]}" stroke-width="1.1" fill="none" stroke-linecap="round"/>`; });
+      return `${legs}
+        <rect x="-7" y="-49" width="84" height="44" rx="3" fill="url(#wbPlastic)" stroke="#0b0b0b" stroke-width=".6"/>
+        <rect x="1" y="-46" width="76" height="25" rx="1.5" fill="#0f141a" stroke="#2c3440" stroke-width=".5"/>
+        <path d="M1,-33.5 H77 M20,-46 V-21 M39,-46 V-21 M58,-46 V-21" stroke="#223040" stroke-width=".4"/>
+        ${traces}
+        ${T(39, -18.4, 3.8, 'DATA PLOTTER', '#e6ebf1', ' font-weight="700" letter-spacing=".4"')}
+        ${labels}`;
+    },
+  });
+
   // ---------------------------------------------------------------- Modulino (I2C / Qwiic modules)
   // Each module has the Qwiic signals GND, 3.3 V, SDA, SCL as pins along its bottom edge.
   // The sketch talks to it through the Modulino library (see runtime.js); a module is found

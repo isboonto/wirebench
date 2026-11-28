@@ -7,29 +7,30 @@
        no inline scripts or event handlers, no eval. Keep in step with "csp" in src-tauri/tauri.conf.json. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; frame-src 'none'">
   <title>JumperCraft — breadboard designer &amp; Arduino simulator</title>
-  <link rel="stylesheet" href="css/app.css?v=1.0.0-beta.5-102235e3">
+  <link rel="stylesheet" href="css/app.css?v=1.0.0-beta.6-8c7daad4">
   <!-- Preload every script and the solver: with the CSP <meta> above, Chrome/Edge don't look ahead
        for the <script> tags at the end of <body>, so without these they download one at a time
        (8 s on GitHub Pages instead of 2). Keep the list in step with the <script> tags — build.ps1 checks. -->
-  <link rel="preload" href="js/util.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/icons.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/parts.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/parts-more.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/nextion.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/boards.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/cyd.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/circuit.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/native.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/sketch.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/runtime.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/editor.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/router.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/schematic.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/spice.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/examples.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/help.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="js/app.js?v=1.0.0-beta.5-102235e3" as="script">
-  <link rel="preload" href="wasm/wb_core.wasm?v=1.0.0-beta.5-102235e3" as="fetch" type="application/wasm" crossorigin>
+  <link rel="preload" href="js/util.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/icons.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/parts.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/parts-more.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/nextion.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/boards.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/cyd.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/circuit.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/native.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/sketch.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/runtime.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/editor.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/router.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/schematic.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/spice.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/examples.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/help.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/plotter.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="js/app.js?v=1.0.0-beta.6-8c7daad4" as="script">
+  <link rel="preload" href="wasm/wb_core.wasm?v=1.0.0-beta.6-8c7daad4" as="fetch" type="application/wasm" crossorigin>
 </head>
 <body>
   <header id="toolbar">
@@ -101,7 +102,11 @@
     <button data-cmd="toggleLeft" id="btn-left" class="toggle active" title="Parts panel: show / hide the parts list and the inspector on the left (Ctrl+Shift+B)">◧<span class="lbl"> Parts</span></button>
     <button data-cmd="togglePanel" id="btn-panel" class="toggle" title="Code panel: show / hide the sketch, console and serial monitor on the right (Ctrl+B)">&lt;/&gt;<span class="lbl"> Code</span></button>
     <button data-cmd="mute" id="btn-mute" title="Sound on/off">🔊</button>
+    <div id="simtime-box" title="Simulation time: the simulation stops by itself after this time (leave empty to run until you press Stop). The Data plotter records the whole run.">
+      <span class="st-ico">⏱</span><input id="simtime" type="number" min="0" step="any" placeholder="∞" aria-label="Simulation time"><select id="simtime-unit" aria-label="Simulation time unit"><option value="ms">ms</option><option value="s" selected>s</option></select>
+    </div>
     <div id="sim-status"><span class="dot"></span><span id="sim-time">Stopped</span></div>
+    <button id="btn-rerun" data-cmd="rerun" title="Run again: start the simulation over from the beginning">↻</button>
     <button id="btn-run" class="run" data-cmd="run" title="Start / stop simulation (Ctrl+Enter)">▶ <span class="lbl-long">Start simulation</span><span class="lbl-short">Run</span></button>
   </header>
 
@@ -201,38 +206,42 @@
       </div>
       <div id="console"></div>
       <div class="panel-head">
-        <button class="sec-toggle" data-sec="serial" title="Hide / show the Serial Monitor">▾</button><span>Serial Monitor</span><span class="grow"></span>
-        <label class="small"><input type="checkbox" id="autoscroll" checked> autoscroll</label>
-        <button data-cmd="clearSerial">Clear</button>
+        <button class="sec-toggle" data-sec="serial" title="Hide / show the Serial Monitor and the Plotter">▾</button>
+        <span class="io-tabs"><button class="io-tab on" data-io="serial">Serial Monitor</button><button class="io-tab" data-io="plot">Plotter</button></span><span class="grow"></span>
+        <span class="io-serial-tools"><label class="small"><input type="checkbox" id="autoscroll" checked> autoscroll</label>
+        <button data-cmd="clearSerial">Clear</button></span>
+        <span class="io-plot-tools"><button data-cmd="rerun" title="Run the simulation again from the beginning">↻ Run again</button><button data-cmd="plotCsv" title="Save the recording as a CSV file (for MATLAB, Julia, Python, Excel …)">CSV</button><button data-cmd="plotClear" title="Clear the graph">Clear</button></span>
       </div>
       <pre id="serial-out"></pre>
       <form id="serial-form" autocomplete="off">
         <input id="serial-input" placeholder="Send to the board (Enter)…">
         <button type="submit">Send</button>
       </form>
+      <div id="plot-wrap" hidden><canvas id="plot" aria-label="Data plotter graph"></canvas></div>
     </aside>
   </main>
 
   <dialog id="modal"><button type="button" class="modal-x" title="Close (Esc)" aria-label="Close">✕</button><div id="modal-body"></div><form method="dialog"><button>Close</button></form></dialog>
   <input type="file" id="file-input" accept=".wbproj,.json,application/json" hidden>
 
-  <script src="js/util.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/icons.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/parts.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/parts-more.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/nextion.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/boards.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/cyd.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/circuit.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/native.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/sketch.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/runtime.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/editor.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/router.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/schematic.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/spice.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/examples.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/help.js?v=1.0.0-beta.5-102235e3"></script>
-  <script src="js/app.js?v=1.0.0-beta.5-102235e3"></script>
+  <script src="js/util.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/icons.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/parts.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/parts-more.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/nextion.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/boards.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/cyd.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/circuit.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/native.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/sketch.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/runtime.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/editor.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/router.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/schematic.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/spice.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/examples.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/help.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/plotter.js?v=1.0.0-beta.6-8c7daad4"></script>
+  <script src="js/app.js?v=1.0.0-beta.6-8c7daad4"></script>
 </body>
 </html>

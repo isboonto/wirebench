@@ -125,7 +125,9 @@
       if (w.curve === true) wire.curve = true;
       wires.push(wire);
     }
-    return { parts, wires, code: typeof o.code === 'string' ? o.code : WB.DEFAULT_CODE };
+    // simulation time in seconds (toolbar ⏱): the run stops by itself after it; 0 = until stopped
+    const simTime = Number(o.simTime);
+    return { parts, wires, code: typeof o.code === 'string' ? o.code : WB.DEFAULT_CODE, simTime: Number.isFinite(simTime) && simTime > 0 ? Math.min(simTime, 3600) : 0 };
   }
   WB.cleanProject = cleanProject;
 
@@ -225,6 +227,12 @@
       WB.applyIcons();
       this.buildPalette();
       this.bindUI();
+      WB.Plotter.bind(this);
+      try { if (localStorage.getItem('wirebench.ioTab') === 'plot') WB.Plotter.showTab('plot'); } catch (e) { /* storage unavailable */ }
+      $('#simtime').addEventListener('change', () => this.readSimTimeUI());
+      $('#simtime').addEventListener('keydown', (e) => { if (e.key === 'Enter') { this.readSimTimeUI(); e.target.blur(); } e.stopPropagation(); });
+      $('#simtime-unit').addEventListener('change', () => this.readSimTimeUI());
+      this.syncSimTimeUI();
       let panelPref = null;
       try { panelPref = localStorage.getItem('wirebench.codePanel'); } catch (e) { /* storage unavailable */ }
       if (panelPref === 'hidden') this.setCodePanel(false, true); else $('#btn-panel').classList.add('active');
@@ -1146,6 +1154,9 @@
         case 'zoomOut': this.editor.zoom(0.8); break;
         case 'fit': this.editor.fit(); break;
         case 'run': if (this.sim) this.stopSim(); else this.startSim(); break;
+        case 'rerun': this.rerun(); break;
+        case 'plotCsv': this.savePlotCsv(); break;
+        case 'plotClear': WB.Plotter.clear(); break;
         case 'verify': this.verify(); break;
         case 'togglePanel': this.setCodePanel(document.body.classList.contains('code-hidden')); break;
         case 'toggleAllCats': this.toggleAllCats(); break;
@@ -1173,13 +1184,14 @@
       this.redoStack = [];
       this.transient = {};
       this.code.value = this.project.code;
+      this.syncSimTimeUI();
       this.clearConsole();
       this.scheduleLiveCheck();
       this.changed();
       if (!quiet) this.toast('Project loaded');
     }
     saveLocal() {
-      try { localStorage.setItem(LS_KEY, JSON.stringify({ parts: this.project.parts, wires: this.project.wires, code: this.code.value })); } catch (e) { /* storage unavailable */ }
+      try { localStorage.setItem(LS_KEY, JSON.stringify({ parts: this.project.parts, wires: this.project.wires, code: this.code.value, simTime: this.project.simTime || 0 })); } catch (e) { /* storage unavailable */ }
     }
     saveLocalSoon() { clearTimeout(this._saveT); this._saveT = setTimeout(() => this.saveLocal(), 600); }
     loadLocal() {
@@ -1227,11 +1239,16 @@
       document.querySelectorAll('.menu.open').forEach((m) => { if (m !== $(sel)) m.classList.remove('open'); });
       $(sel).classList.toggle('open');
     }
+    savePlotCsv() {
+      if (!WB.Plotter.hasData()) { this.toast('Nothing recorded yet: add a Data plotter, connect its probes and press Run.'); return; }
+      const base = (this.docName || 'plot').replace(/[\\/:*?"<>|]+/g, '_');
+      this.saveAs(base + ' - plot.csv', new Blob([WB.Plotter.csv()], { type: 'text/csv' }), 'CSV (comma-separated values)', ['csv']);
+    }
     async saveAs(name, blob, filterName, exts) {
       if (!WB.isDesktop) { WB.download(name, blob); this.toast('Saved ' + name); return name; }
       try {
         const args = { defaultName: name, filterName, extensions: exts, text: null, base64: null };
-        if (/^(text|application\/json|image\/svg)/.test(blob.type)) args.text = await blob.text();
+        if (/^(text|application\/json|image\/svg)/.test(blob.type)) args.text = await blob.text(); // includes text/csv
         else {
           const bytes = new Uint8Array(await blob.arrayBuffer());
           let bin = '';
@@ -1304,6 +1321,7 @@
         + Object.entries(head).map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`).join('\n') + '\n'
         + `  "parts": ${list(this.project.parts, ['id', 'type', 'name', 'x', 'y', 'rot', 'props'])},\n`
         + `  "wires": ${list(this.project.wires, ['id', 'a', 'b', 'color', 'pts', 'auto'])},\n`
+        + (this.project.simTime ? `  "simTime": ${this.project.simTime},\n` : '')
         + `  "code": ${JSON.stringify(this.code.value)}\n}\n`;
     }
     // Open project text (from the file dialog, the web file picker, or a double-clicked file).
@@ -1340,7 +1358,7 @@
     // The project counts as modified when it differs from the last saved / opened state, so
     // undoing back to that state makes it unmodified again. Shown as a dot in the title and on Save.
     projectSig() {
-      const str = JSON.stringify([this.project.parts, this.project.wires, this.code.value]);
+      const str = JSON.stringify([this.project.parts, this.project.wires, this.code.value, this.project.simTime || 0]);
       let h = 0x811c9dc5;
       for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
       return (h >>> 0).toString(36) + ':' + str.length;
@@ -1749,7 +1767,7 @@
       const analog = this.analogRequest();
       this.results = WB.Circuit.solve(this.getTopo(), this.project, this.sim, { boardId: b && b.id, transient: this.transient, analog });
       if (this.results.analog) this.captureAnalog(analog, this.results.analog);
-      else this.captureLogic();
+      else { this.captureLogic(); this.capturePlotters(); }
       // a part changed its own state (e.g. power supply switched to current limiting): solve again
       if (Object.values(this.results.vis).some((v) => v.again)) this.dirty = true;
       if (this.runtime) this.runtime.onSolved();
@@ -1904,6 +1922,20 @@
         an.las.push({ p, idx });
         res = Math.min(res, (+p.props.tdiv || 1) * 10 / 1000 / 500);
       }
+      // data plotters record from the same samples
+      an.plots = [];
+      for (const p of this.project.parts) {
+        if (p.type !== 'plotter') continue;
+        const idx = {};
+        for (let c = 1; c <= 4; c++) for (const s of ['+', '-']) {
+          const k = topo.nodeOf.get(p.id + ':CH' + c + s);
+          idx['CH' + c + s] = { k, i: an.probes.length };
+          an.probes.push(k === undefined ? 0 : k);
+        }
+        an.plots.push({ p, idx });
+        const lim = this.project.simTime;
+        res = Math.min(res, lim ? Math.max(lim / 4000, 1e-6) : 1e-3); // ~4000 points over the run
+      }
       an.res = res;
       return an;
     }
@@ -1929,6 +1961,15 @@
         if (buf.length - drop > 6000) drop = buf.length - 6000;
         if (drop) buf.splice(0, drop);
       }
+      for (const pl of an.plots || []) {
+        const ok = (id) => { const k = pl.idx[id].k; return k !== undefined && topo.nets[k] && topo.nets[k].length > 1 && !(k !== 0 && R.floating.has(k)); };
+        const on = [1, 2, 3, 4].map((c) => [ok('CH' + c + '+'), ok('CH' + c + '-')]);
+        for (let o = 0; o + P <= S.length; o += P) {
+          const vals = on.map(([a, b], j) => (a ? S[o + 1 + pl.idx['CH' + (j + 1) + '+'].i] - (b ? S[o + 1 + pl.idx['CH' + (j + 1) + '-'].i] : 0) : null));
+          WB.Plotter.push(pl.p.id, S[o], vals);
+        }
+      }
+      if (S.length >= P) this.sim.clock = Math.max(this.sim.clock, S[S.length - P]);
       for (const la of an.las || []) {
         const ok = (id) => { const k = la.idx[id].k; return k !== undefined && topo.nets[k] && topo.nets[k].length > 1 && !(k !== 0 && R.floating.has(k)); };
         const conn = [1, 2, 3, 4, 5, 6, 7, 8].map((c) => ok('CH' + c));
@@ -2014,6 +2055,54 @@
         if (buf.length > 4000) buf.splice(0, buf.length - 4000);
       }
     }
+    // Data plotters in circuits without capacitors: one sample per frame, stamped with the
+    // sketch's clock (or the time since Run). Time-domain circuits are recorded in captureAnalog.
+    capturePlotters() {
+      if (!this.sim) return;
+      const R = this.results, rt = this.runtime;
+      const t = (rt ? rt.millis() : performance.now() - this.sim.t0) / 1000;
+      if (R && R.analog) { WB.Plotter.requestDraw(); return; }
+      this.sim.clock = t;
+      if (!R) return;
+      const topo = this.getTopo();
+      let any = false;
+      for (const p of this.project.parts) {
+        if (p.type !== 'plotter') continue;
+        any = true;
+        const n = (id) => topo.nodeOf.get(p.id + ':' + id);
+        const ok = (k) => k !== undefined && topo.nets[k] && topo.nets[k].length > 1 && !(k !== 0 && R.floating.has(k));
+        const volt = (k) => (k ? R.V[k] : 0);
+        const vals = [1, 2, 3, 4].map((c) => {
+          const a = n('CH' + c + '+'), b = n('CH' + c + '-');
+          return ok(a) ? volt(a) - (ok(b) ? volt(b) : 0) : null;
+        });
+        WB.Plotter.push(p.id, t, vals, true);
+      }
+      if (any) WB.Plotter.requestDraw();
+    }
+    // ⏱ simulation time (toolbar): number + unit; stored in the project as seconds
+    simTimeSec() { return this.project.simTime || 0; }
+    syncSimTimeUI() {
+      const s = this.project.simTime || 0, inp = $('#simtime'), unit = $('#simtime-unit');
+      if (!inp) return;
+      if (!s) { inp.value = ''; return; }
+      if (s < 1) { unit.value = 'ms'; inp.value = +(s * 1000).toPrecision(6); } else { unit.value = 's'; inp.value = +s.toPrecision(6); }
+    }
+    readSimTimeUI() {
+      const v = parseFloat($('#simtime').value), k = $('#simtime-unit').value === 'ms' ? 1e-3 : 1;
+      const s = Number.isFinite(v) && v > 0 ? Math.min(v * k, 3600) : 0;
+      if (s === (this.project.simTime || 0)) return;
+      this.project.simTime = s;
+      this.saveLocal();
+      this.updateModified();
+      if (this.sim) WB.Plotter.limit = s;
+      WB.Plotter.requestDraw();
+    }
+    // ↻ Run again: start over from the beginning (also while running)
+    rerun() {
+      if (this.sim) this.stopSim();
+      this.startSim();
+    }
     pinReading(name) {
       const b = this.boardPart();
       const node = this.getTopo().nodeOf.get(b.id + ':' + name);
@@ -2027,10 +2116,18 @@
         // time-domain circuits (capacitors, function generators) advance every frame
         if (this.dirty || (this.results && this.results.analog)) this.solveNow();
         this.captureScopes();
+        this.capturePlotters();
         this.editor.applyVisuals();
         this.renderWarnings(); // let held warnings expire even when nothing is being solved
         const t = (performance.now() - this.sim.t0) / 1000;
         const an = this.results && this.results.analog;
+        // ⏱ simulation time reached: stop (the plot stays)
+        const lim = this.project.simTime;
+        if (lim && this.sim.clock >= lim - 1e-9) {
+          this.stopSim();
+          this.toast(`Simulation stopped at ${WB.fmtSimTime(lim)} (simulation time). Press ↻ or Run to run again.`);
+          return;
+        }
         $('#sim-time').textContent = 'Running ' + Math.floor(t / 60) + ':' + (t % 60).toFixed(1).padStart(4, '0') + (an && an.speed < 0.95 ? ` · analog slow-motion ${Math.max(1, Math.round(an.speed * 100))}%` : '');
         if (this.results) {
           const live = new Set();
@@ -2110,6 +2207,9 @@
       if (WB.scopeAuto) WB.scopeAuto.clear();
       this.sim = { pins: {}, servos: [], modulino: {}, scope: {}, analog: { t: 0, lastReal: null }, matrix: spec && spec.matrix ? new Uint8Array(spec.matrix.w * spec.matrix.h) : null, partState: {}, warned: new Set(), t0: performance.now(), lcd: {}, neo: {}, irq: [], la: {}, nex: {} };
       this.editor.renderWires(); // a selected wire drops its joint handles while running
+      this.sim.clock = 0; // simulation time (s), for the ⏱ limit and the data plotter
+      WB.Plotter.reset(this);
+      if (this.project.parts.some((p) => p.type === 'plotter')) WB.Plotter.showTab('plot');
       // chips that react to clock edges (74HC595): solve after every digitalWrite so no edge is missed
       this.clocked = this.project.parts.some((p) => PARTS[p.type] && PARTS[p.type].clocked);
       this.setRunUI(true);
@@ -2137,6 +2237,7 @@
       Audio.stopAll();
       this.clearWarnings();
       this.setRunUI(false);
+      WB.Plotter.requestDraw();
       this.editor.render();
     }
     onRuntimeError(e) {

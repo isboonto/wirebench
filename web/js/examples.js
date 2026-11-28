@@ -728,6 +728,30 @@ void loop() {
   });
 
   EX.push({
+    name: 'Electronics · Data plotter: capacitor charging curve (save as CSV)', build: () => {
+      const p = { parts: [], wires: [], simTime: 5, code: NOCODE(`// The Data plotter records voltages over the whole run and draws them in the
+// Plotter tab (next to the Serial Monitor). The simulation time is set to 5 s
+// (⏱ in the toolbar): press Run and it stops by itself after 5 s.
+//  - CH1 (yellow) = capacitor voltage: an RC charging curve, time constant R·C = 1 s
+//  - CH2 (cyan)   = the power supply, 5 V
+// Point at the graph to read the values at any moment. Press CSV to save the
+// data for MATLAB, Julia, Python or Excel; ↻ Run again starts over.
+// Try it: change R1 or C1 (double-click them) and run again — or set ⏱ to 10 s.`) };
+      breadboard(p);
+      add(p, 'r1', 'resistor', hole('b7'), 0, { ohms: 10000 }, 'R1');
+      add(p, 'c1', 'ecap', hole('c11'), 0, { farads: 100e-6 }, 'C1');
+      wire(p, ['bb', 'a12'], ['bb', rail('TN', 11)], '#1f1f1f', [[hole('a12')[0], 90], [railPos('TN', 11)[0], 90]]);
+      add(p, 'ps', 'psu', [130, 220], 0, { volts: 5, ilimit: 0.5 }, 'PS1');
+      add(p, 'plt', 'plotter', [470, 470], 0, {}, 'PLT1');
+      rw(p, ['ps', '+'], ['bb', 'a7'], '#d62828');
+      rw(p, ['ps', '-'], ['bb', rail('TN', 1)], '#1f1f1f');
+      rw(p, ['plt', 'CH1+'], ['bb', 'e11'], '#f2c200');
+      rw(p, ['plt', 'CH2+'], ['bb', 'e7'], '#22b8cf');
+      return p;
+    },
+  });
+
+  EX.push({
     name: 'UNO Q · PWM + RC filter = analog voltage', build: () => {
       const p = P('board-uno-q', `// PWM + RC low-pass filter = a smooth analog voltage.
 // Pin 9 outputs a 490 Hz square wave (scope CH1, yellow). The 1 kΩ resistor

@@ -2,7 +2,7 @@
 
 *Formerly called Wirebench (renamed in 1.0.0-beta.2, because that name was already in use).*
 
-A free, offline breadboard designer and electronics simulator. Inspired by the breadboard view in tools like Fritzing, with built-in simulation for the **Arduino UNO Q** and similar boards, and bench instruments (multimeter, oscilloscope, Bode plotter, logic analyzer, function generator, power supply) for analog circuits with or without a microcontroller.
+A free, offline breadboard designer and electronics simulator. Inspired by the breadboard view in tools like Fritzing, with built-in simulation for the **Arduino UNO Q** and similar boards, and bench instruments (multimeter, oscilloscope, data plotter, Bode plotter, logic analyzer, function generator, power supply) for analog circuits with or without a microcontroller.
 
 ![JumperCraft in the dark theme: an Arduino UNO Q fading an LED on a breadboard, with a multimeter and an oscilloscope showing the PWM signal while the simulation runs](docs/screenshot-dark.png)
 
@@ -10,7 +10,7 @@ A free, offline breadboard designer and electronics simulator. Inspired by the b
 
 **In a browser, nothing to install:** open **https://isboonto.github.io/jumpercraft/**. The site is rebuilt from the `web` folder by `.github/workflows/pages.yml` on every push to `main` that changes it.
 
-**Windows installer:** download it from the [Releases page](https://github.com/isboonto/jumpercraft/releases) — the current release is **1.0.0-beta.5**, a beta of 1.0. Take `JumperCraft_1.0.0-beta.5_x64-setup.exe` (or the `.msi`). The installers are not code-signed yet, so Windows SmartScreen may warn: choose *More info → Run anyway*. You can also build the installer yourself with `.\build.ps1 -Installer`.
+**Windows installer:** download it from the [Releases page](https://github.com/isboonto/jumpercraft/releases) — the current release is **1.0.0-beta.6**, a beta of 1.0. Take `JumperCraft_1.0.0-beta.6_x64-setup.exe` (or the `.msi`). The installers are not code-signed yet, so Windows SmartScreen may warn: choose *More info → Run anyway*. You can also build the installer yourself with `.\build.ps1 -Installer`.
 
 **Desktop app (Windows, native Rust):** run `target\release\jumpercraft.exe`. To build it yourself:
 
@@ -68,6 +68,7 @@ New to JumperCraft? Open **Help → Getting started** (or press **F1**) in the a
 **Instruments**
 - **Multimeter:** click a mode on the dial to select it; DC and AC (rms) voltage and current, and resistance.
 - **2-channel oscilloscope:** clickable front panel with time/div (10 µs to 1 s), per-channel volts/div (10 mV to 20 V), DC/AC coupling, position and INV, AUTO (autoset), and X-Y mode; edge trigger; average or AC rms / peak-to-peak / frequency readouts.
+- **Data plotter:** records up to four voltages (each between a + and a − probe) over the whole run, set by the toolbar's simulation time (⏱); the Plotter tab shows the graph with a readout under the pointer, saves it as CSV, and runs the simulation again (↻).
 - **Bode plotter:** OUT drives the circuit with a small sine, IN measures the output; SWEEP measures gain (dB) and phase from 1 Hz to 1 MHz (stepped-sine through the full simulator, so op-amps and transistors work too) and marks the −3 dB points. SPICE export turns it into a `.ac` analysis.
 - **8-channel logic analyzer:** timing diagrams of digital signals with an edge trigger; records every edge of fast sequences such as `shiftOut()` (about 4 µs per Arduino call, as on a real UNO), shows PWM, and reads out frequencies.
 - **Function generator** (new in 0.3): sine, square, triangle or sawtooth, 0.1 Hz–1 MHz, amplitude and DC offset, 50 Ω output; clickable front panel (waveform keys, frequency ÷10/−/+/×10, amplitude, offset, OUTPUT ON/OFF).
@@ -139,6 +140,7 @@ web/js/runtime.js     Arduino API (pins, Serial, Servo, LED matrix, …)
 web/js/editor.js      canvas editor (drag, wire, zoom, select)
 web/js/schematic.js   schematic sheet for Export → Schematic diagram (symbols, placement, wire routing)
 web/js/spice.js       SPICE netlist for LTspice (Export → SPICE netlist)
+web/js/plotter.js     Data plotter: records channels over a run, Plotter tab graph, CSV export
 web/js/examples.js    example projects
 web/js/app.js         UI glue, code editor, simulation loop
 ```

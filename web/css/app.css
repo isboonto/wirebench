@@ -375,6 +375,24 @@ body.simulating [data-edit] { opacity: .35; pointer-events: none; }
   white-space: pre-wrap; word-break: break-all;
 }
 #serial-form { display: flex; gap: 6px; padding: 6px; border-top: 1px solid var(--border); }
+/* Serial Monitor / Plotter tabs */
+.io-tabs { display: inline-flex; gap: 2px; }
+.io-tab { border: 0; background: transparent; color: var(--muted); padding: 3px 8px; border-radius: 6px; font-weight: 600; }
+.io-tab.on { background: var(--active-bg); color: var(--active-fg); }
+.io-plot-tools { display: none; gap: 4px; }
+body.io-plot .io-plot-tools { display: inline-flex; }
+body.io-plot .io-serial-tools, body.io-plot #serial-out, body.io-plot #serial-form { display: none; }
+#plot-wrap { flex: 0 0 240px; min-height: 120px; border-top: 1px solid var(--border); display: flex; }
+#plot-wrap[hidden] { display: none; }
+body.hide-sketch #plot-wrap { flex: 1 1 auto; }
+body.hide-serial #plot-wrap { display: none; }
+#plot { flex: 1; width: 100%; height: 100%; display: block; cursor: crosshair; --plot-bg: #0f141a; --plot-grid: #222c39; --plot-fg: #93a0b0; }
+/* toolbar: simulation time and Run again */
+#simtime-box { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+#simtime-box .st-ico { color: var(--muted); }
+#simtime { width: 58px; padding: 4px 5px; }
+#simtime-unit { padding: 4px 2px; }
+#btn-rerun { flex-shrink: 0; font-size: 15px; padding: 4px 9px; }
 #serial-form input { flex: 1; min-width: 0; }
 
 /* ------------------------------------------------ modal */
