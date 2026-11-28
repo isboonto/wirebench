@@ -488,18 +488,15 @@
       const pic = `<svg viewBox="${x - pad} ${y - pad} ${w + pad * 2} ${h + pad * 2}" preserveAspectRatio="xMidYMid meet">${def.render({ id: 'fig', type: p.type, props, rot: 0, name: '' }, {})}</svg>`;
       let sym = '';
       try { sym = WB.Schematic && WB.Schematic.preview ? WB.Schematic.preview(p) : ''; } catch (e) { sym = ''; }
-      return `<div class="part-fig${sym ? '' : ' one'}">
-        <figure><div class="fig-pic">${pic}</div><figcaption>Picture</figcaption></figure>
-        ${sym ? `<figure><div class="fig-sym">${sym}</div><figcaption>Symbol</figcaption></figure>` : ''}
-      </div>`;
+      return `<div class="part-fig"><div class="fig-pic" title="Picture">${pic}</div>${sym ? `<div class="fig-sym" title="Schematic symbol">${sym}</div>` : ''}</div>`;
     }
     // Settings form for one part — used by the inspector and the double-click dialog.
     renderPartForm(el, p, prefix, withTitle) {
       const def = PARTS[p.type];
-      let html = withTitle
+      let html = this.partFigureHTML(p, def);
+      html += withTitle
         ? `<div class="insp-title"><input class="name" value="${WB.esc(p.name || '')}" title="Part label"></div><div class="muted small">${WB.esc(def.label)}${def.summary ? ' · ' + WB.esc(def.summary(p)) : ''}</div>`
         : `<label class="field-label">Name</label><input class="name wide" value="${WB.esc(p.name || '')}"><div class="muted small" style="margin-top:4px">${WB.esc(def.label)}${def.summary ? ' · ' + WB.esc(def.summary(p)) : ''}</div>`;
-      html += this.partFigureHTML(p, def);
       if (def.board) {
         html += `<label class="field-label">Board type</label><select data-board>${Object.keys(WB.BOARDS).map((t) => `<option value="${t}"${t === p.type ? ' selected' : ''}>${WB.esc(WB.BOARDS[t].label)}</option>`).join('')}</select>
           <p class="muted small">${WB.esc(def.board.info)}</p>`;

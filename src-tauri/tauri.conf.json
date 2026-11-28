@@ -45,7 +45,7 @@
         "template": "nsis/installer.nsi"
       },
       "wix": {
-        "version": "1.0.0.12",
+        "version": "1.0.0.13",
         "upgradeCode": "5fd73b27-1d6c-50b5-bd0c-73f3a8d72101"
       }
     },

@@ -25,8 +25,12 @@ if ($cargoVer -ne $ver -or $helpVer -ne $ver -or $readmeVer -ne $short) {
 # browser that cached the previous release's scripts (GitHub Pages: 10 minutes) loads the new ones
 # instead of mixing an old script with the new page.
 $html = Get-Content web\index.html -Raw
-$stamped = [regex]::Replace($html, '(href|src)="((?:js|css)/[^"?]+|wasm/wb_core\.wasm)(\?v=[^"]*)?"', ('$1="$2?v=' + $ver + '"'))
-if ($stamped -ne $html) { [IO.File]::WriteAllText((Resolve-Path web\index.html), $stamped); $html = $stamped; Write-Host "==> index.html: file links stamped with ?v=$ver" }
+# The stamp also carries a short hash of the scripts and styles, so it changes when a release is
+# updated in place under the same version number.
+$hashes = (Get-ChildItem web\js\*.js, web\css\*.css | Sort-Object FullName | Get-FileHash -Algorithm SHA256).Hash -join ''
+$stamp = "$ver-" + (Get-FileHash -InputStream ([IO.MemoryStream]::new([Text.Encoding]::ASCII.GetBytes($hashes)))).Hash.Substring(0, 8).ToLower()
+$stamped = [regex]::Replace($html, '(href|src)="((?:js|css)/[^"?]+|wasm/wb_core\.wasm)(\?v=[^"]*)?"', ('$1="$2?v=' + $stamp + '"'))
+if ($stamped -ne $html) { [IO.File]::WriteAllText((Resolve-Path web\index.html), $stamped); $html = $stamped; Write-Host "==> index.html: file links stamped with ?v=$stamp" }
 
 # index.html preloads every script it loads (see the comment there); stop if the two lists differ.
 $scripts = [regex]::Matches($html, '<script src="([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
