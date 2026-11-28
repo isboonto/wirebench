@@ -1,0 +1,53 @@
+name: Report a problem
+description: Something in JumperCraft doesn't work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a problem! A short, clear report helps a lot.
+        Tip: **File → Save** your project and attach the `.wbproj` file below if the problem happens with a particular circuit.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: "I connected an LED to pin 13, pressed Run, and the LED stays off. I expected it to blink."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we make the problem happen? (optional, but very helpful)
+      placeholder: |
+        1. Open the example "UNO R3 · Blink"
+        2. Press Run
+        3. …
+  - type: input
+    id: version
+    attributes:
+      label: JumperCraft version
+      description: Help → About shows it (filled in automatically when you use Help → Report a problem).
+      placeholder: "1.0.0-beta.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where do you use JumperCraft?
+      options:
+        - Desktop app (Windows)
+        - Web version
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Browser / device (optional)
+      placeholder: "Windows 11 · Edge 131, or iPad · Safari"
+  - type: textarea
+    id: files
+    attributes:
+      label: Screenshots or project file (optional)
+      description: Drag screenshots or a `.wbproj` file (zipped if GitHub refuses it) into this box.

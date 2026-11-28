@@ -20,7 +20,18 @@
     repo: 'https://github.com/isboonto/jumpercraft',
     releases: 'https://github.com/isboonto/jumpercraft/releases',
     issues: 'https://github.com/isboonto/jumpercraft/issues',
+    contribute: 'https://github.com/isboonto/jumpercraft/blob/main/CONTRIBUTING.md',
     sponsor: 'https://github.com/sponsors/isboonto',
+  };
+  // GitHub pages for feedback (Help menu and About page). The problem form gets the version and
+  // platform filled in (only those two: no personal data or project content is sent).
+  WB.githubLink = (kind) => {
+    const base = 'https://github.com/isboonto/jumpercraft/';
+    const platform = WB.isDesktop ? 'Desktop app (Windows)' : 'Web version';
+    if (kind === 'bug') return base + 'issues/new?template=bug_report.yml&version=' + encodeURIComponent(WB.VERSION) + '&platform=' + encodeURIComponent(platform);
+    if (kind === 'feature') return base + 'issues/new?template=feature_request.yml';
+    if (kind === 'contribute') return LINKS.contribute;
+    return LINKS.issues;
   };
   const LOGO = '<svg viewBox="0 0 24 24" width="56" height="56" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="10" r="1.3" fill="currentColor"/><circle cx="11" cy="10" r="1.3" fill="currentColor"/><circle cx="15" cy="14" r="1.3" fill="currentColor"/><path d="M7 10 C 9 16, 13 16, 15 14" fill="none" stroke="#ffb020" stroke-width="1.8" stroke-linecap="round"/></svg>';
   const ICON = {
@@ -36,7 +47,7 @@
     const boards = types.filter((t) => P[t].board).length;
     const parts = types.filter((t) => !P[t].board && !P[t].holes && !P[t].annotation).length;
     const examples = (WB.EXAMPLES || []).length;
-    const link = (key, icon, label, primary) => `<a class="about-btn${primary ? ' ' + (primary === true ? 'primary' : primary) : ''}" href="${LINKS[key]}" target="_blank" rel="noopener" data-ext>${ICON[icon]}<span>${label}</span></a>`;
+    const link = (key, icon, label, primary) => `<a class="about-btn${primary ? ' ' + (primary === true ? 'primary' : primary) : ''}" href="${esc(LINKS[key] || WB.githubLink(key))}" target="_blank" rel="noopener" data-ext>${ICON[icon] || WB.icon(icon)}<span>${label}</span></a>`;
     return `
       <div class="about-hero">
         <div class="about-logo">${LOGO}</div>
@@ -47,7 +58,7 @@
         </div>
       </div>
       <div class="about-links">
-        ${link('site', 'globe', 'Website', true)}${link('repo', 'code', 'Source code')}${link('releases', 'download', 'Download')}${link('issues', 'bug', 'Report a problem')}${link('sponsor', 'heart', 'Support JumperCraft', 'sponsor')}
+        ${link('site', 'globe', 'Website', true)}${link('repo', 'code', 'Source code')}${link('releases', 'download', 'Download')}${link('bug', 'bug', 'Report a problem')}${link('feature', 'bulb', 'Suggest a feature')}${link('contribute', 'pr', 'Contribute')}${link('sponsor', 'heart', 'Support JumperCraft', 'sponsor')}
       </div>
       <div class="about-cards">
         <div class="about-card"><h4>Author</h4><p class="big">Sudchai Boonto</p><p class="muted small">© 2026 · released under the MIT License — free to use, change and share.</p></div>
@@ -255,6 +266,7 @@
       <h3 class="about-h">What's new</h3>
       <h3>What's new in 1.0 (beta)</h3>
       <ul>
+        <li>1.0.0-beta.5 (update): <b>Feedback on GitHub</b> in the Help menu — <b>Report a problem…</b> (the form on GitHub already has your JumperCraft version filled in), <b>Suggest a feature…</b> and <b>Contribute (pull requests)…</b>; the same buttons are on this About page. While the simulation runs, clicking a wire shows only its two ends, not its joints (wires can't be changed while it runs).</li>
         <li>1.0.0-beta.5: a <b>General</b> category at the top of the parts list with the parts used most often (Arduino UNO R3, half breadboard, resistor, LEDs, pushbutton, switch, potentiometer, LDR, buzzer, servo, capacitors, diode, transistor, battery, multimeter) — they are still in their own categories too. The <b>Inspector</b> shows a <b>picture</b> of the selected part next to its <b>standard schematic symbol</b>.</li>
         <li>1.0.0-beta.4: <b>Curved wires</b>, as in Fritzing — choose <b>File → New wires → Curved</b>, then drag a wire anywhere to bend it; right-click a wire to make it curved or straight. Curved wires follow their pins when you move a part and are left alone by Tidy wires. <b>Nicer parts</b>: LEDs (clear epoxy with the die inside), pushbuttons (steel cover and rivets), the slide switch, and batteries — now drawn as AA cells in a holder (1.5–6 V), an 18650 Li-ion cell (3.7 V) or a 9 V battery with snap terminals — plus shading on resistors, capacitors and diodes.</li>
         <li>1.0.0-beta.3: a <b>Support JumperCraft ♥</b> button on this About page — if JumperCraft helps you or your students, you can support its development through GitHub Sponsors.</li>

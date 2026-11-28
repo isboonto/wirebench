@@ -147,6 +147,10 @@ web/js/app.js         UI glue, code editor, simulation loop
 
 To add a part, copy one of the `WB.defPart(...)` blocks in `web/js/parts.js`. Each part declares its pins, its SVG drawing, and its electrical elements (resistors, sources, diodes).
 
+## Contributing
+
+Found a problem or have an idea? In JumperCraft choose **Help → Report a problem…** or **Help → Suggest a feature…**, or open an [issue](https://github.com/isboonto/jumpercraft/issues). Pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to run JumperCraft locally and where things are.
+
 ## Support
 
 JumperCraft is free and open source. If it helps you or your students, you can support its development through [GitHub Sponsors](https://github.com/sponsors/isboonto) ♥ — thank you!

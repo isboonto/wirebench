@@ -218,7 +218,8 @@
           <path d="${d}" stroke="${w.color}" stroke-width="2.8" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
           <circle cx="${A[0]}" cy="${A[1]}" r="2.6" fill="${dark}"/><circle cx="${B[0]}" cy="${B[1]}" r="2.6" fill="${dark}"/>`;
         if (isSel) {
-          (w.pts || []).forEach((p, i) => { html += `<circle class="handle bend" data-wire="${w.id}" data-idx="${i}" cx="${p[0]}" cy="${p[1]}" r="3.6"/>`; });
+          // while the simulation runs, wires can't be changed: show only the two ends, not the joints
+          if (!this.app.locked()) (w.pts || []).forEach((p, i) => { html += `<circle class="handle bend" data-wire="${w.id}" data-idx="${i}" cx="${p[0]}" cy="${p[1]}" r="3.6"/>`; });
           html += `<rect class="handle end" data-wire="${w.id}" data-end="a" x="${A[0] - 3.5}" y="${A[1] - 3.5}" width="7" height="7"/>`;
           html += `<rect class="handle end" data-wire="${w.id}" data-end="b" x="${B[0] - 3.5}" y="${B[1] - 3.5}" width="7" height="7"/>`;
         }

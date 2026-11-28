@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Try JumperCraft in your browser
+    url: https://isboonto.github.io/jumpercraft/
+    about: The web version — check whether the problem also happens there.
+  - name: How to contribute code
+    url: https://github.com/isboonto/jumpercraft/blob/main/CONTRIBUTING.md
+    about: Building JumperCraft and sending a pull request.

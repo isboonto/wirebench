@@ -1063,6 +1063,11 @@
       $('#modal-body').scrollTop = 0;
       if (!dlg.open) dlg.showModal();
     }
+    // Open a web page: in the desktop app in the system browser, on the web in a new tab.
+    openLink(url) {
+      if (WB.isDesktop) WB.invoke('open_url', { url }).catch((err) => this.toast('Could not open the link: ' + err));
+      else window.open(url, '_blank', 'noopener');
+    }
     syncWireMenu() {
       document.querySelectorAll('#wires-menu button').forEach((b) => b.classList.toggle('on', b.dataset.cmd === (this.curvedWires ? 'wires:curved' : 'wires:straight')));
     }
@@ -1084,6 +1089,7 @@
     }
     cmd(c) {
       if (c.startsWith('help:')) { this.showHelp(c.slice(5)); return; }
+      if (c.startsWith('gh:')) { document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open')); this.openLink(WB.githubLink(c.slice(3))); return; }
       if (c.startsWith('wires:')) {
         document.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
         this.curvedWires = c === 'wires:curved';
@@ -2103,6 +2109,7 @@
       const spec = b ? PARTS[b.type].board : null;
       if (WB.scopeAuto) WB.scopeAuto.clear();
       this.sim = { pins: {}, servos: [], modulino: {}, scope: {}, analog: { t: 0, lastReal: null }, matrix: spec && spec.matrix ? new Uint8Array(spec.matrix.w * spec.matrix.h) : null, partState: {}, warned: new Set(), t0: performance.now(), lcd: {}, neo: {}, irq: [], la: {}, nex: {} };
+      this.editor.renderWires(); // a selected wire drops its joint handles while running
       // chips that react to clock edges (74HC595): solve after every digitalWrite so no edge is missed
       this.clocked = this.project.parts.some((p) => PARTS[p.type] && PARTS[p.type].clocked);
       this.setRunUI(true);

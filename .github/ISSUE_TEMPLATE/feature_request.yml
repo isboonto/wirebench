@@ -1,0 +1,30 @@
+name: Suggest a feature
+description: An idea for a new part, board, example or feature
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for the idea! Please check the existing issues first — maybe someone suggested it already (then add a 👍 there).
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What would you like JumperCraft to do?
+      placeholder: "A DHT11 temperature and humidity sensor, so students can build a weather station."
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What would you use it for?
+      description: A lesson, a lab, a project … this helps decide what to build first.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of change is it?
+      options:
+        - New part or board
+        - New example
+        - Simulator / Arduino functions
+        - Editor and user interface
+        - Something else
