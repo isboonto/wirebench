@@ -478,12 +478,28 @@
       this.renderPartForm(el, p, 'insp', true);
     }
 
+    // Picture of the part (as on the breadboard, with its current settings) next to its standard
+    // schematic symbol. Boards and breadboards get the picture only.
+    partFigureHTML(p, def) {
+      if (def.annotation) return '';
+      const props = p.props || {};
+      const [x, y, w, h] = def.bbox(props);
+      const pad = 3;
+      const pic = `<svg viewBox="${x - pad} ${y - pad} ${w + pad * 2} ${h + pad * 2}" preserveAspectRatio="xMidYMid meet">${def.render({ id: 'fig', type: p.type, props, rot: 0, name: '' }, {})}</svg>`;
+      let sym = '';
+      try { sym = WB.Schematic && WB.Schematic.preview ? WB.Schematic.preview(p) : ''; } catch (e) { sym = ''; }
+      return `<div class="part-fig${sym ? '' : ' one'}">
+        <figure><div class="fig-pic">${pic}</div><figcaption>Picture</figcaption></figure>
+        ${sym ? `<figure><div class="fig-sym">${sym}</div><figcaption>Symbol</figcaption></figure>` : ''}
+      </div>`;
+    }
     // Settings form for one part — used by the inspector and the double-click dialog.
     renderPartForm(el, p, prefix, withTitle) {
       const def = PARTS[p.type];
       let html = withTitle
         ? `<div class="insp-title"><input class="name" value="${WB.esc(p.name || '')}" title="Part label"></div><div class="muted small">${WB.esc(def.label)}${def.summary ? ' · ' + WB.esc(def.summary(p)) : ''}</div>`
         : `<label class="field-label">Name</label><input class="name wide" value="${WB.esc(p.name || '')}"><div class="muted small" style="margin-top:4px">${WB.esc(def.label)}${def.summary ? ' · ' + WB.esc(def.summary(p)) : ''}</div>`;
+      html += this.partFigureHTML(p, def);
       if (def.board) {
         html += `<label class="field-label">Board type</label><select data-board>${Object.keys(WB.BOARDS).map((t) => `<option value="${t}"${t === p.type ? ' selected' : ''}>${WB.esc(WB.BOARDS[t].label)}</option>`).join('')}</select>
           <p class="muted small">${WB.esc(def.board.info)}</p>`;
@@ -660,6 +676,8 @@
       const known = new Set(WB.CATEGORIES);
       const order = (Array.isArray(saved) ? saved : []).filter((c) => known.has(c));
       for (const c of WB.CATEGORIES) if (!order.includes(c)) order.push(c);
+      // General (new in 1.0.0-beta.5) starts at the top, also for someone who had reordered the list
+      if (!saved.includes('General') && order[0] !== 'General') { order.splice(order.indexOf('General'), 1); order.unshift('General'); }
       return order;
     }
     // Put the categories in this order (moves the existing elements, so nothing is rebuilt).
@@ -751,7 +769,7 @@
       const pal = $('#palette');
       let html = '';
       for (const cat of this.categoryOrder()) {
-        const types = Object.keys(PARTS).filter((t) => PARTS[t].category === cat);
+        const types = cat === 'General' ? WB.GENERAL.filter((t) => PARTS[t]) : Object.keys(PARTS).filter((t) => PARTS[t].category === cat);
         if (!types.length) continue;
         const shut = this.hiddenCats.has(cat);
         html += `<div class="cat${shut ? ' collapsed' : ''}" data-cat="${WB.esc(cat)}"><button class="cat-title" draggable="true" title="Click to hide / show ${WB.esc(cat)} · drag to move it · right-click for more"><span class="chev">${shut ? '▸' : '▾'}</span><span>${WB.esc(cat)}</span><span class="count">${types.length}</span></button><div class="tiles">`;
@@ -788,7 +806,8 @@
       $('#part-search').addEventListener('input', (e) => {
         const q = e.target.value.trim().toLowerCase();
         pal.querySelectorAll('.tile').forEach((t) => { t.style.display = !q || t.title.toLowerCase().includes(q) ? '' : 'none'; });
-        pal.querySelectorAll('.cat').forEach((c) => { c.style.display = [...c.querySelectorAll('.tile')].some((t) => t.style.display !== 'none') ? '' : 'none'; });
+        // while searching, General is hidden: its parts are found in their own categories
+        pal.querySelectorAll('.cat').forEach((c) => { c.style.display = (q && c.dataset.cat === 'General') || ![...c.querySelectorAll('.tile')].some((t) => t.style.display !== 'none') ? 'none' : ''; });
         pal.classList.toggle('searching', !!q);
       });
     }

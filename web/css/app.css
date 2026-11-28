@@ -213,6 +213,15 @@ body.hide-parts .side-head .cats-all { display: none; }
 /* ------------------------------------------------ inspector */
 #inspector { flex: 0 0 auto; max-height: 45%; overflow-y: auto; padding: 10px; border-top: 1px solid var(--border); }
 .insp-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+/* inspector: picture of the part + its schematic symbol */
+.part-fig { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 4px; }
+.part-fig.one { grid-template-columns: 1fr; }
+.part-fig figure { margin: 0; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.part-fig .fig-pic, .part-fig .fig-sym { height: 92px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; padding: 6px; }
+.part-fig .fig-pic { background: var(--canvas); }
+.part-fig .fig-sym { background: #fff; }
+.part-fig svg { width: 100%; height: 100%; display: block; }
+.part-fig figcaption { font-size: 11px; color: var(--muted); text-align: center; }
 .insp-title input.name { width: 100%; font-weight: 600; font-size: 14px; background: transparent; border: 1px solid transparent; padding: 2px 4px; margin-left: -4px; }
 .insp-title input.name:hover, .insp-title input.name:focus { border-color: var(--border); background: var(--code-bg); }
 .field-label { display: flex; justify-content: space-between; margin: 10px 0 4px; color: var(--muted); font-size: 12px; }

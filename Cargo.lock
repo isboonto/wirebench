@@ -2055,7 +2055,7 @@ dependencies = [
 
 [[package]]
 name = "jumpercraft"
-version = "1.0.0-beta.4"
+version = "1.0.0-beta.5"
 dependencies = [
  "base64 0.22.1",
  "rfd",

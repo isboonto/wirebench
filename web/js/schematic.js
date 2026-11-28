@@ -740,5 +740,24 @@
     return { svg, width: W, height: H, parts: parts.length, nets: A.names.size, scale, mode, failedNets: failed, check };
   }
 
-  WB.Schematic = { build, SYMBOLS, analyse };
+  // The symbol of one part on its own (for the inspector): body, pin stubs and pin numbers, no
+  // reference or wires. null for boards and breadboards.
+  function preview(p) {
+    const def = WB.PARTS[p.type];
+    if (!def || def.board || def.holes || def.annotation) return null;
+    const pins = def.pins(p.props || {});
+    const sym = SYMBOLS[p.type] ? SYMBOLS[p.type](p, def) : pins.length <= 24 ? boxSymbol(p, def, new Set(pins.map((q) => q.id))) : null;
+    if (!sym) return null;
+    let s = sym.body, x0 = -2, y0 = -12, x1 = sym.w + 2, y1 = sym.h + 2;
+    for (const pin of sym.pins) {
+      const [dx, dy] = DIRV[pin.dir], ex = pin.x + dx * STUB, ey = pin.y + dy * STUB;
+      s += `<path d="M${pin.x},${pin.y} L${ex},${ey}" ${LINE}/>`;
+      if (pin.num != null) s += T(pin.x + dx * 9, pin.y - 3, pin.num, { fs: 7, anchor: 'middle', fill: '#444' });
+      x0 = Math.min(x0, ex); y0 = Math.min(y0, ey); x1 = Math.max(x1, ex); y1 = Math.max(y1, ey);
+    }
+    const m = 4;
+    return `<svg viewBox="${x0 - m} ${y0 - m} ${x1 - x0 + 2 * m} ${y1 - y0 + 2 * m}" preserveAspectRatio="xMidYMid meet" font-family="Arial, Helvetica, sans-serif">${s}</svg>`;
+  }
+
+  WB.Schematic = { build, SYMBOLS, analyse, preview };
 })(window.WB);

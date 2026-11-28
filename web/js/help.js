@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '1.0.0-beta.4';
+  WB.VERSION = '1.0.0-beta.5';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -255,6 +255,7 @@
       <h3 class="about-h">What's new</h3>
       <h3>What's new in 1.0 (beta)</h3>
       <ul>
+        <li>1.0.0-beta.5: a <b>General</b> category at the top of the parts list with the parts used most often (Arduino UNO R3, half breadboard, resistor, LEDs, pushbutton, switch, potentiometer, LDR, buzzer, servo, capacitors, diode, transistor, battery, multimeter) — they are still in their own categories too. The <b>Inspector</b> shows a <b>picture</b> of the selected part next to its <b>standard schematic symbol</b>.</li>
         <li>1.0.0-beta.4: <b>Curved wires</b>, as in Fritzing — choose <b>File → New wires → Curved</b>, then drag a wire anywhere to bend it; right-click a wire to make it curved or straight. Curved wires follow their pins when you move a part and are left alone by Tidy wires. <b>Nicer parts</b>: LEDs (clear epoxy with the die inside), pushbuttons (steel cover and rivets), the slide switch, and batteries — now drawn as AA cells in a holder (1.5–6 V), an 18650 Li-ion cell (3.7 V) or a 9 V battery with snap terminals — plus shading on resistors, capacitors and diodes.</li>
         <li>1.0.0-beta.3: a <b>Support JumperCraft ♥</b> button on this About page — if JumperCraft helps you or your students, you can support its development through GitHub Sponsors.</li>
         <li>1.0.0-beta.2: <b>Wirebench is now JumperCraft.</b> The old name turned out to be used already by another electronics tool. Your work carries over: the autosave, settings, “My examples” (the old Wirebench examples folder is still read) and <code>.wbproj</code> project files all keep working, and installing JumperCraft removes the old Wirebench program. The web version moved to <b>isboonto.github.io/jumpercraft</b>; the old address forwards there.</li>

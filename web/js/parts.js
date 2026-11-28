@@ -1,7 +1,10 @@
 'use strict';
 (function (WB) {
   const PARTS = (WB.PARTS = {});
-  const CATEGORIES = (WB.CATEGORIES = ['Boards', 'Breadboards', 'Instruments', 'Modulino', 'Output', 'Displays', 'Input', 'Sensors', 'Passive', 'Semiconductors', 'ICs', 'Controlled sources', 'Power', 'Notes']);
+  // 'General' is not a real category: it shows the parts used most often (WB.GENERAL), which also
+  // stay in their own categories.
+  WB.GENERAL = ['board-uno-r3', 'breadboard-half', 'resistor', 'led', 'rgbled', 'button', 'switch', 'pot', 'ldr', 'buzzer', 'servo', 'capacitor', 'ecap', 'diode', 'npn', 'battery', 'multimeter'];
+  const CATEGORIES = (WB.CATEGORIES = ['General', 'Boards', 'Breadboards', 'Instruments', 'Modulino', 'Output', 'Displays', 'Input', 'Sensors', 'Passive', 'Semiconductors', 'ICs', 'Controlled sources', 'Power', 'Notes']);
 
   WB.defPart = function (type, d) {
     d.type = type;
