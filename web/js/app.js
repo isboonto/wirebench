@@ -1155,6 +1155,7 @@
         case 'run': if (this.sim) this.stopSim(); else this.startSim(); break;
         case 'rerun': this.rerun(); break;
         case 'plotCsv': this.savePlotCsv(); break;
+        case 'plotPng': this.savePlotPng(); break;
         case 'plotClear': WB.Plotter.clear(); break;
         case 'verify': this.verify(); break;
         case 'togglePanel': this.setCodePanel(document.body.classList.contains('code-hidden')); break;
@@ -1237,6 +1238,12 @@
     toggleMenu(sel) {
       document.querySelectorAll('.menu.open').forEach((m) => { if (m !== $(sel)) m.classList.remove('open'); });
       $(sel).classList.toggle('open');
+    }
+    async savePlotPng() {
+      const blob = await WB.Plotter.exportPNG();
+      if (!blob) { this.toast('Nothing recorded yet: add a Data plotter, connect its probes and press Run.'); return; }
+      const base = (this.docName || 'plot').replace(/[\\/:*?"<>|]+/g, '_');
+      this.saveAs(base + ' - plot.png', blob, 'PNG image', ['png']);
     }
     savePlotCsv() {
       if (!WB.Plotter.hasData()) { this.toast('Nothing recorded yet: add a Data plotter, connect its probes and press Run.'); return; }

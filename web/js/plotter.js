@@ -261,6 +261,45 @@
       this.paint(g, { W: w, H: h, L: 54, R: 12, T: 24, B: 24, pw: w - 66, ph: h - 48 }, { bg: '#ffffff', grid: '#dfe3e8', fg: '#333a44', color: (x) => PRINT[x.ch - 1], font: 12, pid });
       return cv.toDataURL('image/png');
     },
+    // Export: the plot window as it looks (colours, zoom, markers), at double resolution, with the
+    // marker readout written underneath. Resolves to a PNG Blob, or null when nothing is recorded.
+    exportPNG() {
+      if (!this.hasData()) return Promise.resolve(null);
+      const live = document.getElementById('plot');
+      const W = Math.max(640, (live && live.clientWidth) || 900), H = Math.max(320, (live && live.clientHeight) || 420);
+      const css = live ? getComputedStyle(live) : null;
+      const pick = (k, d) => (css && css.getPropertyValue(k).trim()) || d;
+      const colors = { bg: pick('--plot-bg', '#0f141a'), grid: pick('--plot-grid', '#253041'), fg: pick('--plot-fg', '#9aa6b5') };
+      const lines = this.infoLines();
+      const lh = 18, foot = lines.length ? lines.length * lh + 14 : 0;
+      const k = 2, cv = document.createElement('canvas');
+      cv.width = W * k; cv.height = (H + foot) * k;
+      const g = cv.getContext('2d');
+      g.setTransform(k, 0, 0, k, 0, 0);
+      this.paint(g, { W, H, L: 50, R: 12, T: 22, B: 22, pw: W - 62, ph: H - 44 }, colors);
+      if (foot) {
+        g.fillStyle = colors.bg; g.fillRect(0, H, W, foot);
+        g.strokeStyle = colors.grid; g.beginPath(); g.moveTo(0, H + 0.5); g.lineTo(W, H + 0.5); g.stroke();
+        g.font = '12px system-ui, sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'left';
+        lines.forEach((ln, i) => { g.fillStyle = ln.color || colors.fg; g.fillText(ln.text, 10, H + 7 + lh * i + lh / 2); });
+      }
+      return new Promise((res) => cv.toBlob((b) => res(b), 'image/png'));
+    },
+    // the marker readout as plain lines (same content as the box under the graph)
+    infoLines() {
+      const used = this.series.filter((s) => s.t.length), out = [];
+      const r = this.range(), span = r.x1 - r.x0;
+      if (this.tm) {
+        const [a, b] = this.tm, dt = Math.abs(b - a);
+        out.push({ text: `T1 ${fmtTime(a, span)} · T2 ${fmtTime(b, span)} · Δt ${fmtTime(dt, span)}${dt > 0 ? ' (' + fmtFreq(1 / dt) + ')' : ''}`, color: '#e0b100' });
+        for (const s of used) {
+          const va = valueAt(s, a), vb = valueAt(s, b), f = (v) => (v == null ? '—' : v.toFixed(3) + ' V');
+          out.push({ text: `${s.label}: ${f(va)} → ${f(vb)}${va != null && vb != null ? ' · Δ ' + (vb - va).toFixed(3) + ' V' : ''}`, color: s.color });
+        }
+      }
+      if (this.vm) { const [a, b] = this.vm; out.push({ text: `V1 ${a.toFixed(3)} V · V2 ${b.toFixed(3)} V · ΔV ${Math.abs(a - b).toFixed(3)} V`, color: '#c565e0' }); }
+      return out;
+    },
     printInfo(pid) {
       const keep = this.series;
       this.series = keep.filter((x) => x.pid === pid);
