@@ -10,7 +10,7 @@ A free, offline breadboard designer and electronics simulator. Inspired by the b
 
 **In a browser, nothing to install:** open **https://isboonto.github.io/jumpercraft/**. The site is rebuilt from the `web` folder by `.github/workflows/pages.yml` on every push to `main` that changes it.
 
-**Windows installer:** download it from the [Releases page](https://github.com/isboonto/jumpercraft/releases) — the current release is **1.0.0-beta.2**, a beta of 1.0. Take `JumperCraft_1.0.0-beta.2_x64-setup.exe` (or the `.msi`). The installers are not code-signed yet, so Windows SmartScreen may warn: choose *More info → Run anyway*. You can also build the installer yourself with `.\build.ps1 -Installer`.
+**Windows installer:** download it from the [Releases page](https://github.com/isboonto/jumpercraft/releases) — the current release is **1.0.0-beta.3**, a beta of 1.0. Take `JumperCraft_1.0.0-beta.3_x64-setup.exe` (or the `.msi`). The installers are not code-signed yet, so Windows SmartScreen may warn: choose *More info → Run anyway*. You can also build the installer yourself with `.\build.ps1 -Installer`.
 
 **Desktop app (Windows, native Rust):** run `target\release\jumpercraft.exe`. To build it yourself:
 

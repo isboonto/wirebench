@@ -1,7 +1,7 @@
 'use strict';
 // Help menu pages. Parts and boards are listed from the live part library so the help stays accurate.
 (function (WB) {
-  WB.VERSION = '1.0.0-beta.2';
+  WB.VERSION = '1.0.0-beta.3';
   const esc = (s) => WB.esc(s);
   const k = (s) => s.split('+').map((x) => `<kbd>${esc(x)}</kbd>`).join('+');
 
@@ -254,6 +254,7 @@
       <h3 class="about-h">What's new</h3>
       <h3>What's new in 1.0 (beta)</h3>
       <ul>
+        <li>1.0.0-beta.3: a <b>Support JumperCraft ♥</b> button on this About page — if JumperCraft helps you or your students, you can support its development through GitHub Sponsors.</li>
         <li>1.0.0-beta.2: <b>Wirebench is now JumperCraft.</b> The old name turned out to be used already by another electronics tool. Your work carries over: the autosave, settings, “My examples” (the old Wirebench examples folder is still read) and <code>.wbproj</code> project files all keep working, and installing JumperCraft removes the old Wirebench program. The web version moved to <b>isboonto.github.io/jumpercraft</b>; the old address forwards there.</li>
         <li>1.0.0-beta.1: the first <b>1.0 beta</b> — everything from 0.1 to 0.12 in one release, and the first with ready-made Windows installers on GitHub (Releases, marked “Pre-release”). New in it: the <b>dual power supply</b> can <b>sweep</b> — its <b>SWP</b> button makes a channel ramp from a start voltage to its set voltage (or up and down) over a sweep time, for I–V curves on the scope in X-Y mode; new example <i>LED I–V curve: DC sweep on the dual power supply</i>. Both power supplies are now drawn twice as large, so their buttons and displays are easier to use. <b>Auto-routing</b>: wires no longer end in a slanted piece after you move a part or drag a wire's end — they are routed again (wires you shaped yourself keep their joints and get right-angle corners), and older projects with the power supplies open with tidy wires. Auto-routing can no longer be switched off (the “Auto-route new wires” menu item and “Remove joints” are gone), so wires always run at right angles. <b>Phones and tablets</b>: on a phone the toolbar wraps onto more rows (so <b>Run</b> is always visible), the circuit fills the screen and the Parts and Code panels slide over it; on an upright iPad the toolbar also wraps instead of hiding Rotate and Tidy wires. On iPad and iPhone a part now moves with <b>one finger</b> (Safari used to take one-finger drags for scrolling). <b>Breadboards</b> have a grip frame round the holes, so they are easy to move with a finger. <b>Wires</b> can be dragged at any point: a horizontal piece moves up or down, a vertical one left or right, and the wire stays at right angles and on its pins. On a touch screen, <b>press and hold</b> (half a second) opens the same menu as a right-click — also on iPad, which had no menu before — and a wire's menu is the same wherever you press it (<b>Remove joint</b> takes the nearest joint). Please report anything that doesn't work as expected; fixes come as further betas before 1.0.0.</li>
       </ul>
